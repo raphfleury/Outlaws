@@ -122,7 +122,7 @@ export function rockGeo(seed = 1, detail = 1) {
 // ---------------------------------------------------------------------------
 
 export class Builder {
-  constructor(world) { this.world = world; this.parts = new Map(); this.cur = null; }
+  constructor(world) { this.world = world; this.parts = new Map(); this.cur = null; this.stack = []; }
 
   add(mat, geo) {
     let a = this.parts.get(mat);
@@ -134,14 +134,16 @@ export class Builder {
   /**
    * A thing that can be shot to pieces (a crate, a barrel, a jar). Everything added until endPiece() belongs to it: its shapes still go into
    * the big merged meshes (no extra draw calls), and the piece remembers where they lie in them, so that they can be made to vanish.
-   * o: { hp, kind: 'wood' | 'clay', boom (explodes), color, x, y, z, r (radius), top (height of its top) }
+   * o: { hp, kind: 'wood' | 'clay' | 'straw' | 'cloth', boom (explodes), color, x, y, z, r (radius), top (height of its top),
+   *      sweep: { hw, hd, ry } (a table top: what lies on it, merged into the world by the level, goes when it breaks) }
+   * Pieces may nest (the crates loaded on a cart are pieces of their own): endPiece() returns to the one around it.
    */
   piece(o) {
     const W = this.world, p = { id: W.pieces.length, hp: 40, kind: 'wood', boom: false, color: 0x8a623a, ...o, ranges: [], cols: [], broken: false };
-    W.pieces.push(p); this.cur = W.curPiece = p;
+    W.pieces.push(p); this.stack.push(this.cur); this.cur = W.curPiece = p;
     return p;
   }
-  endPiece() { this.cur = this.world.curPiece = null; }
+  endPiece() { this.cur = this.world.curPiece = this.stack.pop() || null; }
   /** Box with (x,y,z) = centre of its BASE. o: {ry, rx, rz, c (colour), solid} */
   box(mat, w, h, d, x, y, z, o = {}) {
     const g = boxGeo(w, h, d, mat.userData.tile || 1);

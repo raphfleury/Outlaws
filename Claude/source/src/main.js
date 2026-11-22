@@ -83,8 +83,8 @@ class Game {
     this.stats = { shots: 0, hits: 0, heads: 0, t: 0 };
     this.ui = {
       hp: $('#vital .num'), hpbar: $('#hpbar i'), pips: $('#pips'), wname: $('#arms .name'), alt: $('#arms .alt'), foes: $('#foes'),
-      compass: $('#compass'), boss: $('#boss'), bossName: $('#boss span'), bossBar: $('#boss i'), msg: $('#msg'), hit: $('#hit'),
-      dmg: $('#dmg b'), place: $('#place'), cross: [...document.querySelectorAll('#cross i[data-s]')], dots: [], bag: $('#bag'),
+      boss: $('#boss'), bossName: $('#boss span'), bossBar: $('#boss i'), msg: $('#msg'), hit: $('#hit'),
+      dmg: $('#dmg b'), place: $('#place'), cross: [...document.querySelectorAll('#cross i[data-s]')], bag: $('#bag'),
     };
     this.cache = {}; this.msgT = 0; this.hitT = 0; this.dmgT = 0; this.crossGap = 6;
     this._v = new THREE.Vector3(); this._v2 = new THREE.Vector3(); this._o = { x: 0, y: 0, z: 0 }; this._d = { x: 0, y: 0, z: 0 };
@@ -232,7 +232,7 @@ class Game {
     const B = new Builder(this.world);
     const L = (this.level = def.build({ game: this, gfx: this.gfx, world: this.world, B, M: this.M, root: this.gfx.root, rand: this.rand, shared: this.gfx.shared }));
     L.enemies = capFoes(L.enemies);
-    B.build(this.gfx.root);
+    this.world.meshes = B.build(this.gfx.root);                 // the merged meshes: a broken table takes what lies on it out of them
     if (backdrop) this.nav = null;                         // the title screen only shows the world; nobody has to find a way
     else { const t0 = performance.now(); this.nav = new Nav(this.world); this.navMs = performance.now() - t0; }   // walkable-area grid for enemy route finding
     this.gfx.setEnvironment(L.env); this.gfx.applyDetail();
@@ -311,7 +311,7 @@ class Game {
       const c = this.duel.cfg;
       $('#intro .chap').textContent = 'Duel · ' + RULES[c.rules];
       $('#intro .story').textContent = 'Two players, one world. ' + (c.rules === 'rounds' ? 'Each kill ends a round; the first to win three rounds wins.' : c.rules === 'one' ? 'One life each: the first kill decides.' : 'Five minutes: whoever has more kills at the end wins.')
-        + (c.foes ? (c.foes > 1 ? ` ${['Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'][c.foes - 2]} of the chapter’s enemies are still about, and they attack you both.` : ' One of the chapter’s enemies is still about, and attacks you both.') : '') + ' The larger dot on the compass is your opponent.';
+        + (c.foes ? (c.foes > 1 ? ` ${['Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'][c.foes - 2]} of the chapter’s enemies are still about, and they attack you both.` : ' One of the chapter’s enemies is still about, and attacks you both.') : '') + ' Your opponent shows on the map as a white dot while moving, unless sneaking.';
     }
     $('#intro .pick').textContent = duel ? 'Choose your fighter' : 'Choose your hero';
     { const all = this.level.enemies.length, sel = $('#foesel'), want = Math.round(this.foeWant), steps = [5, 10, 15, 20, 25, 30].filter((k) => k < all).concat(all);       // the list offers 5 to 30 in steps of five, as far as the chapter has that many
@@ -433,7 +433,7 @@ class Game {
     if (this.duel) this.duel.tracer(m.x, m.y, m.z, hx, hy, hz);
     this.muzzle(m.x + d.x * 0.25, m.y + d.y * 0.25, m.z + d.z * 0.25, d.x, d.y, d.z, 1);
     if (target) this.hitEnemy(target, dmg, head, hx, hy, hz, o.x, o.z);
-    else if (wh) { this.impact(hx, hy, hz, wh.nx, wh.ny, wh.nz, 'bullet'); if (wh.piece) this.havoc.damage(wh.piece, dmg); }
+    else if (wh) { this.impact(hx, hy, hz, wh.nx, wh.ny, wh.nz, 'bullet'); if (wh.piece) this.havoc.damage(wh.piece, dmg, hx, hy, hz); }
   }
 
   playerShoot(kind, speed, dmg, grav, turn = 0, lift = 0) {
@@ -460,7 +460,7 @@ class Game {
     if (any) { this.stats.shots++; P.recoil(0.3); }
     else {
       const o = this.gfx.camera.getWorldPosition(this._v), wh = this.world.raycast(o, f, range * 0.75);
-      if (wh) { this.sound.clank(); this.impact(o.x + f.x * wh.t, o.y + f.y * wh.t, o.z + f.z * wh.t, wh.nx, wh.ny, wh.nz, 'bullet'); if (wh.piece) this.havoc.damage(wh.piece, dmg); }
+      if (wh) { this.sound.clank(); this.impact(o.x + f.x * wh.t, o.y + f.y * wh.t, o.z + f.z * wh.t, wh.nx, wh.ny, wh.nz, 'bullet'); if (wh.piece) this.havoc.damage(wh.piece, dmg, o.x + f.x * wh.t, o.y + f.y * wh.t, o.z + f.z * wh.t); }
     }
   }
 
@@ -603,20 +603,8 @@ class Game {
     const alive = this.enemies.filter((e) => e.alive);
     if (this.duel) { const t = this.duel.hud(); if (c.foes !== t) { c.foes = t; u.foes.innerHTML = t; } }
     else if (c.foes !== alive.length) { c.foes = alive.length; u.foes.innerHTML = alive.length ? `<b>${alive.length}</b>${this.def.foes}` : this.def.foesNone; }
-    // compass
-    const fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw), rx = Math.cos(P.yaw), rz = -Math.sin(P.yaw);
-    while (u.dots.length < alive.length) { const d = document.createElement('i'); u.compass.appendChild(d); u.dots.push(d); }
-    let boss = null;
-    u.dots.forEach((d, i) => {
-      const e = alive[i];
-      if (!e) { d.style.display = 'none'; return; }
-      const dx = e.pos.x - P.pos.x, dz = e.pos.z - P.pos.z;
-      const rel = Math.atan2(rx * dx + rz * dz, fx * dx + fz * dz);
-      d.style.display = 'block'; d.style.left = 50 + clamp(rel / 1.9, -1, 1) * 50 + '%';
-      d.style.opacity = Math.abs(rel) > 1.9 ? 0.35 : clamp(1.15 - Math.hypot(dx, dz) / 140, 0.45, 1);
-      d.className = e.cfg.boss || e.remote ? 'boss' : '';
-      if (e.cfg.boss && e.state === 'combat') boss = e;
-    });
+    // the boss's health, while he fights (the enemies' positions are on the map)
+    const boss = alive.find((e) => e.cfg.boss && e.state === 'combat');
     u.boss.classList.toggle('on', !!boss);
     if (boss) { u.bossName.textContent = this.def.bossName; u.bossBar.style.width = Math.max(0, boss.hp / boss.cfg.hp) * 100 + '%'; }
     // crosshair

@@ -16,6 +16,21 @@ Each version is a Git tag named `lone-hand-vX.Y.Z` and a
 game as one downloadable file. The number is also shown in the bottom right corner of the
 title screen.
 
+## [1.7.0] - 2026-11-22
+
+### Added
+
+- **Much more of the scenery breaks**: fences bay by bay, tables and chests (with whatever
+  lay on them), sacks, carts, woodpiles, haystacks, market stalls and shelves, besides the
+  crates, barrels and jars. Bigger things take more hits. Chips in the thing's colour fly
+  off at every hit, so you can see what will give way; straw and grain burst in a cloud of
+  their own colour.
+
+### Removed
+
+- **The compass at the top of the screen.** The map in the top-right corner shows where
+  the enemies are. The count of enemies left and the boss's health stay where they were.
+
 ## [1.6.0] - 2026-11-22
 
 Weapons taken from the enemy, a bag, a map of every chapter, places you can mark, things

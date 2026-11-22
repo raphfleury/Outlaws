@@ -15,11 +15,35 @@ export class Havoc {
   }
   reset() { for (const d of this.debris) d.mesh.removeFromParent(); this.debris = []; this.queue = []; }
 
-  /** A hit on a piece: it breaks when its strength is used up. */
-  damage(p, amount) {
+  /** A hit on a piece at (x, y, z): chips fly off in its colour, and it breaks when its strength is used up. */
+  damage(p, amount, x, y, z) {
     if (!p || p.broken) return;
     p.hp -= amount;
+    if (x !== undefined) {
+      _c.set(p.color);
+      for (let i = 0; i < 6; i++) this.game.gfx.soft.spawn(x, y, z, (Math.random() - 0.5) * 3, Math.random() * 2.5, (Math.random() - 0.5) * 3, { life: 0.5 + Math.random() * 0.4, s0: 0.06, s1: 0.04, r: _c.r * 1.4, g: _c.g * 1.4, b: _c.b * 1.4, a: 0.95, grav: 9, drag: 0.5 });
+    }
     if (p.hp <= 0) this.breakPiece(p, true);
+  }
+  /** What a level laid on a table or a chest (merged into the world with everything else): every triangle lying wholly in the space above its top is made to vanish with it. */
+  sweep(p) {
+    const W = this.game.world, sw = p.sweep, cs = Math.cos(sw.ry || 0), sn = Math.sin(sw.ry || 0);
+    const y0 = p.y + (sw.y0 ?? p.top - p.y - 0.04), y1 = p.y + (sw.y1 ?? p.top - p.y + 0.6), hw = sw.hw + 0.05, hd = sw.hd + 0.05, R = Math.hypot(hw, hd);
+    const inside = (a, i) => { const y = a[i + 1]; if (y < y0 || y > y1) return false; const dx = a[i] - p.x, dz = a[i + 2] - p.z; if (dx * dx + dz * dz > R * R) return false; return Math.abs(dx * cs - dz * sn) <= hw && Math.abs(dx * sn + dz * cs) <= hd; };
+    for (const mesh of W.meshes || []) {
+      const at = mesh.geometry.attributes.position, a = at.array; let lo = Infinity, hi = -1;
+      for (let i = 0; i < a.length; i += 9) {
+        if (!inside(a, i) || !inside(a, i + 3) || !inside(a, i + 6)) continue;
+        a[i + 3] = a[i + 6] = a[i]; a[i + 4] = a[i + 7] = a[i + 1]; a[i + 5] = a[i + 8] = a[i + 2];
+        lo = Math.min(lo, i); hi = Math.max(hi, i + 9);
+      }
+      if (hi > 0) { at.addUpdateRange(lo, hi - lo); at.needsUpdate = true; }
+    }
+    for (const q of W.pieces) {                     // a jar or a crate standing there breaks with it
+      if (q.broken || q === p || q.y < y0 - 0.1 || q.y > y1) continue;
+      const dx = q.x - p.x, dz = q.z - p.z;
+      if (Math.abs(dx * cs - dz * sn) <= hw && Math.abs(dx * sn + dz * cs) <= hd) this.queue.push({ t: 0.1, p: q });
+    }
   }
 
   /** Break a piece. send: tell the other browser of a duel (only for breaks caused here by a shot or a blow). */
@@ -33,22 +57,25 @@ export class Havoc {
       a.addUpdateRange(i0, r.count * 3); a.needsUpdate = true;
     }
     W.removeCols(p);
+    if (p.sweep) this.sweep(p);
     if (G.nav) G.nav.refresh(p.x - p.r, p.z - p.r, p.x + p.r, p.z + p.r);
     // splinters or shards, and a puff of dust
-    const n = p.kind === 'clay' ? 7 : 10, h = Math.max(0.2, p.top - p.y), floor = W.groundAt(p.x, p.z, p.y + 0.05);
+    const soft = p.kind === 'straw' || p.kind === 'cloth', big = Math.min(1, p.r / 1.2);
+    const n = Math.round((p.kind === 'clay' ? 7 : 10) + big * 8), h = Math.max(0.2, p.top - p.y), floor = W.groundAt(p.x, p.z, p.y + 0.05), cs = Math.min(p.r, 0.7);
     for (let i = 0; i < n; i++) {
-      const s = p.r * (p.kind === 'clay' ? 0.45 : 0.55) * (0.5 + Math.random() * 0.6);
+      const s = cs * (p.kind === 'clay' ? 0.45 : soft ? 0.5 : 0.55) * (0.5 + Math.random() * 0.6);
       const mesh = new THREE.Mesh(this.chunk, this.mat(p.color, i % 3 === 0));
-      mesh.scale.set(s * (p.kind === 'clay' ? 1 : 1.6), s * (p.kind === 'clay' ? 0.35 : 0.22), s * (p.kind === 'clay' ? 0.8 : 0.4));
+      if (soft) mesh.scale.set(s, s * 0.45, s * 0.8); else mesh.scale.set(s * (p.kind === 'clay' ? 1 : 1.6), s * (p.kind === 'clay' ? 0.35 : 0.22), s * (p.kind === 'clay' ? 0.8 : 0.4));
       mesh.position.set(p.x + (Math.random() - 0.5) * p.r, p.y + Math.random() * h, p.z + (Math.random() - 0.5) * p.r);
       mesh.castShadow = true; G.gfx.root.add(mesh);
       const a = Math.random() * 6.283, v = 1.5 + Math.random() * 3;
       this.debris.push({ mesh, vx: Math.cos(a) * v, vy: 2 + Math.random() * 3, vz: Math.sin(a) * v, rx: (Math.random() - 0.5) * 14, rz: (Math.random() - 0.5) * 14, floor, life: 4 + Math.random() * 2, s: mesh.scale.clone() });
     }
     while (this.debris.length > 90) this.debris.shift().mesh.removeFromParent();
-    const dust = G.level.dust || [0.6, 0.5, 0.4];
-    for (let i = 0; i < 12; i++) G.gfx.soft.spawn(p.x + (Math.random() - 0.5) * p.r, p.y + Math.random() * h, p.z + (Math.random() - 0.5) * p.r, (Math.random() - 0.5) * 2, Math.random() * 1.2, (Math.random() - 0.5) * 2,
-      { life: 0.9 + Math.random() * 0.6, s0: 0.2, s1: 0.9, r: dust[0], g: dust[1], b: dust[2], a: 0.5, grav: 0.3, drag: 2 });
+    let dust = G.level.dust || [0.6, 0.5, 0.4];
+    if (soft) { _c.set(p.color); dust = [_c.r, _c.g, _c.b]; }                    // straw and grain: a cloud of their own colour
+    for (let i = 0; i < 12 + big * 12; i++) G.gfx.soft.spawn(p.x + (Math.random() - 0.5) * p.r, p.y + Math.random() * h, p.z + (Math.random() - 0.5) * p.r, (Math.random() - 0.5) * 2, Math.random() * 1.2, (Math.random() - 0.5) * 2,
+      { life: 0.9 + Math.random() * 0.6, s0: 0.2, s1: 0.9 + big, r: dust[0], g: dust[1], b: dust[2], a: soft ? 0.7 : 0.5, grav: soft ? 0.8 : 0.3, drag: 2 });
     G.sound.smash(p.kind, this.far(p.x, p.z));
     // whatever stood on it comes down as well
     for (const q of W.pieces) if (!q.broken && q !== p && Math.abs(q.y - p.top) < 0.2 && Math.hypot(q.x - p.x, q.z - p.z) < p.r + q.r) this.queue.push({ t: 0.12, p: q });
