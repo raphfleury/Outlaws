@@ -105,11 +105,7 @@
   #pips.many { gap:2px; } #pips.many i { width:3px; height:20px; border-radius:1px; }
   #arms .alt { font-size:14px; color:var(--dim); font-style:italic; }
 
-  #top { position:absolute; top:3.2vh; left:50%; transform:translateX(-50%); text-align:center; }
-  #compass { position:relative; width:420px; height:16px; border-bottom:1px solid rgba(244,234,212,.4); margin:0 auto 7px; }
-  #compass::before { content:''; position:absolute; left:50%; bottom:-1px; width:1px; height:9px; background:var(--ink); }
-  #compass i { position:absolute; bottom:-4px; width:8px; height:8px; margin-left:-4px; border-radius:50%; background:var(--danger); box-shadow:0 0 6px rgba(0,0,0,.8); }
-  #compass i.boss { width:12px; height:12px; margin-left:-6px; bottom:-6px; background:#fff; border:2px solid var(--danger); }
+  #top { position:absolute; top:calc(3.2vh + 23px); left:50%; transform:translateX(-50%); text-align:center; }   /* one line below the place name, where it was under the compass */
   #foes { font-size:15px; letter-spacing:.22em; text-transform:uppercase; color:var(--dim); }
   #foes b { color:var(--ink); font-family:var(--display); font-size:22px; letter-spacing:0; margin:0 4px; font-weight:normal; }
   #boss { margin-top:12px; width:420px; opacity:0; transition:opacity .4s; }
@@ -221,7 +217,6 @@
   <div id="dmg"><b></b></div>
   <div id="place"></div>
   <div id="top">
-    <div id="compass"></div>
     <div id="foes"></div>
     <div id="boss"><span></span><div><i></i></div></div>
   </div>

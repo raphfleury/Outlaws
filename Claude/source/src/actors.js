@@ -1172,7 +1172,7 @@ export class Shots {
         continue;
       }
       if (wh) {
-        if (wh.piece && !s.ghost) G.havoc.damage(wh.piece, s.dmg * (s.kind === 'ball' ? 3 : 1));   // crates, barrels and jars are shot to pieces
+        if (wh.piece && !s.ghost) G.havoc.damage(wh.piece, s.dmg * (s.kind === 'ball' ? 3 : 1), s.x, s.y, s.z);   // crates, barrels and jars are shot to pieces
         G.impact(s.x, s.y, s.z, wh.nx, wh.ny, wh.nz, s.kind);
         if (s.kind === 'bullet' || (wh.piece && wh.piece.broken)) { s.mesh.removeFromParent(); this.list.splice(i, 1); }
         else { s.stuck = s.fromPlayer ? 40 : 12; s.mesh.position.set(s.x - _d.x * 0.05, s.y - _d.y * 0.05, s.z - _d.z * 0.05); }

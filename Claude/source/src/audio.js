@@ -136,6 +136,7 @@ export class Sound {
   smash(kind = 'wood', far = 0) {
     if (!this.ctx) return;
     const v = Math.max(0.15, 1 - far);
+    if (kind === 'straw' || kind === 'cloth') { this.noise({ type: 'lowpass', f0: 1400, f1: 300, dur: 0.35, vol: 0.55 * v, att: 0.02 }); return; }
     if (kind === 'clay') { this.noise({ type: 'highpass', f0: 2600, dur: 0.18, vol: 0.45 * v }); for (const f of [2300, 3400]) this.tone({ type: 'triangle', f0: f * (0.9 + Math.random() * 0.2), dur: 0.12, vol: 0.06 * v }); }
     else { this.noise({ type: 'bandpass', f0: 900, f1: 300, dur: 0.22, vol: 0.6 * v, q: 0.9 }); for (let i = 0; i < 3; i++) this.noise({ t: this.t + 0.03 + i * 0.045, type: 'bandpass', f0: 1800 + Math.random() * 900, dur: 0.05, vol: 0.25 * v, q: 2 }); }
   }

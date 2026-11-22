@@ -1,6 +1,6 @@
 # Lone Hand — Claude version
 
-**Version 1.6.0** · [What changed (changelog)](CHANGELOG.md) · [All releases](https://github.com/iago-swi/outlaws/releases)
+**Version 1.7.0** · [What changed (changelog)](CHANGELOG.md) · [All releases](https://github.com/iago-swi/outlaws/releases)
 
 A first-person shooter in nine chapters, built with Claude (Anthropic) in the spirit of
 late-1990s Western shooters. From a frontier town to a Japanese shrine, an alpine valley,
@@ -47,11 +47,11 @@ chapter's accent colour and lettering.
 
 ## How to play
 
-Clear every enemy to finish a chapter. The dots on the compass at the top of the screen
-show where the remaining enemies are; the last three come looking for you. Health items
+Clear every enemy to finish a chapter. The map in the top-right corner shows the enemies
+who are on the move; the last three come looking for you. Health items
 (tonic, rice cake, alp cheese, ambrosia, mead, calvados, hot tea, butter tea, cacao) go
 into the bag and restore 35 points when used (`H`, or take one in hand and press the left
-button). The compass still shows every enemy; the map shows only those on the move.
+button).
 
 | Chapter | Weapons | Enemies (at most 30, see *Choose your hero*) |
 | --- | --- | --- |
@@ -268,7 +268,7 @@ villains, like several heroes, do not belong to their chapter's year.
 
 Things to know in a duel:
 
-- The whole map is used. The larger dot on the compass is your opponent.
+- The whole map is used. Your opponent shows on the map as a larger white dot while moving, unless sneaking.
 - Weapons do 60% of their usual damage against the other player, so a duel is not over
   in one hit. A hit to the head still counts two and a half times.
 - If computer enemies are in the world, there are as many as the host chose, one to
@@ -306,8 +306,12 @@ network.
   numbered); pressed again on a mark, it takes it away. A mark is a pin in the world, a
   label with its distance seen through walls, and a dot on both maps; a mark beyond the
   rim of the mini-map sits on the rim, in its direction.
-- **Things that break.** Crates, barrels and jars break under shots, blows, thrown weapons
-  and blasts; what stood on them falls with them. In chapters I, II, VI, VII, VIII and IX
+- **Things that break.** Crates, barrels, jars, fences (bay by bay), tables, chests, sacks,
+  carts, woodpiles, haystacks, market stalls and shelves break under shots, blows, thrown
+  weapons and blasts, the bigger ones after more hits; chips fly off at every hit. What
+  stood on them falls with them, and what lay on a table or a chest goes with it. Walls,
+  houses, rocks and trees stand: they hold up floors, roofs and ladders, and the enemies'
+  routes are worked out around them. In chapters I, II, VI, VII, VIII and IX
   one barrel in three is a red powder keg with a pale lid: it explodes, hurting everyone
   within about six metres (you too; a wall between softens the blast), breaking what is
   around it and setting off other kegs.
@@ -665,7 +669,7 @@ and whether they aim or swing, in a small JSON message over a WebRTC data channe
 - **The opponent's figure.** The other player appears as a figure built by the character
   builder and moved toward the latest report. It is placed in the same list as the
   computer enemies. That one decision makes every existing weapon work against it
-  (bullets, arrows, thrown weapons, blades), puts it on the compass and makes it solid,
+  (bullets, arrows, thrown weapons, blades), puts it on the map and makes it solid,
   without a second set of combat code.
 - **Who decides a hit.** The shooter does. When my shot hits your figure on my screen, my
   browser sends the damage and yours applies it, with your fighter's own strengths. This
@@ -701,12 +705,15 @@ and whether they aim or swing, in a small JSON message over a WebRTC data channe
 ### Breakable things, explosions and the map
 
 - **Pieces in merged meshes.** The world is drawn as a few big merged meshes, one per
-  material. A crate, a barrel or a jar is still merged into them, but the `Builder` notes
+  material. A breakable thing (a crate, a fence bay, a table...) is still merged into them, but the `Builder` notes
   which vertices belong to it (`Builder.piece`), and its colliders carry a reference to
   it. A ray that hits such a collider reports the piece. When the piece breaks, its
   vertices are collapsed to one point in the merged buffers (only that range is sent to
   the graphics card again), its colliders are removed, and the navigation cells under it
-  are worked out again from the colliders nearby. No draw call is added.
+  are worked out again from the colliders nearby. No draw call is added. A table or a
+  chest also takes with it every triangle that lies wholly in the space just above its top
+  (the plates, bottles and books a level laid on it), found by a pass over the merged
+  buffers that takes a few milliseconds.
 - **Explosions** are worked out in each browser of a duel for its own player and, on the
   host, for the computer enemies. A piece broken by a shot is reported to the other
   browser by its number (both browsers build the chapter in the same order); pieces broken
