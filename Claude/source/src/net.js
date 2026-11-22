@@ -4,6 +4,8 @@
 import { Peer } from 'peerjs';
 
 const PREFIX = 'lonehand-duel-';
+/** Debug: ?broker=host:port uses another PeerJS server (one run locally for testing) in place of the public one. */
+const BROKER = (() => { const b = new URLSearchParams(location.search).get('broker'); if (!b) return undefined; const [host, port] = b.split(':'); return { host, port: +port || 9000, path: '/', secure: false }; })();
 
 export class Link {
   constructor() { this.open = false; this.onopen = this.onclose = this.onmsg = this.onerror = () => {}; }
@@ -12,7 +14,7 @@ export class Link {
   /** Wait for an opponent under a short code. Resolves once the code is registered. */
   host(code) {
     return new Promise((res, rej) => {
-      const p = (this.peer = new Peer(PREFIX + code));
+      const p = (this.peer = new Peer(PREFIX + code, BROKER));
       p.on('open', () => res(code));
       p.on('error', (e) => { if (!this.open) rej(e); });
       p.on('connection', (c) => { if (!this.conn) this.adopt(c); else c.close(); });      // a duel has two players
@@ -21,7 +23,7 @@ export class Link {
   /** Connect to the player who is waiting under this code. */
   join(code) {
     return new Promise((res, rej) => {
-      const p = (this.peer = new Peer());
+      const p = (this.peer = BROKER ? new Peer(BROKER) : new Peer());
       p.on('open', () => { this.adopt(p.connect(PREFIX + code, { reliable: true, serialization: 'json' })); res(); });
       p.on('error', (e) => { if (!this.open) { rej(e); this.onerror(e); } });        // for example: nobody is waiting under this code
     });

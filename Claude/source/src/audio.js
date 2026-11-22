@@ -4,31 +4,61 @@
 
 const midi = (n) => 440 * Math.pow(2, (n - 69) / 12);
 
+export const SOUND_KEY = 'lonehand-sound';
+/** The player's sound settings: four volumes (0..1), music on or off (M), and the microphone of the duel voice chat. */
+export const SOUND_DEFAULTS = { master: 0.8, effects: 1, voice: 1, music: 0.7, musicOn: true, mic: 'open' };
+
 export class Sound {
-  constructor() { this.ctx = null; this.mus = null; this.amb = []; this.vol = 0.8; this.pluckCache = new Map(); }
+  constructor() {
+    this.ctx = null; this.mus = null; this.amb = []; this.pluckCache = new Map();
+    let saved = {}; try { saved = JSON.parse(localStorage.getItem(SOUND_KEY) || '{}') || {}; } catch (e) { /* no storage: the defaults */ }
+    this.set = { ...SOUND_DEFAULTS, ...saved };
+    this.onchange = () => {};
+  }
 
   init() {
     if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; }
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
     const c = (this.ctx = new AC());
-    this.master = c.createGain(); this.master.gain.value = this.vol;
+    this.master = c.createGain();
     const comp = c.createDynamicsCompressor();
     comp.threshold.value = -14; comp.ratio.value = 5;
     this.master.connect(comp); comp.connect(c.destination);
-    this.sfx = c.createGain(); this.sfx.gain.value = 0.9; this.sfx.connect(this.master);
-    this.music = c.createGain(); this.music.gain.value = 0.5; this.music.connect(this.master);
-    this.ambient = c.createGain(); this.ambient.gain.value = 0.6; this.ambient.connect(this.master);
-    // reverb: convolution with a burst of decaying noise
+    // four channels, each with its own volume: effects (shots, steps, the world around), voices (shouts, and in a duel the other player), music
+    this.fx = c.createGain(); this.fx.connect(this.master);
+    this.voice = c.createGain(); this.voice.connect(this.master);
+    this.musicBus = c.createGain(); this.musicBus.connect(this.master);
+    this.sfx = c.createGain(); this.sfx.gain.value = 0.9; this.sfx.connect(this.fx);
+    this.music = c.createGain(); this.music.gain.value = 0.5; this.music.connect(this.musicBus);
+    this.ambient = c.createGain(); this.ambient.gain.value = 0.6; this.ambient.connect(this.fx);
+    // reverb: convolution with a burst of decaying noise; the music has its own, so that silencing the music silences its echo too
     const len = c.sampleRate * 2.4, ir = c.createBuffer(2, len, c.sampleRate);
     for (let ch = 0; ch < 2; ch++) { const d = ir.getChannelData(ch); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.6); }
     this.rev = c.createConvolver(); this.rev.buffer = ir;
-    const rg = c.createGain(); rg.gain.value = 0.5; this.rev.connect(rg); rg.connect(this.master);
+    const rg = c.createGain(); rg.gain.value = 0.5; this.rev.connect(rg); rg.connect(this.fx);
+    this.revM = c.createConvolver(); this.revM.buffer = ir;
+    const rm = c.createGain(); rm.gain.value = 0.5; this.revM.connect(rm); rm.connect(this.musicBus);
     const nb = (this.noiseBuf = c.createBuffer(1, c.sampleRate * 2, c.sampleRate));
     const nd = nb.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
+    this.apply();
   }
+  /** Change one or more settings, keep them for the next visit and apply them at once. */
+  change(o) {
+    Object.assign(this.set, o);
+    try { localStorage.setItem(SOUND_KEY, JSON.stringify(this.set)); } catch (e) { /* no storage: the change lasts for this visit */ }
+    this.apply(); this.onchange(this.set);
+  }
+  apply() {
+    const S = this.set;
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime, to = (g, v) => g.gain.setTargetAtTime(v, t, 0.03);
+    to(this.master, S.master); to(this.fx, S.effects); to(this.voice, S.voice); to(this.musicBus, S.musicOn ? S.music : 0);
+  }
+  /** Loudness of the other player's voice (it plays outside Web Audio, so that the browser's echo cancellation can do its work). */
+  get voiceLevel() { return Math.min(1, this.set.master * this.set.voice); }
+  toggleMusic() { this.change({ musicOn: !this.set.musicOn }); return this.set.musicOn; }
   get t() { return this.ctx.currentTime; }
-  setMuted(m) { if (this.master) this.master.gain.value = m ? 0 : this.vol; }
 
   // --- building blocks -----------------------------------------------------
   /** Filtered noise burst. */
@@ -40,7 +70,7 @@ export class Sound {
     const g = c.createGain(); g.gain.setValueAtTime(0.0001, t);
     g.gain.linearRampToValueAtTime(o.vol, t + (o.att ?? 0.004)); g.gain.exponentialRampToValueAtTime(0.0001, t + o.dur);
     s.connect(f); f.connect(g); g.connect(o.dest || this.sfx);
-    if (o.rev) { const r = c.createGain(); r.gain.value = o.rev; g.connect(r); r.connect(this.rev); }
+    if (o.rev) { const r = c.createGain(); r.gain.value = o.rev; g.connect(r); r.connect(o.dest === this.music ? this.revM : this.rev); }
     s.start(t, Math.random()); s.stop(t + o.dur + 0.05);
   }
   /** Pitched tone with a decay envelope. */
@@ -53,7 +83,7 @@ export class Sound {
     let out = os;
     if (o.lp) { const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = o.lp; os.connect(f); out = f; }
     out.connect(g); g.connect(o.dest || this.sfx);
-    if (o.rev) { const r = c.createGain(); r.gain.value = o.rev; g.connect(r); r.connect(this.rev); }
+    if (o.rev) { const r = c.createGain(); r.gain.value = o.rev; g.connect(r); r.connect(o.dest === this.music ? this.revM : this.rev); }
     os.start(t); os.stop(t + o.dur + 0.05);
   }
 
@@ -86,9 +116,9 @@ export class Sound {
   hitmark() { this.tone({ type: 'triangle', f0: 1250, dur: 0.07, vol: 0.2 }); }
   killmark() { this.tone({ type: 'triangle', f0: 880, dur: 0.12, vol: 0.22 }); this.tone({ type: 'triangle', f0: 1320, dur: 0.2, vol: 0.2, t: this.ctx ? this.t + 0.08 : 0 }); }
   hurt() { this.tone({ type: 'sawtooth', f0: 150, f1: 70, dur: 0.28, vol: 0.45, lp: 900 }); this.noise({ type: 'lowpass', f0: 800, dur: 0.15, vol: 0.5 }); }
-  step(wood) {
-    this.noise({ type: 'lowpass', f0: wood ? 1100 : 650, f1: 200, dur: 0.08, vol: wood ? 0.16 : 0.11 });
-    if (wood) this.tone({ f0: 150 + Math.random() * 40, f1: 90, dur: 0.07, vol: 0.12 });
+  step(wood, k = 1) {
+    this.noise({ type: 'lowpass', f0: wood ? 1100 : 650, f1: 200, dur: 0.08, vol: (wood ? 0.16 : 0.11) * k });
+    if (wood) this.tone({ f0: 150 + Math.random() * 40, f1: 90, dur: 0.07, vol: 0.12 * k });
   }
   click(f = 2600) { this.noise({ type: 'bandpass', f0: f, dur: 0.035, vol: 0.4, q: 3 }); }
   whiz() { this.noise({ type: 'bandpass', f0: 3200, f1: 900, dur: 0.16, vol: 0.3, q: 4, att: 0.02 }); }
@@ -96,12 +126,34 @@ export class Sound {
   shout() {
     if (!this.ctx) return;
     const f = 160 + Math.random() * 90;
-    this.tone({ type: 'sawtooth', f0: f * 1.2, f1: f * 0.8, dur: 0.22, vol: 0.16, lp: 1100, rev: 0.3 });
+    this.tone({ type: 'sawtooth', f0: f * 1.2, f1: f * 0.8, dur: 0.22, vol: 0.16, lp: 1100, rev: 0.3, dest: this.voice });
   }
   bark() {
     if (!this.ctx) return;
     for (const d of [0, 0.16]) { this.tone({ t: this.t + d, type: 'sawtooth', f0: 420, f1: 190, dur: 0.11, vol: 0.3, lp: 1500, rev: 0.25 }); this.noise({ t: this.t + d, type: 'bandpass', f0: 900, dur: 0.09, vol: 0.2, q: 1.5 }); }
   }
+  /** Something breaks: wood splinters, or a clay jar shatters. */
+  smash(kind = 'wood', far = 0) {
+    if (!this.ctx) return;
+    const v = Math.max(0.15, 1 - far);
+    if (kind === 'clay') { this.noise({ type: 'highpass', f0: 2600, dur: 0.18, vol: 0.45 * v }); for (const f of [2300, 3400]) this.tone({ type: 'triangle', f0: f * (0.9 + Math.random() * 0.2), dur: 0.12, vol: 0.06 * v }); }
+    else { this.noise({ type: 'bandpass', f0: 900, f1: 300, dur: 0.22, vol: 0.6 * v, q: 0.9 }); for (let i = 0; i < 3; i++) this.noise({ t: this.t + 0.03 + i * 0.045, type: 'bandpass', f0: 1800 + Math.random() * 900, dur: 0.05, vol: 0.25 * v, q: 2 }); }
+  }
+  /** An explosion: the crack, the deep boom and the rumble that rolls on. */
+  boom(far = 0) {
+    if (!this.ctx) return;
+    const v = Math.max(0.12, 1 - far);
+    this.noise({ type: 'lowpass', f0: 5000 - far * 4000, f1: 120, dur: 1.4, vol: 1.1 * v, rev: 0.9 });
+    this.tone({ f0: 90, f1: 28, dur: 0.9, vol: 1.0 * v });
+    this.noise({ t: this.t + 0.08, type: 'lowpass', f0: 400, f1: 80, dur: 2.2, vol: 0.5 * v, att: 0.2, rev: 0.6 });
+  }
+  /** A pin put on the map, or taken away. */
+  mark(on = true) { if (!this.ctx) return; this.tone({ type: 'triangle', f0: on ? 1320 : 990, dur: 0.12, vol: 0.12 }); this.tone({ type: 'triangle', f0: on ? 1760 : 740, dur: 0.16, vol: 0.1, t: this.t + 0.07 }); }
+  /** Weapons changed in the hands. */
+  swap() { this.noise({ type: 'bandpass', f0: 1300, dur: 0.06, vol: 0.22, q: 2 }); this.noise({ t: this.ctx ? this.t + 0.09 : 0, type: 'bandpass', f0: 2100, dur: 0.04, vol: 0.18, q: 3 }); }
+  /** Drinking or eating. */
+  gulp() { if (!this.ctx) return; for (let i = 0; i < 3; i++) this.tone({ t: this.t + i * 0.16, type: 'sine', f0: 260 + i * 30, f1: 160, dur: 0.1, vol: 0.18, lp: 900 }); }
+  fuse() { this.noise({ type: 'highpass', f0: 4200, dur: 0.5, vol: 0.12, att: 0.05 }); }
   poof() { this.noise({ type: 'lowpass', f0: 2400, f1: 300, dur: 0.4, vol: 0.4, att: 0.02 }); }
   fanfare(kind) {
     if (!this.ctx) return;
@@ -137,7 +189,7 @@ export class Sound {
     const s = this.ctx.createBufferSource(); s.buffer = this.pluckBuffer(midi(note), bright);
     const g = this.ctx.createGain(); g.gain.value = vol;
     s.connect(g); g.connect(dest || this.music);
-    const r = this.ctx.createGain(); r.gain.value = 0.35; g.connect(r); r.connect(this.rev);
+    const r = this.ctx.createGain(); r.gain.value = 0.35; g.connect(r); r.connect(dest && dest !== this.music ? this.rev : this.revM);
     s.start(t);
   }
   /** Sustained lead voice. kind: whistle | flute | horn */
@@ -156,7 +208,7 @@ export class Sound {
     let out = os;
     if (kind === 'horn') { const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 650; lp.Q.value = 1.2; os.connect(lp); out = lp; }
     out.connect(g); g.connect(this.music);
-    const r = c.createGain(); r.gain.value = 0.7; g.connect(r); r.connect(this.rev);
+    const r = c.createGain(); r.gain.value = 0.7; g.connect(r); r.connect(this.revM);
     os.start(t); lfo.start(t); os.stop(t + dur + 0.2); lfo.stop(t + dur + 0.2);
     if (kind !== 'horn') this.noise({ t, type: 'bandpass', f0: f * 2, q: 6, dur: dur + 0.1, vol: vol * (kind === 'flute' ? 0.5 : 0.18), att, dest: this.music, rev: 0.5 });
   }

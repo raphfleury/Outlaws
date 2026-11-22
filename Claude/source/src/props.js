@@ -53,16 +53,25 @@ export function fence(B, M, x0, z0, x1, z1, o = {}) {
   }
 }
 
+/** Chapters in which gunpowder or fuel is about: there, one barrel in three is a keg that blows up, painted red so that it can be told apart. */
+const KEGS = { west: 1, japan: 1, war: 1, russia: 1, tibet: 1, aztec: 1 };
 export function barrel(B, M, x, y, z, c = 0x8a623a) {
+  const W = B.world, n = (W.barrelN = (W.barrelN || 0) + 1), keg = !!KEGS[W.chapter] && n % 3 === 2;
+  if (keg) c = 0x8e2a1c;
+  B.piece({ hp: keg ? 15 : 45, kind: 'wood', boom: keg, color: c, x, y, z, r: 0.37, top: y + 0.95 });
   B.cyl(M.wood, 0.36, 0.33, 0.95, x, y, z, { c, solid: true, seg: 12 });
-  B.cyl(M.metal, 0.372, 0.372, 0.05, x, y + 0.2, z, { c: 0x3a3a3e, seg: 12, open: true });
-  B.cyl(M.metal, 0.372, 0.372, 0.05, x, y + 0.7, z, { c: 0x3a3a3e, seg: 12, open: true });
+  B.cyl(M.metal, 0.372, 0.372, 0.05, x, y + 0.2, z, { c: keg ? 0x141416 : 0x3a3a3e, seg: 12, open: true });
+  B.cyl(M.metal, 0.372, 0.372, 0.05, x, y + 0.7, z, { c: keg ? 0x141416 : 0x3a3a3e, seg: 12, open: true });
+  if (keg) B.cyl(M.flat, 0.25, 0.25, 0.012, x, y + 0.95, z, { c: 0xd8c8a0, seg: 12 });     // a pale lid: the mark of the powder
+  B.endPiece();
 }
 
 export function crate(B, M, x, y, z, s = 0.8, ry = 0, c = 0xa07a4a) {
+  B.piece({ hp: 30 + s * 30, kind: 'wood', color: c, x, y, z, r: s * 0.71, top: y + s });
   B.box(M.wood, s, s, s, x, y, z, { ry, c, solid: true });
   B.box(M.woodH, s + 0.04, 0.1, s + 0.04, x, y + s - 0.1, z, { ry, c: 0x6a4a2a });
   B.box(M.woodH, s + 0.04, 0.1, s + 0.04, x, y, z, { ry, c: 0x6a4a2a });
+  B.endPiece();
 }
 
 /** A tuft of grass blades (for instancing). Height 1, blades lean outward. */
@@ -550,8 +559,10 @@ export function pots(B, M, x, y, z, o = {}) {
   const { n = 4, s = 1, c = [0xb0683c, 0x9a5a34, 0xc07a48], spread = 0.5 * s + 0.15, solid = true } = o;
   for (let i = 0; i < n; i++) {
     const a = i * 2.4, r = i ? spread * (0.6 + (i % 3) * 0.25) : 0, k = s * (0.8 + (i % 3) * 0.2), px = x + Math.cos(a) * r, pz = z + Math.sin(a) * r, col = c[i % c.length];
+    B.piece({ hp: 8 + 6 * k, kind: 'clay', color: col, x: px, y, z: pz, r: 0.2 * k, top: y + 0.55 * k });
     B.cyl(M.flat, 0.2 * k, 0.11 * k, 0.34 * k, px, y, pz, { c: col, seg: 9 }); B.cyl(M.flat, 0.09 * k, 0.2 * k, 0.16 * k, px, y + 0.34 * k, pz, { c: col, seg: 9 }); B.cyl(M.flat, 0.11 * k, 0.09 * k, 0.05 * k, px, y + 0.5 * k, pz, { c: col, seg: 9 });
     if (solid) B.world.addCyl(px, pz, 0.2 * k, y - 0.5, y + 0.55 * k);
+    B.endPiece();
   }
 }
 

@@ -93,6 +93,21 @@ function weaponParts(kind, flat, metal) {
   }
 }
 
+/** A weapon lying on the ground, to be picked up: the same shapes the enemies carry, laid flat and centred. */
+const DROP_PARTS = { revolver: 'revolver', carbine: 'rifle', rifle: 'rifle', sten: 'smg', bow: 'bow', crossbow: 'crossbow', javelin: 'javelin', axe: 'axe', dart: 'javelin' };
+export function dropMesh(kind, M) {
+  const flat = [], metal = [], g = new THREE.Group();
+  if (DROP_PARTS[kind]) weaponParts(DROP_PARTS[kind], flat, metal);
+  else if (kind === 'shuriken') for (let i = 0; i < 3; i++) metal.push(gStar(0.1, [i * 0.05 - 0.05, -0.6 + i * 0.012, 0], [0, i * 0.7, Math.PI / 2]));
+  else flat.push(xf(new THREE.IcosahedronGeometry(0.11, 0), [0, -0.6, 0], [0.4, 0.2, 0], [1, 0.8, 1.1], 0x8a8478));
+  const geos = [flat.length && merge(flat), metal.length && merge(metal)].filter(Boolean);
+  const box = new THREE.Box3(); for (const q of geos) { q.rotateX(Math.PI / 2); q.computeBoundingBox(); box.union(q.boundingBox); }
+  const c = box.getCenter(new THREE.Vector3());
+  geos.forEach((q, i) => { q.translate(-c.x, -c.y, -c.z); const m = new THREE.Mesh(q, geos.length === 2 && i === 1 || !flat.length ? M.metal : M.flat); m.castShadow = true; g.add(m); });
+  g.scale.setScalar(1.25);
+  return g;
+}
+
 /**
  * Build an articulated figure from simple coloured shapes.
  * The result faces +Z; its origin is between the feet.
@@ -832,6 +847,7 @@ export class Enemy {
       const W = this.game.world, fx = Math.sin(this.yaw), fz = Math.cos(this.yaw), y = this.pos.y + 0.7;
       const room = (s) => W.clear(this.pos.x, y, this.pos.z, this.pos.x + fx * s * 1.9, y, this.pos.z + fz * s * 1.9);
       if (!room(this.fallDir)) { if (room(-this.fallDir)) this.fallDir = -this.fallDir; else this.slump = true; }   // against a wall: fall the other way, or sink down
+      if (this.game.enemyDown) this.game.enemyDown(this);
       return true;
     }
     return false;
@@ -881,9 +897,10 @@ export class Enemy {
     if (this.state === 'idle') {
       if (!P.dead && !G.peace) {
         const facing = Math.cos(this.yaw - Math.atan2(dx, dz));
-        const st = (P.mods.stealth ?? 1) * (1 - 0.4 * duck);               // a spy is noticed later, and so is anyone who crouches
-        if (this.los && dist < cfg.sight * st && (facing > -0.2 || dist < 10 * st)) this.alert();
+        const sneak = !!P.sneaking, st = (P.mods.stealth ?? 1) * (1 - 0.4 * duck) * (sneak ? 0.65 : 1);   // a spy is noticed later, and so is anyone who crouches or sneaks
+        if (this.los && dist < cfg.sight * st && (facing > -0.2 || dist < (sneak ? 3 : 10) * st)) this.alert();
         else if (G.noise > 0 && dist < (cfg.sight * 0.55 + 8) * st) this.alert(0.2);
+        else if (P.sprinting && P.onGround && dist < 12 && Math.hypot(P.vel.x, P.vel.z) > 6) this.alert(0.4);   // running feet are heard, even from behind a wall
       }
       if (this.patrol) {
         this.wanderT -= dt;
@@ -947,6 +964,9 @@ export class Enemy {
       }
     }
 
+    // closing in on a target that cannot see him, an enemy goes slowly and quietly: then he does not show on the player's map
+    this.sneaking = this.state === 'combat' && !cfg.dog && !cfg.rider && !this.los && dist < 28 && speed > 0;
+    if (this.sneaking) speed *= 0.6;
     // ---- movement ----
     if (speed > 0) {
       const ml = Math.hypot(mvx, mvz) || 1; mvx /= ml; mvz /= ml;
@@ -1011,8 +1031,8 @@ export class Enemy {
   /** Duel guest: this enemy is simulated on the host; here it only follows the host's reports. */
   puppetUpdate(dt) {
     const n = this.net, rig = this.rig; if (!n) return;
-    if (n.st === 2) { if (this.state !== 'dead') { this.hp = 0; this.state = 'dead'; this.deathT = 0; this.fallDir = -1; } return; }
-    this.state = n.st === 1 ? 'combat' : 'idle';
+    if (n.st === 2) { if (this.state !== 'dead') { this.hp = 0; this.state = 'dead'; this.deathT = 0; this.fallDir = -1; if (this.game.enemyDown) this.game.enemyDown(this); } return; }
+    this.state = n.st === 1 ? 'combat' : 'idle'; this.sneaking = !!n.sn;
     const bx = this.pos.x, bz = this.pos.z, k = Math.min(1, dt * 12);
     this.pos.x += (n.x - bx) * k; this.pos.y += (n.y - this.pos.y) * k; this.pos.z += (n.z - bz) * k;
     let dy = n.yaw - this.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); this.yaw += dy * k;
@@ -1070,8 +1090,12 @@ export class Shots {
     const ball = gSph(0.13, 0x2a2c30, [0, 0, 0]), stone = xf(new THREE.IcosahedronGeometry(0.12, 0), [0, 0, 0], [0.4, 0.2, 0], [1, 0.8, 1.1], 0x8a8478);
     const dart = merge([gCyl(0.008, 0.008, 0.95, 0x8a6a3a, [0, 0, -0.42], [Math.PI / 2, 0, 0], 1, 5), gCone(0.02, 0.1, 0x15161a, [0, 0, 0.1], [Math.PI / 2, 0, 0], 1, 5),
       gBox(0.07, 0.004, 0.16, 0x1f9a5a, [0, 0, -0.84]), gBox(0.004, 0.07, 0.16, 0x2ac8c0, [0, 0, -0.84])]);
-    this.geo = { arrow, bolt, star, bullet: streak, javelin, axe, ball, dart, stone };
-    this.mat = { arrow: M.flat, bolt: M.flat, star: M.metal, bullet: M.glow, javelin: M.flat, axe: M.flat, ball: M.metal, dart: M.flat, stone: M.flat };
+    // bombs, thrown by the player: a bundle of dynamite, a stick grenade, a clay fire bomb
+    const dynamite = merge([0, 1, 2].map((i) => gCyl(0.019, 0.019, 0.2, 0xb02a1c, [(i - 1) * 0.036, 0, 0], [Math.PI / 2, 0, 0], 1, 8)).concat([gBox(0.11, 0.045, 0.025, 0xd8c8a0, [0, 0, 0])]));
+    const grenade = merge([gCyl(0.017, 0.017, 0.24, 0x6a4a2a, [0, 0, -0.06], [Math.PI / 2, 0, 0], 1, 8), gCyl(0.04, 0.04, 0.09, 0x4a5236, [0, 0, 0.1], [Math.PI / 2, 0, 0], 1, 10)]);
+    const hbomb = merge([gSph(0.075, 0x1c1a18, [0, 0, 0]), gCyl(0.03, 0.03, 0.03, 0x5a3a22, [0, 0.075, 0], [0, 0, 0], 1, 8)]);
+    this.geo = { arrow, bolt, star, bullet: streak, javelin, axe, ball, dart, stone, dynamite, grenade, hbomb };
+    this.mat = { arrow: M.flat, bolt: M.flat, star: M.metal, bullet: M.glow, javelin: M.flat, axe: M.flat, ball: M.metal, dart: M.flat, stone: M.flat, dynamite: M.flat, grenade: M.flat, hbomb: M.flat };
     this.tracerGeo = merge([gBox(1, 1, 1, 0xffe2a0, [0, 0, 0.5])]);
     this.tracerMat = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
     this.tracers = [];
@@ -1087,6 +1111,7 @@ export class Shots {
     const g = grav ?? (kind === 'bullet' ? 0 : kind === 'star' ? 3 : 9);
     const spin = kind === 'axe' ? 22 : kind === 'stone' ? 9 : 0;
     const s = { kind, mesh, x, y, z, vx: dx * speed, vy: dy * speed, vz: dz * speed, g, fromPlayer, dmg, life: 5, near: false, stuck: 0, spin };
+    if (BOMB_KINDS[kind]) { s.bomb = true; s.fuse = BOMB_KINDS[kind]; s.life = 99; }
     this.list.push(s);
     return s;
   }
@@ -1109,6 +1134,7 @@ export class Shots {
     }
     for (let i = this.list.length - 1; i >= 0; i--) {
       const s = this.list[i];
+      if (s.bomb) { if (this.bomb(s, dt)) { s.mesh.removeFromParent(); this.list.splice(i, 1); } continue; }
       if (s.stuck > 0) {                       // arrow lodged somewhere: fade out later
         s.stuck -= dt;
         if (s.stuck <= 0) { s.mesh.removeFromParent(); this.list.splice(i, 1); }
@@ -1146,12 +1172,42 @@ export class Shots {
         continue;
       }
       if (wh) {
+        if (wh.piece && !s.ghost) G.havoc.damage(wh.piece, s.dmg * (s.kind === 'ball' ? 3 : 1));   // crates, barrels and jars are shot to pieces
         G.impact(s.x, s.y, s.z, wh.nx, wh.ny, wh.nz, s.kind);
-        if (s.kind === 'bullet') { s.mesh.removeFromParent(); this.list.splice(i, 1); }
+        if (s.kind === 'bullet' || (wh.piece && wh.piece.broken)) { s.mesh.removeFromParent(); this.list.splice(i, 1); }
         else { s.stuck = s.fromPlayer ? 40 : 12; s.mesh.position.set(s.x - _d.x * 0.05, s.y - _d.y * 0.05, s.z - _d.z * 0.05); }
         continue;
       }
       if (s.life <= 0) { s.mesh.removeFromParent(); this.list.splice(i, 1); }
     }
   }
+  /** A thrown bomb: it flies, bounces off whatever it meets, rolls to a stop, and goes off when its fuse has burnt down. Returns true when it is gone. */
+  bomb(s, dt) {
+    const G = this.game, W = G.world;
+    s.fuse -= dt;
+    if (s.fuse <= 0) { G.havoc.explode(s.x, s.y + 0.15, s.z); return true; }
+    if (Math.random() < dt * 40) G.gfx.glow.spawn(s.x, s.y + 0.08, s.z, (Math.random() - 0.5) * 1.5, 1 + Math.random(), (Math.random() - 0.5) * 1.5, { life: 0.25, s0: 0.03, s1: 0.005, r: 3, g: 1.8, b: 0.6, a: 1, grav: 4 });   // the burning fuse
+    if (!s.rest) {
+      s.vy -= s.g * dt;
+      const sp = Math.hypot(s.vx, s.vy, s.vz), len = sp * dt;
+      if (sp > 1e-4) {
+        _o.x = s.x; _o.y = s.y; _o.z = s.z; _d.x = s.vx / sp; _d.y = s.vy / sp; _d.z = s.vz / sp;
+        const wh = W.raycast(_o, _d, len + 0.06);
+        if (wh) {
+          const t = Math.max(0, wh.t - 0.06); s.x += _d.x * t; s.y += _d.y * t; s.z += _d.z * t;
+          const dn = s.vx * wh.nx + s.vy * wh.ny + s.vz * wh.nz;
+          s.vx = (s.vx - 2 * dn * wh.nx) * 0.4; s.vy = (s.vy - 2 * dn * wh.ny) * 0.3; s.vz = (s.vz - 2 * dn * wh.nz) * 0.4;
+          if (Math.abs(dn) > 3) G.sound.tick();
+          if (wh.ny > 0.6 && Math.hypot(s.vx, s.vy, s.vz) < 1.4) s.rest = true;
+        } else { s.x += s.vx * dt; s.y += s.vy * dt; s.z += s.vz * dt; }
+      }
+      const gy = W.groundAt(s.x, s.z, s.y);
+      if (s.y < gy + 0.05) { s.y = gy + 0.05; if (s.vy < 0) s.vy = -s.vy * 0.3; s.vx *= 0.6; s.vz *= 0.6; if (Math.hypot(s.vx, s.vy, s.vz) < 1.4) s.rest = true; }
+      s.mesh.rotation.x += dt * 9; s.mesh.rotation.z += dt * 4;
+    }
+    s.mesh.position.set(s.x, s.y, s.z);
+    return false;
+  }
 }
+/** The bombs, and how long their fuse burns (seconds). */
+const BOMB_KINDS = { dynamite: 2.4, grenade: 2.2, hbomb: 2.0 };

@@ -1,6 +1,6 @@
 # Lone Hand — Claude version
 
-**Version 1.5.0** · [What changed (changelog)](CHANGELOG.md) · [All releases](https://github.com/iago-swi/outlaws/releases)
+**Version 1.6.0** · [What changed (changelog)](CHANGELOG.md) · [All releases](https://github.com/iago-swi/outlaws/releases)
 
 A first-person shooter in nine chapters, built with Claude (Anthropic) in the spirit of
 late-1990s Western shooters. From a frontier town to a Japanese shrine, an alpine valley,
@@ -49,8 +49,9 @@ chapter's accent colour and lettering.
 
 Clear every enemy to finish a chapter. The dots on the compass at the top of the screen
 show where the remaining enemies are; the last three come looking for you. Health items
-(tonic, rice cake, alp cheese, ambrosia, mead, calvados, hot tea, butter tea) restore
-35 points.
+(tonic, rice cake, alp cheese, ambrosia, mead, calvados, hot tea, butter tea, cacao) go
+into the bag and restore 35 points when used (`H`, or take one in hand and press the left
+button). The compass still shows every enemy; the map shows only those on the move.
 
 | Chapter | Weapons | Enemies (at most 30, see *Choose your hero*) |
 | --- | --- | --- |
@@ -283,6 +284,50 @@ it may be typed in small letters or with spaces. On some company or mobile netwo
 connection does not get through, because the game has no relay server; try from another
 network.
 
+### Arsenal, bag, map and things that break
+
+- **Weapons taken from the enemy.** Gunmen, archers, crossbowmen, javelin throwers,
+  axemen and ninjas leave their weapon where they fall, glowing on the ground; walk over
+  it to take it. It comes with a number of shots (12 for a revolver, 16 for a rifle, 64
+  for a submachine gun, 10 arrows, 8 bolts, 5 javelins, 6 axes, 12 throws of stars);
+  another of the same kind adds as many. Up to six weapons are carried. A taken weapon
+  leaves the arsenal when it is empty; the hero's own weapon never runs out. Enemies who
+  fight hand to hand leave nothing to shoot with.
+- **The bag** holds up to nine of each thing: the chapter's healing food or drink (35
+  health each), and in chapters I, II, VI, VII and VIII the bombs some enemies leave
+  (dynamite, a clay fire bomb, grenades). Take one in hand with the wheel and press the
+  left button to use it, or press `H` to heal without changing weapons. A bomb bounces,
+  rolls to a stop and goes off two seconds or so after the throw.
+- **The map.** The mini-map in the top-right corner shows 55 m around you and turns with
+  you (N marks north on its rim); `Tab` shows the whole chapter, north up. Enemies are
+  red dots, the boss and the other player of a duel larger, but only while they move:
+  one who stands still or creeps up unseen does not show.
+- **Marked places.** The middle button marks the place under the cross-hair (up to nine,
+  numbered); pressed again on a mark, it takes it away. A mark is a pin in the world, a
+  label with its distance seen through walls, and a dot on both maps; a mark beyond the
+  rim of the mini-map sits on the rim, in its direction.
+- **Things that break.** Crates, barrels and jars break under shots, blows, thrown weapons
+  and blasts; what stood on them falls with them. In chapters I, II, VI, VII, VIII and IX
+  one barrel in three is a red powder keg with a pale lid: it explodes, hurting everyone
+  within about six metres (you too; a wall between softens the blast), breaking what is
+  around it and setting off other kegs.
+- **Sneaking** (`X`) halves your speed and silences your steps. Enemies see a sneaking
+  hero at two thirds of the usual distance, and from behind only within three metres.
+  Running near them, on the other hand, is heard within twelve metres, even through a
+  wall. Enemies who close in on you while you cannot see them sneak as well.
+
+### Sound settings and voice chat
+
+The *Sound* button on the title screen, *Sound settings* on the pause screen (or `O`) and
+*Sound and microphone* on the duel screen open the same panel: four volumes (General,
+Effects, Voices, Music), music on or off (`M` during play), and the microphone for duels:
+always on (`T` mutes it), push to talk (hold `T`), or off. The choices are remembered.
+
+In a duel the two players hear each other. The browser asks once for the microphone. The
+voice goes directly from one browser to the other, like the game's data. Headphones avoid
+an echo. Two small lines at the top left show your microphone (green while you transmit)
+and the other player (green while they speak).
+
 ### Controls
 
 | Key | Action |
@@ -292,13 +337,25 @@ network.
 | `Space` | Jump (about 1.3 m). Also stands you up from a crouch |
 | `W`, facing a ladder | Climb it (no extra key) |
 | `C` | Crouch on and off |
-| Left mouse button | Fire, throw stars, shoot a bolt, throw a javelin or an axe, loose an arrow, throw a poisoned dart or a stone |
+| `X` | Sneak on and off: half speed, no footsteps, harder to notice, not shown on the other player's map. Running ends it while you run |
+| Left mouse button | Fire, throw stars, shoot a bolt, throw a javelin or an axe, loose an arrow, throw a poisoned dart or a stone; with an item from the bag in hand, use it (drink, eat, throw a bomb) |
 | Right mouse button | Aim (six-shooter, crossbow, the guns of chapters VI to VIII; through the scope with the sniper rifle); katana or sword cut in chapters II and IV and with the bow of chapter VIII; the flail in chapter V; the obsidian-edged club in chapter IX |
 | `F` | Halberd thrust in chapter III, knife in chapters VI to VIII (also the katana, the swords and the flail) |
 | `R` | Reload the six-shooter and the guns of chapters VI to VIII |
+| Mouse wheel | Change weapon: through the arsenal (the hero's weapon, the weapons taken from the enemy) and the bag. `1` to `9` take a place directly |
+| Middle mouse button (press the wheel) | Mark the place the cross-hair points at; again on a mark, take it away |
+| `Tab` (hold) | The map of the whole chapter |
+| `H` | Use a healing item from the bag without taking it in hand |
+| `T` | In a duel: mute and unmute the microphone, or hold to speak (see *Sound settings*) |
 | `Esc` | Pause; then `Q` returns to the chapter list. `P` also pauses when the browser has not captured the mouse |
-| `M` | Sound on/off |
+| `M` | Music on/off |
+| `O` | Sound settings (on the title screen, the duel screen and while paused) |
 | `G` | Graphics: steps through Automatic, High, Medium and Low (also while paused) |
+
+**Sneaking is on `X`, not on `Ctrl`.** Browsers keep the `Ctrl` combinations for
+themselves, and a page cannot stop them: `Ctrl`+`W` closes the tab and `Ctrl`+`Q` can close
+the browser, so holding `Ctrl` while walking would end the game. As a safeguard, while a
+chapter or a duel is on, the browser asks before the page is closed.
 
 **If the game runs slowly.** The *Graphics* list at the bottom left of the title screen
 offers four choices, and `G` steps through them during a chapter. *High* is the full
@@ -352,6 +409,10 @@ green. The end-of-chapter screen notes that the result was reached in practice m
 | [audio.js](source/src/audio.js) | Sound effects, ambience and generative music. |
 | [props.js](source/src/props.js) | Instancing helper, fences, barrels, grass, trees, horses, ships, fire bowls, and the builders for enterable rooms, flights of steps, iron bars, shelves, rubble, the longship you can board, the climbable butte with its zigzag stair, the great boulder with its leaning ladder and summit cross; furniture (tables, benches, beds, chests, jars, sacks, hearths, market stalls, woodpiles, haystacks), wagons to crawl under, raised floors with ladders or stairs, crawl passages, and the bystanders with their poses, ladders, raised hides and crawl-in dens. |
 | [levels/](source/src/levels/) | One file per chapter: terrain, buildings, vegetation, enemy and item placement, lighting mood. |
+| [havoc.js](source/src/havoc.js) | Things that break (crates, barrels, jars) and explosions: splinters, the blast, kegs that set each other off. |
+| [map.js](source/src/map.js) | The chapter's map drawn from the world, the mini-map, the whole map on `Tab`, and the marked places with their pins. |
+| [loot.js](source/src/loot.js) | What each kind of enemy leaves behind, the shots that come with a weapon, and the names shown in the arsenal and the bag. |
+| [voice.js](source/src/voice.js) | Voice chat in a duel: the microphone, the call to the other browser, the other player's voice. |
 | [duel.js](source/src/duel.js) | Duel mode: the other player's figure, rounds and scores, the messages between the two games, the lobby. |
 | [net.js](source/src/net.js) | The connection between the two browsers: the introduction through PeerJS under a short code, then a direct channel. |
 | [villains.js](source/src/villains.js) | The thirty villains that can be played in a duel. |
@@ -617,6 +678,11 @@ and whether they aim or swing, in a small JSON message over a WebRTC data channe
   stay. They are simulated on the host only and turn on whichever player is nearer. The
   guest receives their positions ten times a second and shows them as puppets; a guest's
   hit on a puppet is sent to the host, which applies it.
+- **Voice.** Each player whose microphone is on makes a WebRTC audio call to the other
+  through the same PeerJS peer and sends only their own voice; the other answers without
+  sending anything back, so a player without a microphone still hears.
+- **Sneaking.** Another bit of the position report says whether the player sneaks; the
+  map then leaves the opponent out.
 - **Crouching.** One bit of the position report says whether the player crouches. The
   opponent's figure then goes down on one knee, and its hit spheres are lowered with it.
 - **Between duels.** The data channel is kept open when a duel ends. Starting the next
@@ -631,6 +697,24 @@ and whether they aim or swing, in a small JSON message over a WebRTC data channe
   players behind strict network address translation cannot connect. An earlier backup,
   in which the players pasted the connection offer to each other by hand, was removed in
   version 1.4.0: the code had proved reliable.
+
+### Breakable things, explosions and the map
+
+- **Pieces in merged meshes.** The world is drawn as a few big merged meshes, one per
+  material. A crate, a barrel or a jar is still merged into them, but the `Builder` notes
+  which vertices belong to it (`Builder.piece`), and its colliders carry a reference to
+  it. A ray that hits such a collider reports the piece. When the piece breaks, its
+  vertices are collapsed to one point in the merged buffers (only that range is sent to
+  the graphics card again), its colliders are removed, and the navigation cells under it
+  are worked out again from the colliders nearby. No draw call is added.
+- **Explosions** are worked out in each browser of a duel for its own player and, on the
+  host, for the computer enemies. A piece broken by a shot is reported to the other
+  browser by its number (both browsers build the chapter in the same order); pieces broken
+  by a blast are not, since the blast happens in both browsers.
+- **The map** is drawn once per chapter on a 512 × 512 canvas: the height field shaded by
+  its slopes, water below the water line, then every solid box seen from above (sorted by
+  height, taller ones darker) and every tall cylinder. The mini-map draws that picture
+  turned and scaled around the player each frame.
 
 ### Weapons
 
@@ -672,6 +756,11 @@ tap shorter than one frame still fires.
 
 ### Sound
 
+- **Four channels.** Effects (with the ambience), Voices (the enemies' shouts and the
+  other player of a duel) and Music each have their own gain, under a general one; the
+  music has its own reverb, so that turning the music off silences its echo too. The
+  other player's voice plays through an HTML audio element rather than Web Audio, so that
+  the browser's echo cancellation can work; its volume is General times Voices.
 - **Effects** are shaped noise bursts and pitched tones: a gunshot is a low-pass noise
   sweep, a band-pass crack and a sine thump.
 - **Reverb** is a convolution with 2.4 s of decaying noise generated at start-up.

@@ -16,6 +16,69 @@ Each version is a Git tag named `lone-hand-vX.Y.Z` and a
 game as one downloadable file. The number is also shown in the bottom right corner of the
 title screen.
 
+## [1.6.0] - 2026-11-22
+
+Weapons taken from the enemy, a bag, a map of every chapter, places you can mark, things
+that break and kegs that blow up, a silent walk, and in a duel the voices of the two
+players.
+
+### Added
+
+- **Things that break.** Crates, barrels and jars break under shots, blows, thrown
+  weapons and blasts, in splinters or shards and a puff of dust; whatever stood on them
+  comes down with them, and the enemies' routes open up where they stood. Enemy fire
+  breaks your cover too.
+- **Powder kegs.** In the chapters where there is gunpowder or fuel (I, II, VI, VII, VIII
+  and IX) one barrel in three is a red keg with a pale lid. Shot or caught in a blast, it
+  explodes: it hurts everyone near it, you included, less through a wall, and sets off the
+  kegs around it.
+- **Weapons taken from the enemy.** A fallen gunman, archer, crossbowman, javelin thrower,
+  axeman or ninja leaves his weapon on the ground. Walk over it to take it, with a number
+  of shots; another of the same kind adds to them. Up to six weapons are carried, the
+  hero's own first. A taken weapon runs out and then leaves the arsenal; the hero's own
+  never does.
+- **The bag.** The chapter's healing food or drink (tonic, rice cake, alp cheese...) now
+  goes into the bag instead of being used at once, up to nine of each. Some enemies also
+  leave one, and in chapters I, II, VI, VII and VIII some leave a bomb: dynamite, a clay
+  fire bomb or a grenade. Take the item in hand like a weapon and press the left button
+  to drink, eat or throw it; `H` uses a healing item without taking it in hand. A bomb
+  bounces, rolls, and goes off about two seconds after the throw.
+- **Changing weapons.** The mouse wheel goes through the arsenal and the bag; the number
+  keys `1` to `9` take a place directly. The list shows on the right above the weapon's
+  name, with the shots left.
+- **A map.** A round mini-map in the top-right corner turns with you; hold `Tab` for the
+  whole chapter. It is drawn from the world itself: terrain, water, walls, houses, fences,
+  rocks and trees. Enemies show on it while they move about, but not one who stands still
+  or creeps up unseen; in a duel the same holds for the other player.
+- **Marked places.** Press the mouse wheel (the middle button) to mark the place the
+  cross-hair points at, and press it again on a mark to take it away. Up to nine marks,
+  numbered, show on both maps and as pins in the world with their distance.
+- **Sneaking.** `X` switches a silent walk on and off: half speed, no footsteps, noticed
+  later and only from closer, and not shown on the other player's map. Running ends it for
+  as long as you run. It goes with crouching. Enemies closing in on you unseen sneak too,
+  and running feet are now heard through walls by enemies close by.
+- **Voice chat in a duel.** The two players speak to each other through microphone and
+  speakers, directly from browser to browser. The microphone can be always on (`T` mutes
+  it), push to talk (hold `T`) or off. Two small lights at the top left show when you
+  transmit and when the other player speaks.
+- **Sound settings.** A panel with four volumes, General, Effects, Voices (the enemies'
+  shouts and the other player's voice) and Music, with music on or off and the
+  microphone. It opens from the title screen, the pause screen (`O`) and the duel screen,
+  and the settings are remembered.
+- **A safeguard against closing the game by accident.** While a chapter or a duel is on,
+  closing the tab or the browser (for example `Ctrl`+`W` or `Ctrl`+`Q`) first asks whether
+  to leave the page.
+
+### Changed
+
+- `M` now switches the music only, no longer every sound.
+- Healing items are kept in the bag rather than used on contact.
+
+### Fixed
+
+- After joining a duel with the Join button, pressing `Enter` to choose the hero pressed
+  Join again and started a new connection.
+
 ## [1.5.0] - 2026-11-22
 
 All nine chapters have been enlarged and filled with life: more of each world to walk

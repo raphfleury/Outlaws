@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { merge, xf } from './build.js';
 import { gBox, gCyl, gSph, gCone, gCap, gStar } from './actors.js';
 import { clamp, damp, lerp } from './util.js';
+import { ROUNDS, MAX_SLOTS, MAX_ITEMS } from './loot.js';
 
 export class Input {
   constructor(canvas) {
@@ -12,7 +13,9 @@ export class Input {
     this.fireAt = -1e9; this.altAt = -1e9; // time of the last press: a quick tap is remembered for a moment
     this.cx = 0.5;                       // cursor position across the window, used when the mouse is not captured
     this.pressed = new Set(); this.canvas = canvas; this.free = false;   // free = debug mode without pointer lock
-    addEventListener('keydown', (e) => { if (!e.repeat) this.pressed.add(e.code); this.keys.add(e.code); if (this.locked && ['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(e.code)) e.preventDefault(); });
+    this.wheel = 0; this.mark = false;   // mouse wheel turned (steps, + = toward you), middle button pressed: both for this frame only
+    addEventListener('keydown', (e) => { if (!e.repeat) this.pressed.add(e.code); this.keys.add(e.code); if ((this.locked || this.active) && ['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(e.code)) e.preventDefault(); });
+    addEventListener('wheel', (e) => { if (!this.active) return; e.preventDefault(); this.wheelAcc = (this.wheelAcc || 0) + e.deltaY * (e.deltaMode === 1 ? 33 : e.deltaMode === 2 ? 400 : 1); if (Math.abs(this.wheelAcc) >= 40) { this.wheel += Math.sign(this.wheelAcc); this.wheelAcc = 0; } }, { passive: false });
     addEventListener('keyup', (e) => { this.keys.delete(e.code); });
     addEventListener('blur', () => { this.keys.clear(); this.fire = this.alt = false; });
     addEventListener('mousemove', (e) => {
@@ -24,7 +27,9 @@ export class Input {
       if (!this.active) return;
       if (e.button === 0) { this.fire = true; this.fireAt = performance.now(); }
       if (e.button === 2) { this.alt = true; this.altAt = performance.now(); }
+      if (e.button === 1) { this.mark = true; e.preventDefault(); }     // the wheel pressed: no scrolling of the page
     });
+    addEventListener('auxclick', (e) => { if (e.button === 1 && this.active) e.preventDefault(); });
     addEventListener('mouseup', (e) => { if (e.button === 0) this.fire = false; if (e.button === 2) this.alt = false; });
     addEventListener('contextmenu', (e) => e.preventDefault());
     document.addEventListener('pointerlockerror', () => { this.locked = false; });
@@ -34,7 +39,7 @@ export class Input {
   /** Fire button: held down, or tapped within the last 200 ms (so short clicks are never lost). */
   get shoot() { return this.fire || performance.now() - this.fireAt < 200; }
   get melee() { return this.alt || performance.now() - this.altAt < 200; }
-  endFrame() { this.mx = 0; this.my = 0; this.pressed.clear(); }
+  endFrame() { this.mx = 0; this.my = 0; this.pressed.clear(); this.wheel = 0; this.mark = false; }
 }
 
 const SKIN = 0xcf9c76;
@@ -76,6 +81,16 @@ export class Player {
     game.gfx.camera.add(this.vm);
     this.flashTex = this.makeFlashTexture();
     this.weapon = null;
+    // the arsenal: the hero's own weapon first, then what was taken from the enemy, then the things carried in the bag (see setWeapon)
+    this.slots = []; this.slot = 0; this.raise = 0; this.useT = 0;
+    this.sneak = false; this.sprinting = false;     // sneaking: X switches it on and off
+  }
+  /** Moving silently: slower, no footsteps, harder to notice, and not shown on the other player's map. Running ends it for as long as one runs. */
+  get sneaking() { return this.sneak && !this.sprinting; }
+  stanceLabel() {
+    const el = document.getElementById('stance');
+    document.body.classList.toggle('crouched', this.crouch); document.body.classList.toggle('sneaking', this.sneak);
+    if (el) el.textContent = this.crouch && this.sneak ? 'crouching · sneaking' : this.crouch ? 'crouching' : 'sneaking';
   }
 
   makeFlashTexture() {
@@ -93,15 +108,68 @@ export class Player {
     const W = this.game.world;
     this.pos.set(x, W.groundAt(x, z, 100), z); this.vel.set(0, 0, 0); this.dry = null; this.wet = 0;
     this.yaw = yaw; this.pitch = 0; this.hp = this.maxHp; this.hurtT = 99; this.dead = false; this.deadT = 0; this.camY = this.pos.y + 1.65;
-    this.mount = null; this.crouch = this.crouchWant = false; this.duck = 0; document.body.classList.remove('crouched');
+    this.mount = null; this.crouch = this.crouchWant = false; this.duck = 0; this.sneak = false; this.stanceLabel();
     this.kick = this.kickV = 0; this.aim = 0;
     this.setWeapon(weaponKind, sleeve);
   }
 
+  /** The hero's own weapon. It never runs out; the arsenal starts again from it (what was picked up is lost). */
   setWeapon(kind, sleeve = 0x9a8a6a, cuff) {
-    this.vm.clear();
-    this.weapon = new Weapon(this, kind, sleeve, cuff);
-    this.vm.add(this.weapon.root);
+    this.sleeve = sleeve; this.cuff = cuff;
+    this.slots = [{ type: 'weapon', kind, own: true, weapon: new Weapon(this, kind, sleeve, cuff) }];
+    this.slot = 0; this.show(0); this.raise = 0;
+  }
+  /** Put the weapon or the thing of slot i into the hands. */
+  show(i) {
+    const sl = this.slots[i]; this.vm.clear(); this.weapon = sl.weapon; this.vm.add(sl.weapon.root); this.raise = 1;
+    this.game.cache.arms = null; this.game.bagShown = 2.5;
+  }
+  select(i) {
+    if (i === this.slot || !this.slots[i] || this.dead) return;
+    const w = this.weapon;
+    if (w) { w.meleeT = 0; if (w.melee) w.melee.visible = false; if (w.state === 'wind' || w.state === 'draw' || w.state === 'use') w.state = 'ready'; w.t = 0; }   // a throw or a draw that was begun is called off
+    this.slot = i; this.show(i); this.game.sound.swap();
+  }
+  cycle(d) { const n = this.slots.length; if (n > 1) this.select((this.slot + d + n) % n); }
+  /** A weapon taken from an enemy: a new place in the arsenal, or more shots for one already carried. Returns a line to show, or null if it is of no use. */
+  addWeapon(kind) {
+    const have = this.slots.find((s) => s.type === 'weapon' && s.kind === kind), n = ROUNDS[kind] || 6;
+    if (have && have.own) return null;                             // the hero's own weapon never runs out
+    if (have) { have.weapon.reserve += n; return '+' + n; }
+    if (this.slots.filter((s) => s.type === 'weapon').length >= MAX_SLOTS) return null;
+    const w = new Weapon(this, kind, this.sleeve, this.cuff); w.reserve = n;
+    if (w.mag > 1) { w.ammo = Math.min(w.mag, n); w.reserve = n - w.ammo; }       // it comes loaded
+    const at = this.slots.filter((s) => s.type === 'weapon').length;
+    this.slots.splice(at, 0, { type: 'weapon', kind, own: false, weapon: w });
+    if (this.slot >= at) this.slot++;
+    return 'new';
+  }
+  /** Something for the bag (id: 'heal' or a bomb). Returns false if the bag holds as many as it can. */
+  addItem(id, n = 1) {
+    let sl = this.slots.find((s) => s.type === 'item' && s.id === id);
+    if (sl && sl.count >= MAX_ITEMS) return false;
+    if (!sl) { sl = { type: 'item', id, count: 0 }; sl.weapon = new Weapon(this, id, this.sleeve, this.cuff); sl.weapon.slot = sl; this.slots.push(sl); }
+    sl.count = Math.min(MAX_ITEMS, sl.count + n); this.game.bagShown = 2.5; this.game.cache.arms = null;
+    return true;
+  }
+  count(id) { const sl = this.slots.find((s) => s.type === 'item' && s.id === id); return sl ? sl.count : 0; }
+  /** Drink the tonic (eat the rice cake...) from the bag. */
+  heal(sl) {
+    const G = this.game;
+    if (!sl || sl.count <= 0) return false;
+    if (this.hp >= this.maxHp) { G.say('You are not hurt'); return false; }
+    sl.count--; this.hp = Math.min(this.maxHp, this.hp + 35); G.gfx.heal = 1; G.sound.gulp(); G.say(G.def.pickupText); G.cache.arms = null;
+    return true;
+  }
+  /** Take empty places out of the arsenal: a weapon with no shots left, a bag item used up. */
+  tidy() {
+    const i = this.slots.findIndex((s) => !s.own && (s.type === 'item' ? s.count <= 0 : s.weapon.reserve === 0 && (s.weapon.ammo || 0) <= 0) && s.weapon.state === 'ready' && s.weapon.meleeT <= 0);
+    if (i < 0) return;
+    const cur = this.slots[this.slot], wasCur = i === this.slot;
+    if (wasCur && cur.type === 'weapon') this.game.say('Out of ammunition');
+    this.slots.splice(i, 1);
+    if (wasCur) { this.slot = 0; this.show(0); } else this.slot = this.slots.indexOf(cur);
+    this.game.cache.arms = null; this.game.bagShown = 2.5;
   }
 
   /** Direction the camera is looking. */
@@ -135,23 +203,29 @@ export class Player {
     }
     // crouching: C toggles it. Half speed, lower eyes and body, harder for enemies to see.
     if (active) {
+      if (input.pressed.has('KeyX')) { this.sneak = !this.sneak; this.stanceLabel(); G.say(this.sneak ? 'Sneaking — X to walk normally' : 'Walking'); }
+      // the arsenal: the mouse wheel, or the number keys; H uses a healing item from the bag at once
+      if (input.wheel) this.cycle(input.wheel > 0 ? 1 : -1);
+      for (let k = 1; k <= 9; k++) if (input.pressed.has('Digit' + k) && this.slots[k - 1]) this.select(k - 1);
+      if (input.pressed.has('KeyH')) { const sl = this.slots.find((q) => q.type === 'item' && q.id === 'heal'); if (sl) this.heal(sl); else G.say('Nothing to heal with in the bag'); }
       if (input.pressed.has('KeyC')) this.crouchWant = !this.crouchWant;
       if (this.crouch && input.pressed.has('Space')) this.crouchWant = false;
       if (this.crouchWant !== this.crouch) {
         if (this.crouchWant) this.crouch = true;
         else { const t = { x: this.pos.x, y: this.pos.y, z: this.pos.z }; W.collide(t, 0.4, 1.75); if (Math.hypot(t.x - this.pos.x, t.z - this.pos.z) < 0.02) this.crouch = false; }   // stand up only where there is head room
-        document.body.classList.toggle('crouched', this.crouch);
+        this.stanceLabel();
       }
     }
+    this.tidy();
     this.duck = damp(this.duck, this.crouch ? 1 : 0, 12, dt);
     const H = this.crouch ? 1.05 : 1.75, eye = 1.65 - 0.7 * this.duck;
-    const sprint = !this.crouch && (K.has('ShiftLeft') || K.has('ShiftRight'));
+    const sprint = (this.sprinting = active && !this.crouch && (K.has('ShiftLeft') || K.has('ShiftRight')));
     const sy = Math.sin(this.yaw), cy = Math.cos(this.yaw);
     // Ladders: face one and walk into it, and you climb. At the top you step onto whatever it leans against.
     const lad = this.crouch ? null : W.ladderFor(this.pos, -sy, -cy), climbing = !!lad && f > 0 && this.pos.y < lad.y1 && !this.mount;
     let wx = -sy * f + cy * s, wz = -cy * f - sy * s;
     const wl = Math.hypot(wx, wz);
-    const top = (sprint && f > 0 ? 8.6 : 5.6) * (1 - this.aim * 0.4) * (1 - 0.5 * this.duck) * this.mods.speed;
+    const top = (sprint && f > 0 ? 8.6 : 5.6) * (1 - this.aim * 0.4) * (1 - 0.5 * this.duck) * (this.sneaking ? 0.5 : 1) * this.mods.speed;
     if (wl > 0) { wx = wx / wl * top; wz = wz / wl * top; }
     const acc = this.onGround ? 11 : 2.5;
     if (this.mount) {                                       // from the top rung onto the roof or the deck, in a quarter of a second
@@ -200,7 +274,7 @@ export class Player {
     this.bobAmt = damp(this.bobAmt, this.onGround ? Math.min(1, spd / 5.6) : 0, 8, dt);
     this.bob += spd * dt * 1.75;
     const ph = Math.floor(this.bob / Math.PI);
-    if (ph !== this.stepPhase) { this.stepPhase = ph; if (this.onGround && spd > 1.5) G.sound.step(ground > W.height(this.pos.x, this.pos.z) + 0.05); }
+    if (ph !== this.stepPhase) { this.stepPhase = ph; if (this.onGround && spd > 1.5) G.sound.step(ground > W.height(this.pos.x, this.pos.z) + 0.05, this.sneaking ? 0.2 : 1); }
     this.land = damp(this.land, 0, 9, dt);
     this.kickV += (-this.kick * 90 - this.kickV * 13) * dt; this.kick += this.kickV * dt;
     this.camY = damp(this.camY, this.pos.y + eye, 20, dt);
@@ -210,12 +284,13 @@ export class Player {
     cam.rotation.set(this.pitch + this.kick, this.yaw, this.roll + Math.cos(this.bob) * 0.004 * this.bobAmt);
 
     const w = this.weapon;
-    this.aim = damp(this.aim, active && w.canAim && input.alt && !w.busy ? 1 : 0, 14, dt);
+    this.aim = damp(this.aim, active && w.canAim && input.alt && !w.busy && this.raise < 0.3 ? 1 : 0, 14, dt);
     const fov = lerp(72 + (sprint && f > 0 ? 5 * this.bobAmt : 0), w.aimFov, this.aim);
     if (Math.abs(fov - cam.fov) > 0.01) { cam.fov = damp(cam.fov, fov, 16, dt); cam.updateProjectionMatrix(); }
     this.swayX = damp(this.swayX, clamp(-input.mx * 0.0006, -0.05, 0.05), 10, dt);
     this.swayY = damp(this.swayY, clamp(input.my * 0.0006, -0.05, 0.05), 10, dt);
     w.update(dt, input, active);
+    this.raise = Math.max(0, this.raise - dt * 4); this.vm.position.y = -0.12 * ease(this.raise); this.vm.rotation.x = -0.5 * ease(this.raise);   // a weapon just taken in hand comes up from below
     if (w.scope && this.aim > 0.8) this.vm.visible = false;          // looking through the scope
   }
 
@@ -229,6 +304,7 @@ class Weapon {
     this.p = player; this.game = player.game; this.kind = kind; this.sleeve = sleeve; this.cuffIn = cuff; this.m = player.mods;
     this.root = new THREE.Group();
     this.cd = 0; this.t = 0; this.state = 'ready'; this.kick = 0; this.kickV = 0; this.meleeT = 0; this.meleeHit = false;
+    this.reserve = null;                       // shots left beyond what is loaded: null = no end (the hero's own weapon); taken weapons run out
     this.muzzle = new THREE.Object3D();
     const M = this.game.M;
     this.flash = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.34), new THREE.MeshBasicMaterial({ map: player.flashTex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
@@ -237,7 +313,13 @@ class Weapon {
     if (!this.melee && this.game.def && this.game.def.knife) this.addKnife(M);
     if (this.melee) this.root.add(this.melee);
   }
-  get busy() { return this.state === 'reload' || this.meleeT > 0; }
+  get busy() { return this.state === 'reload' || this.state === 'use' || this.meleeT > 0; }
+  /** Can another shot be loaded or thrown? */
+  get stocked() { return this.reserve === null || this.reserve > 0; }
+  /** One shot used from the reserve (bows, crossbows, everything thrown). */
+  spend() { if (this.reserve !== null) this.reserve = Math.max(0, this.reserve - 1); }
+  /** Fill the magazine from the reserve. */
+  refill() { if (this.reserve === null) { this.ammo = this.mag; return; } const k = Math.min(this.mag - this.ammo, this.reserve); this.ammo += k; this.reserve -= k; }
 
   /** Forearm running from the hand down/back toward the camera, with a cuff at the wrist. */
   arm(sleeve, p, r, len = 0.36) {
@@ -276,9 +358,9 @@ class Weapon {
       const T = 1.45, k = this.t / T;
       if (!this.clicked && k > 0.35) { this.clicked = 1; G.sound.click(1900); }
       if (this.clicked === 1 && k > 0.6) { this.clicked = 2; G.sound.click(2400); }
-      if (this.t >= T) { this.state = 'ready'; this.ammo = this.mag; G.sound.click(3000); }
+      if (this.t >= T) { this.state = 'ready'; this.refill(); G.sound.click(3000); }
     } else if (active) {
-      if ((input.pressed.has('KeyR') && this.ammo < this.mag) || (input.shoot && this.ammo === 0 && this.cd <= 0)) { this.state = 'reload'; this.t = 0; this.clicked = 0; }
+      if (this.stocked && ((input.pressed.has('KeyR') && this.ammo < this.mag) || (input.shoot && this.ammo === 0 && this.cd <= 0))) { this.state = 'reload'; this.t = 0; this.clicked = 0; }
       else if (input.shoot && this.cd <= 0 && this.ammo > 0) {
         this.ammo--; this.cd = 0.33 * this.m.fire; this.kickV += 9; P.recoil(0.55); this.drumRot += Math.PI / 3;
         this.flashT = 0.05; this.flash.rotation.z = Math.random() * 6.28; this.flash.scale.setScalar(0.8 + Math.random() * 0.5);
@@ -352,11 +434,11 @@ class Weapon {
   }
   update_shuriken(dt, input, active) {
     const P = this.p, G = this.game, b = this.base, WIND = 0.1, REC = 0.36;
-    if (this.state === 'ready') { if (active && input.shoot && this.meleeT <= 0) { this.state = 'wind'; this.t = 0; } }
+    if (this.state === 'ready') { if (active && input.shoot && this.meleeT <= 0 && this.stocked) { this.state = 'wind'; this.t = 0; } }
     else if (this.state === 'wind') {
       this.t += dt / this.m.fire;
       if (this.t >= WIND) {
-        this.state = 'recover'; this.t = 0; this.kickV += 3; P.recoil(0.08);
+        this.state = 'recover'; this.t = 0; this.kickV += 3; P.recoil(0.08); this.spend();
         for (const turn of [0, -0.035, 0.035]) G.playerShoot('star', 52 * (1 + (this.m.power - 1) * 0.7), 26 * this.m.power, undefined, turn);
         G.sound.whiz();
       }
@@ -372,11 +454,11 @@ class Weapon {
   }
   update_bow(dt, input, active) {
     const P = this.p, G = this.game;
-    if (this.state === 'ready') { if (active && input.shoot && this.meleeT <= 0) { this.state = 'draw'; this.t = 0; } }
+    if (this.state === 'ready') { if (active && input.shoot && this.meleeT <= 0 && this.stocked) { this.state = 'draw'; this.t = 0; } }
     else if (this.state === 'draw') {
       this.t += dt / this.m.draw;
       if (this.t >= 0.34) {
-        this.state = 'nock'; this.t = 0; this.kickV += 5;
+        this.state = 'nock'; this.t = 0; this.kickV += 5; this.spend();
         G.playerShoot('arrow', 82, 60, 7);
         G.sound.bow();
       }
@@ -438,8 +520,8 @@ class Weapon {
       this.cocked = ease(clamp((this.t - 0.2) / 0.5, 0, 1));
       if (!this.clicked && this.t > 0.7) { this.clicked = 1; G.sound.click(1500); }
       if (this.t >= T) { this.state = 'ready'; this.cocked = 1; }
-    } else if (active && input.shoot && this.meleeT <= 0) {
-      this.state = 'reload'; this.t = 0; this.clicked = 0; this.cocked = 0; this.kickV += 6; P.recoil(0.25);
+    } else if (active && input.shoot && this.meleeT <= 0 && this.stocked) {
+      this.state = 'reload'; this.t = 0; this.clicked = 0; this.cocked = 0; this.kickV += 6; P.recoil(0.25); this.spend();
       G.playerShoot('bolt', 118, 95, 5);
       G.sound.crossbow();
     }
@@ -496,9 +578,9 @@ class Weapon {
     if (this.state === 'reload') {
       this.t += dt / this.m.reload;
       if (!this.clicked && this.t > c.reload * 0.45) { this.clicked = 1; G.sound.click(1800); }
-      if (this.t >= c.reload) { this.state = 'ready'; this.ammo = this.mag; G.sound.click(2800); }
+      if (this.t >= c.reload) { this.state = 'ready'; this.refill(); G.sound.click(2800); }
     } else if (active) {
-      if ((input.pressed.has('KeyR') && this.ammo < this.mag) || (input.shoot && this.ammo === 0 && this.cd <= 0)) { this.state = 'reload'; this.t = 0; this.clicked = 0; }
+      if (this.stocked && ((input.pressed.has('KeyR') && this.ammo < this.mag) || (input.shoot && this.ammo === 0 && this.cd <= 0))) { this.state = 'reload'; this.t = 0; this.clicked = 0; }
       else if (input.shoot && this.cd <= 0 && this.ammo > 0 && this.meleeT <= 0) {
         this.ammo--; this.cd = c.interval * this.m.fire; this.kickV += c.kick; P.recoil(c.recoil);
         this.flashT = 0.045; this.flash.rotation.z = Math.random() * 6.28; this.flash.scale.setScalar(0.7 + Math.random() * 0.5);
@@ -597,11 +679,11 @@ class Weapon {
   }
   updateThrown(dt, input, active, jav) {
     const P = this.p, G = this.game, b = this.base, sh = this.shot || (jav ? [50, 85, 6] : [36, 80, 7]), pace = this.pace || 1;
-    if (this.state === 'ready') { if (active && input.shoot && this.meleeT <= 0) { this.state = 'wind'; this.t = 0; } }
+    if (this.state === 'ready') { if (active && input.shoot && this.meleeT <= 0 && this.stocked) { this.state = 'wind'; this.t = 0; } }
     else if (this.state === 'wind') {
       this.t += dt / this.m.fire / pace;
       if (this.t >= 0.16) {
-        this.state = 'recover'; this.t = 0; this.kickV += 5; P.recoil(0.2);
+        this.state = 'recover'; this.t = 0; this.kickV += 5; P.recoil(0.2); this.spend();
         G.playerShoot(this.kind, sh[0] * (1 + (this.m.power - 1) * 0.7), sh[1] * this.m.power, sh[2]);
         G.sound.whiz();
       }
@@ -652,6 +734,71 @@ class Weapon {
     this.meleeDur = 0.45; this.meleeAt = 0.42; this.meleeRange = 3.1; this.meleeCone = 0.5; this.meleeDmg = 115; this.meleeStyle = 'cut';
   }
 
+  // ---- things from the bag: something that heals (fire to drink or eat it), and bombs (fire to throw) ----
+  build_heal(M) {
+    this.canAim = false; this.aimFov = 72; this.cuff = this.cuffIn ?? 0x4a3020;
+    const g = (this.gun = new THREE.Group());
+    g.add(mesh([fist([0, 0, 0], [0, 0, 0], 1.05), ...this.arm(this.sleeve, [0.04, -0.2, 0.12], [0.5, 0, 0.2], 0.36)], M.flat));
+    const L = this.game.level, thing = L && L.makePickup ? L.makePickup() : new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 0.3, 8), new THREE.MeshStandardMaterial({ color: 0xb8742a }));
+    thing.geometry = thing.geometry.clone(); thing.geometry.computeBoundingBox();
+    const bb = thing.geometry.boundingBox, size = Math.max(bb.max.x - bb.min.x, bb.max.y - bb.min.y, bb.max.z - bb.min.z) || 0.3, k = 0.2 / size;
+    thing.scale.setScalar(k); thing.position.set(-(bb.max.x + bb.min.x) / 2 * k, 0.02 - bb.min.y * k, -(bb.max.z + bb.min.z) / 2 * k);
+    g.add(thing); this.base = [0.26, -0.27, -0.5];
+    this.root.add(g);
+  }
+  update_heal(dt, input, active) {
+    const P = this.p, g = this.gun, b = this.base;
+    this.warnT = Math.max(0, (this.warnT || 0) - dt);
+    if (this.state === 'ready') {
+      if (active && input.shoot && this.meleeT <= 0 && this.slot.count > 0) {
+        if (P.hp < P.maxHp) { this.state = 'use'; this.t = 0; this.used = false; } else if (!this.warnT) { this.warnT = 1.2; this.game.say('You are not hurt'); }
+      }
+    } else if (this.state === 'use') {
+      this.t += dt;
+      if (!this.used && this.t >= 0.45) { this.used = true; P.heal(this.slot); }
+      if (this.t >= 0.9) this.state = 'ready';
+    }
+    const lift = this.state === 'use' ? Math.sin(Math.min(1, this.t / 0.9) * Math.PI) : 0, m = this.meleeT > 0 ? Math.sin(Math.min(1, this.meleeT / this.meleeDur) * Math.PI) : 0;
+    g.visible = this.slot.count > 0 || this.state === 'use';
+    g.position.set(b[0] - lift * 0.24 - m * 0.2, b[1] + lift * 0.17 - m * 0.4, b[2] + lift * 0.22);
+    g.rotation.set(P.swayY - lift * 0.9, P.swayX + lift * 0.3, P.swayX * 0.8 + lift * 0.4);
+  }
+  build_dynamite(M) { this.buildBomb(M); }
+  build_grenade(M) { this.buildBomb(M); }
+  build_hbomb(M) { this.buildBomb(M); }
+  update_dynamite(dt, input, active) { this.updateBomb(dt, input, active); }
+  update_grenade(dt, input, active) { this.updateBomb(dt, input, active); }
+  update_hbomb(dt, input, active) { this.updateBomb(dt, input, active); }
+  buildBomb(M) {
+    this.canAim = false; this.aimFov = 72; this.cuff = this.cuffIn ?? 0x4a3020; this.thrown = true;
+    const g = (this.gun = new THREE.Group()), X = Math.PI / 2;
+    g.add(mesh([fist([0, 0, 0], [0, 0, 0], 1.05), ...this.arm(this.sleeve, [0.04, -0.2, 0.12], [0.5, 0, 0.2], 0.36)], M.flat));
+    this.missile = new THREE.Group();
+    if (this.kind === 'dynamite') this.missile.add(mesh([0, 1, 2].map((i) => gCyl(0.019, 0.019, 0.2, 0xb02a1c, [(i - 1) * 0.036, 0.1, 0], [0, 0, 0], 1, 8)).concat([gCyl(0.003, 0.003, 0.08, 0xd8c8a0, [0, 0.23, 0], [0.4, 0, 0], 1, 4), gBox(0.11, 0.025, 0.045, 0xd8c8a0, [0, 0.1, 0])]), M.flat));
+    else if (this.kind === 'grenade') this.missile.add(mesh([gCyl(0.017, 0.017, 0.24, 0x6a4a2a, [0, 0.06, 0], [0, 0, 0], 1, 8), gCyl(0.04, 0.04, 0.09, 0x4a5236, [0, 0.21, 0], [0, 0, 0], 1, 10), gCyl(0.036, 0.036, 0.012, 0x2a2e22, [0, 0.257, 0], [0, 0, 0], 1, 10)], M.flat));
+    else this.missile.add(mesh([gSph(0.075, 0x1c1a18, [0, 0.09, 0]), gCyl(0.004, 0.004, 0.07, 0xd8c8a0, [0, 0.19, 0], [0.3, 0, 0], 1, 4), gCyl(0.03, 0.03, 0.03, 0x5a3a22, [0, 0.165, 0], [0, 0, X * 0], 1, 8)], M.flat));
+    g.add(this.missile); this.base = [0.3, -0.24, -0.5, -0.35, 0.05];
+    this.root.add(g);
+  }
+  updateBomb(dt, input, active) {
+    const P = this.p, G = this.game, b = this.base, sl = this.slot;
+    if (this.state === 'ready') { if (active && input.shoot && this.meleeT <= 0 && sl.count > 0) { this.state = 'wind'; this.t = 0; G.sound.fuse(); } }
+    else if (this.state === 'wind') {
+      this.t += dt;
+      if (this.t >= 0.3) {
+        this.state = 'recover'; this.t = 0; this.kickV += 4; P.recoil(0.15); sl.count--; G.cache.arms = null;
+        G.playerShoot(this.kind, 17 * (1 + (this.m.power - 1) * 0.5), 0, 9.8, 0, 0.16);
+        G.sound.whiz();
+      }
+    } else { this.t += dt; if (this.t >= 0.6) this.state = 'ready'; }
+    const wind = this.state === 'wind' ? ease(Math.min(1, this.t / 0.3)) : 0, rec = this.state === 'recover' ? this.t / 0.6 : 1;
+    this.missile.visible = sl.count > 0 && (this.state !== 'recover' || rec > 0.5);
+    const rise = this.state === 'recover' ? 1 - ease(clamp((rec - 0.5) / 0.5, 0, 1)) : 0, fwd = this.state === 'recover' && rec < 0.35 ? Math.sin((rec / 0.35) * Math.PI) : 0;
+    const m = this.meleeT > 0 ? Math.sin(Math.min(1, this.meleeT / this.meleeDur) * Math.PI) : 0, g = this.gun;
+    g.position.set(b[0] - m * 0.2, b[1] - rise * 0.4 - m * 0.4 + wind * 0.12, b[2] + wind * 0.3 - fwd * 0.3);
+    g.rotation.set(b[3] + P.swayY - wind * 0.9 + fwd * 1.0 - m * 0.4, b[4] + P.swayX, P.swayX * 0.8);
+  }
+
   // ---- shared -----------------------------------------------------------------
   update(dt, input, active) {
     const G = this.game;
@@ -684,6 +831,7 @@ class Weapon {
   }
 
   hud() {
+    if (this.slot) return { ammo: Math.min(12, this.slot.count), mag: Math.min(12, this.slot.count), reloading: false, item: true };
     if (this.kind === 'revolver') return { ammo: this.ammo, mag: this.mag, reloading: this.state === 'reload' };
     if (this.kind === 'bow') return { ammo: this.state === 'nock' ? 0 : 1, mag: 1, reloading: false };
     if (this.thrown) return { ammo: this.state === 'ready' ? 1 : 0, mag: 1, reloading: false };
