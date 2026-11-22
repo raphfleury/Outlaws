@@ -173,6 +173,16 @@ export class Sound {
   /** A punch: the swish of the fist, and the blow when it lands. */
   punch(hit = false) { this.noise({ type: 'bandpass', f0: 600, f1: 1800, dur: 0.12, vol: 0.25, q: 1.2, att: 0.02 }); if (hit) { this.noise({ type: 'lowpass', f0: 500, f1: 120, dur: 0.1, vol: 0.7 }); this.tone({ f0: 95, f1: 55, dur: 0.09, vol: 0.5 }); } }
 
+  /** Birds taking wing all at once. */
+  flutter(far = 0) { if (!this.ctx) return; const v = Math.max(0.08, 1 - far) * 0.3; for (let i = 0; i < 7; i++) this.noise({ t: this.t + i * 0.05 + Math.random() * 0.03, type: 'bandpass', f0: 1300 + Math.random() * 900, dur: 0.06, vol: v, q: 1.5 }); }
+  /** A gust of wind. */
+  gust(snow = false) { if (!this.ctx) return; this.noise({ type: 'bandpass', f0: snow ? 900 : 600, f1: snow ? 1600 : 1100, dur: 2.6, vol: 0.12, q: 0.6, att: 0.8, dest: this.ambient }); }
+  /** The train: a steam whistle, the bell, and the beat of the engine. */
+  whistle(far = 0) { if (!this.ctx) return; const v = Math.max(0.06, 1 - far) * 0.16; for (const f of [587, 740, 880]) this.tone({ type: 'triangle', f0: f, dur: 1.3, vol: v, att: 0.08, rev: 0.6 }); this.noise({ type: 'bandpass', f0: 2400, dur: 1.3, vol: v * 0.6, q: 3, att: 0.08 }); }
+  bell(far = 0) { if (!this.ctx) return; const v = Math.max(0.05, 1 - far) * 0.12; for (const f of [1046, 1568, 2637]) this.tone({ type: 'triangle', f0: f, dur: 0.9, vol: v * (f > 2000 ? 0.4 : 1), rev: 0.5 }); }
+  chuff(far = 0) { if (!this.ctx) return; this.noise({ type: 'lowpass', f0: 1400 - far * 900, f1: 300, dur: 0.22, vol: Math.max(0.04, 1 - far) * 0.35, att: 0.01 }); }
+  /** The tank: the engine's growl and the clatter of the tracks. */
+  rumble(far = 0) { if (!this.ctx) return; const v = Math.max(0.04, 1 - far); this.noise({ type: 'lowpass', f0: 260, f1: 140, dur: 0.18, vol: v * 0.32 }); if (Math.random() < 0.5) this.noise({ type: 'bandpass', f0: 1800, dur: 0.04, vol: v * 0.08, q: 4 }); }
   /** A pin put on the map, or taken away. */
   mark(on = true) { if (!this.ctx) return; this.tone({ type: 'triangle', f0: on ? 1320 : 990, dur: 0.12, vol: 0.12 }); this.tone({ type: 'triangle', f0: on ? 1760 : 740, dur: 0.16, vol: 0.1, t: this.t + 0.07 }); }
   /** Weapons changed in the hands. */

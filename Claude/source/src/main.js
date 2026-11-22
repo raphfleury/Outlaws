@@ -10,15 +10,16 @@ import * as K from './props.js';
 import { Gfx } from './gfx.js';
 import { Sound } from './audio.js';
 import { makeMaterials } from './tex.js';
-import { World, Builder, Nav } from './build.js';
+import { World, Builder, Nav, merge } from './build.js';
 import { Player, Input } from './player.js';
-import { Enemy, Shots, makeHumanoid, lookFor, TYPES, dropMesh, wound } from './actors.js';
+import { Enemy, Shots, makeHumanoid, lookFor, TYPES, dropMesh, wound, gBox } from './actors.js';
 import { Crowd } from './crowd.js';
 import { Arc } from './arc.js';
+import { Life } from './life.js';
 import { Havoc } from './havoc.js';
 import { MapView } from './map.js';
 import { Voice } from './voice.js';
-import { dropsOf, weaponName, weaponAlt, itemName, itemAlt, THROWN } from './loot.js';
+import { dropsOf, lootOf, weaponName, weaponAlt, itemName, itemAlt, THROWN } from './loot.js';
 import { rng, clamp, damp } from './util.js';
 import { west } from './levels/west.js';
 import { japan } from './levels/japan.js';
@@ -41,6 +42,8 @@ const MAX_FOES = 30;
  * time: never the boss, a kind of which only two are left as late as possible (variety comes first), and otherwise the one who stands closest
  * to a comrade, of the commonest kind, and is not posted on a perch. So crowds are thinned and the lone guards of far places stay.
  */
+/** Shuffle a list in place with a seeded random function (Fisher-Yates). */
+function shuffle(a, rand) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
 function capFoes(list, max = MAX_FOES) {
   const keep = list.slice();
   let floor = 2;                                            // how many of a kind are left alone; it gives way only when nothing else can go
@@ -92,11 +95,13 @@ class Game {
     this._v = new THREE.Vector3(); this._v2 = new THREE.Vector3(); this._o = { x: 0, y: 0, z: 0 }; this._d = { x: 0, y: 0, z: 0 };
     this.duel = null;
     this.havoc = new Havoc(this); this.map = new MapView(this); this.voice = new Voice(this); this.bagShown = 0;
-    this.crowd = new Crowd(this); this.arc = new Arc(this); this.bars = [];
+    this.crowd = new Crowd(this); this.arc = new Arc(this); this.bars = []; this.life = new Life(this);
     this.sound.onchange = () => { this.voice.settings(); this.soundLabel(); };
     this.bindUI();
   }
 
+  /** In the game together, the other player is a team-mate: nothing this player fires or swings can hurt him. */
+  friend(e) { return !!(e.remote && this.duel && this.duel.cfg && this.duel.cfg.rules === 'coop'); }
   /** The characters on offer: three heroes, and in a duel the chapter's villains as well. */
   roster() { const d = this.def; return this.duel && this.duel.active ? d.heroes.concat(VILLAINS[d.id] || []) : d.heroes; }
 
@@ -230,6 +235,8 @@ class Game {
   loadLevel(i, backdrop = false) {
     const def = LEVELS[i];
     this.index = i; this.def = def;
+    // what changes from one game to the next (where the enemies stand, where things lie): random, or in a duel the host's number, the same in both browsers
+    this.seed = this.duel && this.duel.active && this.duel.cfg && this.duel.cfg.seed != null ? this.duel.cfg.seed : (Math.random() * 2 ** 31) | 0;
     this.gfx.clearLevel(); this.shots.reset(); this.havoc.reset(); this.enemies = []; this.pickups = [];
     this.world = new World(); this.world.chapter = def.id; this.rand = rng(4242 + i * 977);
     const B = new Builder(this.world);
@@ -241,7 +248,7 @@ class Game {
     this.gfx.setEnvironment(L.env); this.gfx.applyDetail();
     this.spawnEnemies();
     this.crowd.setup(this.world.people);
-    for (const p of L.pickups || []) this.addPickup(p[0], p[1], L, p[3] !== undefined ? this.world.height(p[0], p[1]) + p[3] : p[2]);
+    this.placeHeals(L);
     this.player.spawn(L.spawn.x, L.spawn.z, L.spawn.yaw, def.weapon);
     this.hero = null;
     const want = params.has('hero') ? +params.get('hero') - 1 : 0;
@@ -249,6 +256,7 @@ class Game {
     for (const c of [...document.body.classList]) if (c.startsWith('theme-')) document.body.classList.remove(c);
     document.body.classList.add(def.theme);
     if (!backdrop) this.map.build(); else this.map.clearMarks();      // the map of this chapter (after its colours are set)
+    this.life.setup();                                                // birds, wind, and in some chapters a train or a tank
     this.stats = { shots: 0, hits: 0, heads: 0, t: 0 };
     this.timeScale = 1; this.slow = 0; this.noise = 0; this.cache = {};
     this.ui.boss.classList.remove('on');
@@ -259,16 +267,44 @@ class Game {
   }
 
   /** The chapter's enemies as chosen on the hero screen: that many of them, thinned the same way as the cap (crowds first, every kind kept as long as possible, the boss always). */
-  foeList(list) {
+  foeList(list, rand) {
     const n = Math.round(this.foeWant);
-    return !n || n >= list.length ? list : capFoes(list, n);
+    if (!n || n >= list.length) return list.slice();
+    const boss = list.filter(([t]) => TYPES[t].boss), rest = shuffle(list.filter(([t]) => !TYPES[t].boss), rand);     // a different choice every time; the boss always
+    return boss.concat(rest.slice(0, Math.max(0, n - boss.length)));
+  }
+  /**
+   * Enemies who walk the ground go to a random free place on open ground, from which the start can be reached on foot: most of them
+   * within thirty metres of where the chapter put them (so the chapter keeps its shape), some anywhere. Those posted on a roof, a tower or
+   * a perch, those lying in ambush, and the boss keep their places. avoid: [x, z, r] circles to keep clear (the start, a duel's bases).
+   */
+  scatter(list, rand, avoid) {
+    const nav = this.nav, used = [];
+    if (!nav) return list;
+    const clear = (x, z) => avoid.every(([ax, az, r]) => (x - ax) ** 2 + (z - az) ** 2 > r * r) && used.every(([ux, uz]) => (x - ux) ** 2 + (z - uz) ** 2 > 16);
+    const S = this.level.spawn, sy = this.world.groundAt(S.x, S.z, 100);
+    return list.map(([type, x, z, o = {}]) => {
+      if (TYPES[type].boss || o.static || o.ambush || o.y !== undefined || o.up !== undefined) { used.push([x, z]); return [type, x, z, o]; }
+      for (let i = 0; i < 50; i++) {
+        let cx, cz;
+        if (rand() < 0.3) { cx = nav.x0 + rand() * nav.nx * nav.cell; cz = nav.z0 + rand() * nav.nz * nav.cell; }
+        else { const a = rand() * 6.283, r = 5 + rand() * 25; cx = x + Math.cos(a) * r; cz = z + Math.sin(a) * r; }
+        const k = nav.idx(cx, cz);
+        if (k < 0 || !nav.free[k] || !nav.onT[k] || !clear(cx, cz)) continue;
+        if (!nav.path(cx, cz, S.x, S.z, 15000, nav.hgt[k], sy)) continue;
+        used.push([cx, cz]); return [type, cx, cz, { ...o, y: nav.hgt[k] + 0.4, moved: true }];
+      }
+      used.push([x, z]); return [type, x, z, o];
+    });
   }
   /** Put the enemies into the loaded chapter (again, when the number is changed on the hero screen). */
   spawnEnemies() {
     for (const e of this.enemies) { e.rig.group.traverse((o) => { if (o.geometry) o.geometry.dispose(); }); e.rig.group.removeFromParent(); }
     this.enemies = []; this.cache = {};
-    const L = this.level, duel = this.duel && this.duel.active;
-    for (const [type, x, z, o] of (duel ? this.duel.enemyList(L.enemies) : this.foeList(L.enemies))) this.enemies.push(new Enemy(this, type, x, z, o));
+    const L = this.level, duel = this.duel && this.duel.active, rand = rng(this.seed ^ 0x51ed), S = L.spawn;
+    const avoid = duel ? this.duel.spawnPoints().map((p) => [p.x, p.z, 26]) : [[S.x, S.z, 28]];
+    const list = this.scatter(duel ? this.duel.enemyList(L.enemies, rand) : this.foeList(L.enemies, rand), rand, avoid);
+    for (const [type, x, z, o] of list) this.enemies.push(new Enemy(this, type, x, z, o));
   }
 
   /** Switch the playable character: figure in the opening shot, hands, and the hero's trait. */
@@ -314,9 +350,14 @@ class Game {
     const duel = this.duel && this.duel.active, n = d.heroes.length;
     if (duel) {
       const c = this.duel.cfg;
-      $('#intro .chap').textContent = 'Duel · ' + RULES[c.rules];
-      $('#intro .story').textContent = 'Two players, one world. ' + (c.rules === 'rounds' ? 'Each kill ends a round; the first to win three rounds wins.' : c.rules === 'one' ? 'One life each: the first kill decides.' : 'Five minutes: whoever has more kills at the end wins.')
-        + (c.foes ? (c.foes > 1 ? ` ${['Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'][c.foes - 2]} of the chapter’s enemies are still about, and they attack you both.` : ' One of the chapter’s enemies is still about, and attacks you both.') : '') + ' Your opponent shows on the map as a white dot while moving, unless sneaking.';
+      $('#intro .chap').textContent = (c.rules === 'coop' ? 'Two players' : 'Duel') + ' · ' + RULES[c.rules];
+      const many = c.foes ? (c.foes === 1 ? 'One of the chapter’s enemies' : c.foes + ' of the chapter’s enemies') : '';
+      $('#intro .story').textContent = c.rules === 'coop'
+        ? `Two players together against ${c.foes} of the chapter’s enemies. Nothing either of you fires can hurt the other; each counts his own kills. One who falls is back in a moment. The mission is over when the last enemy falls.`
+        : 'Two players, one world. ' + (c.rules === 'rounds' ? 'Each kill ends a round; the first to win five rounds wins.'
+          : c.rules === 'ctf' ? 'Capture the flag: your flag, blue, stands at your end of the map, the other one, red, at the other end. Take the red flag and bring it to yours while yours is there. A carrier who falls drops it; touch your own lying out there to send it home. First to three captures, or the most after seven minutes.'
+          : 'Seven minutes: whoever has more kills at the end wins.')
+        + (many ? ` ${many} ${c.foes === 1 ? 'is' : 'are'} still about, and attack you both.` : '') + ' Your opponent shows on the map while moving, unless sneaking.';
     }
     $('#intro .pick').textContent = duel ? 'Choose your fighter' : 'Choose your hero';
     { const all = this.level.enemies.length, sel = $('#foesel'), want = Math.round(this.foeWant), steps = [5, 10, 15, 20, 25, 30].filter((k) => k < all).concat(all);       // the list offers 5 to 30 in steps of five, as far as the chapter has that many
@@ -340,9 +381,10 @@ class Game {
     const el = $('#duel'), linked = !!d;
     el.classList.toggle('linked', linked); el.classList.toggle('host', linked && d.isHost); el.classList.toggle('guest', linked && !d.isHost);
     $('#dlinkbox').classList.add('hidden');
-    $('#dhosttitle').textContent = linked ? 'The next duel' : 'Create a duel';
-    $('#dback').textContent = linked ? 'Leave the duel' : 'Back to the chapters';
-    if (linked) { $('#dlevel').value = d.cfg.level; $('#drules').value = d.cfg.rules; $('#dfoes').value = d.cfg.foes; }
+    $('#dhosttitle').textContent = linked ? 'The next game' : 'Create a game';
+    $('#dback').textContent = linked ? 'Leave' : 'Back to the chapters';
+    if (linked) { $('#dlevel').value = d.cfg.level; $('#drules').value = RULES[d.cfg.rules] ? d.cfg.rules : 'rounds'; $('#dfoes').value = String(Math.round((d.cfg.foes || 0) / 3) * 3); }
+    if (this.duelFoesLabel) this.duelFoesLabel();
   }
   duelLounge() {
     const d = this.duel;
@@ -360,9 +402,10 @@ class Game {
     this.setState('clear');
     if (document.pointerLockElement) document.exitPointerLock();
     this.sound.stopMusic(); this.sound.fanfare(this.def.id);
-    $('#clear .kicker').textContent = 'Duel · ' + RULES[this.duel.cfg.rules];
+    const r = this.duel.cfg.rules, unit = r === 'coop' || r === 'timed' ? ' · kills' : r === 'ctf' ? ' · flags' : ' · rounds';
+    $('#clear .kicker').textContent = (r === 'coop' ? 'Two players' : 'Duel') + ' · ' + RULES[r];
     $('#clear .big').textContent = title;
-    $('#clear .stats').innerHTML = `<div><b>${a}</b>You</div><div><b>${b}</b>${this.duel.remote ? this.duel.remote.name : 'Opponent'}</div>`;
+    $('#clear .stats').innerHTML = `<div><b>${a}</b>You${unit}</div><div><b>${b}</b>${this.duel.remote ? this.duel.remote.name : 'Opponent'}${unit}</div>`;
     $('#clear .go').textContent = this.duel.link.open ? 'Click to play again' : 'Click to return to the chapters';
   }
   /** Damage dealt by a computer enemy: to this player, or in a duel to the other one. */
@@ -393,20 +436,57 @@ class Game {
   }
 
   /** Something to pick up: what = { type: 'item', id: 'heal' } (the chapter's healing food or drink, the default), { type: 'item', id: bomb } or { type: 'weapon', kind }. */
-  addPickup(x, z, L, hint = 2, what = { type: 'item', id: 'heal' }) {
-    const y = this.world.groundAt(x, z, hint);
+  /**
+   * Something to pick up: what = { type: 'item', id: 'heal' } (the chapter's healing food or drink, the default), { type: 'item', id: bomb },
+   * { type: 'weapon', kind } or { type: 'ammo' }. Dropped on the ground it floats and turns; o.still: it lies at height o.y on a table,
+   * a shelf, a counter or a chest (o.piece), and falls to the floor if that is broken.
+   */
+  addPickup(x, z, L, hint = 2, what = { type: 'item', id: 'heal' }, o = {}) {
+    const y = o.y ?? this.world.groundAt(x, z, hint);
     let mesh;
     if (what.type === 'weapon') mesh = dropMesh(what.kind, this.M);
+    else if (what.type === 'ammo') mesh = this.ammoMesh();
     else if (what.id !== 'heal') { mesh = new THREE.Mesh(this.shots.geo[what.id], this.M.flat); mesh.scale.setScalar(1.6); }
     else mesh = L.makePickup ? L.makePickup() : new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 0.3, 8), new THREE.MeshStandardMaterial({ color: 0xb8742a }));
-    mesh.position.set(x, y + 0.5, z); mesh.castShadow = true;
+    const box = new THREE.Box3().setFromObject(mesh), lift = -box.min.y + 0.005;      // how far its origin lies above its bottom
+    mesh.position.set(x, o.still ? y + lift : y + 0.5, z); mesh.castShadow = true;
     this.gfx.root.add(mesh);
-    this.pickups.push({ mesh, x, y, z, t: ((x * 7.3 + z * 3.1) % 6 + 6) % 6, what });
+    this.pickups.push({ mesh, x, y, z, t: ((x * 7.3 + z * 3.1) % 6 + 6) % 6, what, still: !!o.still, lift, piece: o.piece || null, rot: ((x * 3.7 + z) % 6.28) });
   }
-  pickupKey(w) { return w ? (w.type === 'weapon' ? 'w:' + w.kind : 'i:' + w.id) : 'i:heal'; }
+  /** A box of ammunition: a small wooden case with a brass band. */
+  ammoMesh() {
+    if (!this.ammoGeo) this.ammoGeo = merge([gBox(0.32, 0.16, 0.2, 0x4a5236, [0, 0, 0]), gBox(0.33, 0.03, 0.21, 0xc9a050, [0, 0.02, 0]), gBox(0.08, 0.02, 0.05, 0xe8e0c8, [0.09, 0.085, 0])]);
+    return new THREE.Mesh(this.ammoGeo, this.M.flat);
+  }
+  pickupKey(w) { return w ? (w.type === 'weapon' ? 'w:' + w.kind : w.type === 'ammo' ? 'a' : 'i:' + w.id) : 'i:heal'; }
+  /**
+   * The chapter's healing food or drink lies where one would put it down: on tables, chests, market counters and shelves, at different
+   * places each game. Where there are not enough of those, the rest lie where the chapter put them.
+   */
+  placeHeals(L) {
+    const rand = rng(this.seed ^ 0xbee), W = this.world, chosen = [];
+    const orig = shuffle((L.pickups || []).map((p) => [p[0], p[1], p[3] !== undefined ? W.height(p[0], p[1]) + p[3] : p[2]]), rand);
+    for (const q of shuffle(W.pieces.filter((q) => q.spot), rand)) {
+      if (chosen.length >= orig.length) break;
+      let x, y, z;
+      const sp = q.spot === 'top' ? { x: q.x, y: q.top, z: q.z, hw: q.sweep.hw - 0.15, hd: q.sweep.hd - 0.12, ry: q.sweep.ry || 0 } : q.spot;
+      { const lx = (rand() - 0.5) * 2 * Math.max(0, sp.hw), lz = (rand() - 0.5) * 2 * Math.max(0, sp.hd), cs = Math.cos(sp.ry), sn = Math.sin(sp.ry); x = sp.x + lx * cs + lz * sn; z = sp.z - lx * sn + lz * cs; y = sp.y; }
+      if (chosen.some((c) => (c.x - x) ** 2 + (c.z - z) ** 2 < 36)) continue;            // spread over the chapter
+      chosen.push({ x, y, z, q });
+    }
+    for (const c of chosen) this.addPickup(c.x, c.z, L, c.y, { type: 'item', id: 'heal' }, { y: c.y, still: true, piece: c.q });
+    for (const p of orig.slice(chosen.length)) this.addPickup(p[0], p[1], L, p[2]);
+  }
+  /** A breakable thing has gone: what lay on it falls to the floor, and what it held (ammunition, something that heals) comes out. */
+  pieceBroken(p) {
+    for (const q of this.pickups) if (q.piece === p) { q.piece = null; q.still = false; q.y = this.world.groundAt(q.x, q.z, p.y + 0.2); }
+    const what = lootOf(p, this.seed);
+    if (what) this.addPickup(p.x, p.z, this.level, p.y + 0.3, what);
+  }
   /** An enemy has fallen: it leaves its weapon (and now and then a bomb or something that heals) where it fell. */
   enemyDown(e) {
     if (e.remote || !this.level) return;
+    if (this.duel) this.duel.enemyKilled();
     const list = dropsOf(e, this.def.id);
     list.forEach((what, i) => {
       const a = e.yaw + 1.2 + i * 1.9, r = 0.7 + i * 0.35, x = e.pos.x + Math.sin(a) * r, z = e.pos.z + Math.cos(a) * r;
@@ -416,6 +496,7 @@ class Game {
   /** The player walks over something: is it taken? Returns the line to show, or null if it is of no use now. */
   takePickup(p) {
     const P = this.player, w = p.what || { type: 'item', id: 'heal' };
+    if (w.type === 'ammo') return P.addAmmo();
     if (w.type === 'weapon') {
       const r = P.addWeapon(w.kind); if (!r) return null;
       return r === 'new' ? weaponName(w.kind, this.def) + ' taken — mouse wheel to use it' : weaponName(w.kind, this.def) + '  ' + r;
@@ -431,7 +512,7 @@ class Game {
     this.noise = 0.6; this.stats.shots++; this.crossGap = 16;
     const wh = this.world.raycast(o, d, 260);
     let t = wh ? wh.t : 260, target = null, head = false;
-    for (const e of this.enemies) { const h = e.rayHit(o, d, t); if (h) { t = h.t; target = e; head = h.head; } }
+    for (const e of this.enemies) { if (this.friend(e)) continue; const h = e.rayHit(o, d, t); if (h) { t = h.t; target = e; head = h.head; } }
     const hx = o.x + d.x * t, hy = o.y + d.y * t, hz = o.z + d.z * t;
     const m = muzzleObj.getWorldPosition(new THREE.Vector3());
     this.shots.tracer(m.x, m.y, m.z, hx, hy, hz);
@@ -463,7 +544,7 @@ class Game {
       this.crowd.hit(w, dmg, w.px - dx / dist * 0.3, w.py + 1.2, w.pz - dz / dist * 0.3, true); any = true;
     }
     for (const e of this.enemies) {
-      if (!e.alive || e.state === 'hidden') continue;
+      if (!e.alive || e.state === 'hidden' || this.friend(e)) continue;
       const dx = e.pos.x - P.pos.x, dy = e.pos.y + 1.1 - (P.pos.y + 1.5), dz = e.pos.z - P.pos.z, dist = Math.hypot(dx, dy, dz);
       if (dist > range || (dx * f.x + dy * f.y + dz * f.z) / dist < cone) continue;
       if (!this.world.clear(P.pos.x, P.pos.y + 1.5, P.pos.z, e.pos.x, e.pos.y + (e.cfg.dog ? 0.5 : 1.1), e.pos.z)) continue;   // not through walls
@@ -577,12 +658,14 @@ class Game {
     if (this.state === 'play' && this.input.mark && !P.dead) this.map.toggleMark();
     for (const e of this.enemies) e.update(dt);
     this.crowd.update(dt);
+    this.life.update(dt, this.time);
     this.shots.update(dt);
     this.havoc.update(dt);
     for (let i = this.pickups.length - 1; i >= 0; i--) {
       const p = this.pickups[i]; p.t += dt;
-      p.mesh.rotation.y = p.t * 1.2; p.mesh.position.y = p.y + 0.55 + Math.sin(p.t * 2.2) * 0.08;
-      if (Math.random() < dt * 5) this.gfx.glow.spawn(p.x + (Math.random() - 0.5) * 0.5, p.y + 0.3, p.z + (Math.random() - 0.5) * 0.5, 0, 0.6 + Math.random() * 0.5, 0, { life: 1.2, s0: 0.05, s1: 0.0, r: 1.2, g: 2.2, b: 0.9, a: 0.9 });
+      if (p.still) { p.mesh.rotation.y = p.rot; p.mesh.position.y = p.y + p.lift; }           // laid on a table or a shelf: it stays put, a faint glint shows it
+      else { p.mesh.rotation.y = p.t * 1.2; p.mesh.position.y = p.y + 0.55 + Math.sin(p.t * 2.2) * 0.08; }
+      if (Math.random() < dt * (p.still ? 1.5 : 5)) this.gfx.glow.spawn(p.x + (Math.random() - 0.5) * 0.5, p.y + 0.3, p.z + (Math.random() - 0.5) * 0.5, 0, 0.6 + Math.random() * 0.5, 0, { life: 1.2, s0: 0.05, s1: 0.0, r: 1.2, g: 2.2, b: 0.9, a: 0.9 });
       if (!P.dead && (p.x - P.pos.x) ** 2 + (p.z - P.pos.z) ** 2 < 1.7 && Math.abs(p.y - P.pos.y) < 2) {
         const line = this.takePickup(p);
         if (!line) continue;                              // of no use now (the bag is full, or it is the hero's own weapon): it stays where it lies
@@ -607,7 +690,7 @@ class Game {
       const name = sl.fists ? 'Fists' : sl.own ? this.ownName : sl.type === 'item' ? itemName(sl.id, this.def) : weaponName(sl.kind, this.def);
       u.wname.innerHTML = esc(name) + (sl.type === 'item' ? ` <span class="res">× ${sl.count}</span>` : P.weapon.reserve !== null ? ` <span class="res">${P.weapon.reserve} more</span>` : '');
       u.alt.textContent = sl.fists ? weaponAlt('fists') : sl.own ? this.ownAlt : sl.type === 'item' ? itemAlt(sl.id) : weaponAlt(sl.kind, this.def);
-      u.bag.innerHTML = P.slots.length > 1 ? P.slots.map((q, i) => `<div class="${i === P.slot ? 'sel' : ''}"><kbd>${i + 1}</kbd>${esc(q.fists ? 'Fists' : q.own ? this.ownName.split(' & ')[0] : q.type === 'item' ? itemName(q.id, this.def) : weaponName(q.kind, this.def))}${q.type === 'item' ? ' × ' + q.count : q.own ? '' : ' · ' + (q.weapon.reserve + (q.weapon.ammo || 0))}</div>`).join('') : '';
+      u.bag.innerHTML = P.slots.length > 1 ? P.slots.map((q, i) => `<div class="${i === P.slot ? 'sel' : ''}"><kbd>${i + 1}</kbd>${esc(q.fists ? 'Fists' : q.own ? this.ownName.split(' & ')[0] : q.type === 'item' ? itemName(q.id, this.def) : weaponName(q.kind, this.def))}${q.type === 'item' ? ' × ' + q.count : q.fists ? '' : ' · ' + this.player.left(q.weapon)}</div>`).join('') : '';
     }
     this.bagShown = Math.max(0, this.bagShown - dt); u.bag.classList.toggle('lit', this.bagShown > 0);
     const h = P.weapon.hud(), key = h.ammo + '/' + h.mag + h.reloading;

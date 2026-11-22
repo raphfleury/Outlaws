@@ -1075,7 +1075,8 @@ export class Enemy {
   puppetUpdate(dt) {
     const n = this.net, rig = this.rig; if (!n) return;
     if (n.st === 2) { if (this.state !== 'dead') { this.hp = 0; this.state = 'dead'; this.deathT = 0; this.fallDir = -1; if (this.game.enemyDown) this.game.enemyDown(this); } return; }
-    this.state = n.st === 1 ? 'combat' : 'idle'; this.sneaking = !!n.sn;
+    this.state = n.st === 1 ? 'combat' : n.st === 3 ? 'hidden' : 'idle'; this.sneaking = !!n.sn;
+    rig.group.visible = n.st !== 3;                          // one lying in ambush shows when he springs out
     const bx = this.pos.x, bz = this.pos.z, k = Math.min(1, dt * 12);
     this.pos.x += (n.x - bx) * k; this.pos.y += (n.y - this.pos.y) * k; this.pos.z += (n.z - bz) * k;
     let dy = n.yaw - this.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); this.yaw += dy * k;
@@ -1093,6 +1094,7 @@ export class Enemy {
 
   fire(dx, dy, dz, dist) {
     const G = this.game, cfg = this.cfg, r = G.rand, P = this.tgt || G.player;
+    this.shotAt = G.time;                                    // a shot gives him away on the map
     const fx = Math.sin(this.yaw), fz = Math.cos(this.yaw);
     const mx = this.pos.x + fx * 0.75 - fz * 0.2 * this.scale, my = this.pos.y + 1.42 * this.scale, mz = this.pos.z + fz * 0.75 + fx * 0.2 * this.scale;
     // aim at the chest, with a little lead and a random error
@@ -1110,6 +1112,7 @@ export class Enemy {
   }
   throwStar(dx, dy, dz, dist) {
     const G = this.game, P = this.tgt || G.player;
+    this.shotAt = G.time;
     const my = this.pos.y + 1.4 * this.scale, tt = dist / 30 * 0.5;
     let ax = P.pos.x + P.vel.x * tt - this.pos.x, ay = P.pos.y + 1.2 - 0.5 * (P.duck || 0) - my + dist * 0.02, az = P.pos.z + P.vel.z * tt - this.pos.z;
     const l = Math.hypot(ax, ay, az);
@@ -1192,7 +1195,7 @@ export class Shots {
       const wh = W.raycast(_o, _d, len);
       let tMax = wh ? wh.t : len, hitEnemy = null, head = false, hitPlayer = false, hitRemote = false;
       if (s.fromPlayer) {
-        for (const e of G.enemies) { const h = e.rayHit(_o, _d, tMax); if (h) { tMax = h.t; hitEnemy = e; head = h.head; } }
+        for (const e of G.enemies) { if (G.friend(e)) continue; const h = e.rayHit(_o, _d, tMax); if (h) { tMax = h.t; hitEnemy = e; head = h.head; } }
       } else if (!s.ghost) {                    // a ghost only shows what the other side of a duel fired; it hits nothing here
         const R = G.duel && G.duel.isHost && G.duel.remote;                     // in a duel the host's enemies can also hit the other player
         if (R) { const h = R.rayHit(_o, _d, tMax); if (h) { tMax = h.t; hitRemote = true; } }
@@ -1238,7 +1241,7 @@ export class Shots {
   bomb(s, dt) {
     const G = this.game, W = G.world;
     s.fuse -= dt;
-    if (s.fuse <= 0) { G.havoc.explode(s.x, s.y + 0.15, s.z); return true; }
+    if (s.fuse <= 0) { G.havoc.explode(s.x, s.y + 0.15, s.z, { ghost: s.ghost }); return true; }
     if (Math.random() < dt * 40) G.gfx.glow.spawn(s.x, s.y + 0.08, s.z, (Math.random() - 0.5) * 1.5, 1 + Math.random(), (Math.random() - 0.5) * 1.5, { life: 0.25, s0: 0.03, s1: 0.005, r: 3, g: 1.8, b: 0.6, a: 1, grav: 4 });   // the burning fuse
     if (!s.rest) {
       s.vy -= s.g * dt;

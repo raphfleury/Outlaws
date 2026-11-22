@@ -32,6 +32,7 @@ export class Crowd {
   /** Something dangerous happened at (x, z): everyone within r runs from (sx, sz). */
   alarm(x, z, r, sx = x, sz = z) {
     this.calm = 0;
+    if (this.game.life) this.game.life.alarm(x, z, r * 1.5);           // the birds take wing too
     for (const w of this.list) if (!w.dead && (w.px - x) ** 2 + (w.pz - z) ** 2 < r * r) this.frighten(w, sx, sz);
   }
   frighten(w, sx, sz) {

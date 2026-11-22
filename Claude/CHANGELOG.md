@@ -16,6 +16,42 @@ Each version is a Git tag named `lone-hand-vX.Y.Z` and a
 game as one downloadable file. The number is also shown in the bottom right corner of the
 title screen.
 
+## [1.9.0] - 2026-11-22
+
+### Added
+
+- **Capture the flag**, a new game for two players online: each player's flag stands at
+  his end of the map; take the other's and bring it to yours while yours is there. First
+  to three captures, or the most after seven minutes.
+- **Together against the enemy**: two players online side by side against 3 to 24 of the
+  chapter's enemies, with no harm between them; each counts his own kills, and the mission
+  is over when the last enemy falls.
+- **Enemies at new places every game**, and a different choice of them: those who walk the
+  ground start at random free places (in a game for two, the same in both browsers).
+- **Ammunition runs out for every weapon**, the hero's own included. Boxes of ammunition are
+  found on the fallen and in crates, chests and barrels, which may also hold something
+  that heals. With nothing left to fire, the fists come to hand.
+- **Healing food and drink lie on tables, chests, market counters and shelves**, at other
+  places each game, instead of floating in the open.
+- **The map starts dark** and uncovers the ground the player passes near. Enemies show on it
+  only where it is uncovered, and only while they move, after they have fired, or once
+  they have seen the player.
+- **Life around**: flocks of birds that take wing at shots and footsteps, gusts of dust or
+  snow, dust devils on the dry plains, a train that comes and goes in chapter I and a
+  tank that crosses the town in chapter VII.
+
+### Changed
+
+- Duels: first to **5** rounds (was 3); the timed duel lasts **7** minutes (was 5).
+- The number of computer enemies in a game for two goes from 3 to 24 by threes (was 1 to 9).
+- The title screen's button reads *Two players online*, and its screen offers the four games.
+- The web site opens straight onto the game.
+
+### Removed
+
+- The duel with one life (replaced by capture the flag).
+- The Gemini version (*Eight Horizons*) and the landing page that chose between the two.
+
 ## [1.8.0] - 2026-11-22
 
 ### Added

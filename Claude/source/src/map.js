@@ -1,12 +1,13 @@
 // The map of the chapter: a mini-map in the corner (turning with the player), the whole map on Tab, and the places marked
 // with the middle mouse button, shown on both maps and as pins standing in the world.
+// The map starts dark: only the ground the player has passed within sight of is uncovered (about 30 metres around him).
 // The map is drawn once per chapter from the world itself: the terrain (shaded by its slopes, water in blue) and, from above,
 // every solid wall, house, fence and rock. Enemies appear on it while they move about; one who stands still or creeps up
 // unseen does not (in a duel the same holds for the other player, who sneaks with X).
 import * as THREE from 'three';
 import { clamp } from './util.js';
 
-const N = 512, MAX_MARKS = 9;
+const N = 512, MAX_MARKS = 9, FOG = 128;
 
 export class MapView {
   constructor(game) {
@@ -14,7 +15,20 @@ export class MapView {
     this.mini = document.getElementById('minimap'); this.big = document.getElementById('bigmap'); this.pins = document.getElementById('pins');
     this.range = 55;              // metres from the centre to the rim of the mini-map
     this.marks = []; this._v = new THREE.Vector3(); this.open = false;
+    this.fog = document.createElement('canvas'); this.fog.width = this.fog.height = N;           // what is still unknown: dark, cut away where the player has been
+    this.known = new Uint8Array(FOG * FOG); this.lastX = 1e9; this.lastZ = 1e9;
   }
+  /** Uncover the map around (x, z). */
+  reveal(x, z) {
+    const R = 30, k = this.k, ctx = this.fog.getContext('2d'), cx = (x - this.x0) * k, cz = (z - this.z0) * k, r = R * k;
+    ctx.save(); ctx.globalCompositeOperation = 'destination-out';
+    const g = ctx.createRadialGradient(cx, cz, r * 0.55, cx, cz, r); g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cz, r, 0, 6.283); ctx.fill(); ctx.restore();
+    const q = FOG / N, c0 = Math.floor((cx - r * 0.8) * q), c1 = Math.ceil((cx + r * 0.8) * q), r0 = Math.floor((cz - r * 0.8) * q), r1 = Math.ceil((cz + r * 0.8) * q), rr = (r * 0.8 * q) ** 2;
+    for (let j = Math.max(0, r0); j <= Math.min(FOG - 1, r1); j++) for (let i = Math.max(0, c0); i <= Math.min(FOG - 1, c1); i++) if ((i + 0.5 - cx * q) ** 2 + (j + 0.5 - cz * q) ** 2 < rr) this.known[j * FOG + i] = 1;
+  }
+  /** Has the player been near this place? */
+  isKnown(x, z) { const i = Math.floor((x - this.x0) * this.k * FOG / N), j = Math.floor((z - this.z0) * this.k * FOG / N); return i >= 0 && j >= 0 && i < FOG && j < FOG && this.known[j * FOG + i] === 1; }
 
   /** Draw the chapter's map (after the level is built). */
   build() {
@@ -47,6 +61,9 @@ export class MapView {
     ctx.fillStyle = 'rgba(30,40,26,0.55)';
     for (const c of W.cyls) { if (c.y1 - W.height(c.x, c.z) < 0.8) continue; ctx.beginPath(); ctx.arc((c.x - this.x0) * k, (c.z - this.z0) * k, Math.max(1.1, c.r * k), 0, 6.283); ctx.fill(); }
     this.accent = getComputedStyle(document.body).getPropertyValue('--accent').trim() || '#e0a040';
+    { const f = this.fog.getContext('2d'); f.globalCompositeOperation = 'source-over'; f.clearRect(0, 0, N, N); f.fillStyle = 'rgb(14,11,9)'; f.fillRect(0, 0, N, N);
+      f.fillStyle = 'rgba(244,234,212,0.05)'; for (let i = -N; i < N; i += 9) { f.save(); f.translate(i, 0); f.rotate(0.6); f.fillRect(0, -N, 1.5, N * 3); f.restore(); } }   // faint hatching: unknown land
+    this.known.fill(0); this.lastX = this.lastZ = 1e9;
     this.clearMarks();
   }
 
@@ -79,13 +96,16 @@ export class MapView {
   /** Who shows on the map: enemies on the move (not standing still, not creeping up unseen), and in a duel the other player likewise. */
   seen(e) {
     if (!e.alive || e.state === 'hidden') return false;
-    if (e.remote) return !!e.net && e.moving > 0.2 && !(e.net.f & 16);
-    return e.moving > 0.2 && !e.sneaking;
+    const D = this.game.duel;
+    if (e.remote) return !!e.net && (D && (D.cfg.rules === 'coop' || D.carrying('them')) || (e.moving > 0.2 && !(e.net.f & 16)));   // a team-mate always; an opponent while he moves openly, or carries a flag
+    if (!this.isKnown(e.pos.x, e.pos.z)) return false;                              // ground the player has not seen: nothing shows there
+    return (e.moving > 0.2 && !e.sneaking) || e.state === 'combat' || this.game.time - (e.shotAt ?? -99) < 3;   // on the move, shooting, or after the player
   }
 
   // ---- drawing, every frame -------------------------------------------------------
   update(dt, input) {
     const G = this.game, P = G.player;
+    if ((P.pos.x - this.lastX) ** 2 + (P.pos.z - this.lastZ) ** 2 > 2.5) { this.lastX = P.pos.x; this.lastZ = P.pos.z; this.reveal(P.pos.x, P.pos.z); }
     this.open = G.state === 'play' && input.keys.has('Tab');
     this.big.classList.toggle('on', this.open);
     this.drawMini(P);
@@ -108,15 +128,16 @@ export class MapView {
     ctx.save(); ctx.beginPath(); ctx.arc(R, R, R - 1, 0, 6.283); ctx.clip();
     ctx.fillStyle = '#14100c'; ctx.fillRect(0, 0, S, S);
     ctx.translate(R, R); ctx.rotate(yaw); ctx.scale(ppm / this.k, ppm / this.k); ctx.translate(-(P.pos.x - this.x0) * this.k, -(P.pos.z - this.z0) * this.k);
-    ctx.drawImage(this.base, 0, 0);
+    ctx.drawImage(this.base, 0, 0); ctx.drawImage(this.fog, 0, 0);
     ctx.restore();
     const at = (x, z) => { const dx = (x - P.pos.x) * ppm, dz = (z - P.pos.z) * ppm; return [R + dx * cs - dz * sn, R + dx * sn + dz * cs]; };
     const dpr = S / 200;
     for (const e of this.game.enemies) {
       if (!this.seen(e)) continue;
       const [x, y] = at(e.pos.x, e.pos.z); if (Math.hypot(x - R, y - R) > R - 4 * dpr) continue;
-      dot(ctx, x, y, (e.remote || e.cfg.boss ? 5 : 3.6) * dpr, e.remote ? '#ffffff' : '#d83a2a', e.remote || e.cfg.boss ? '#d83a2a' : 'rgba(0,0,0,.7)');
+      dot(ctx, x, y, (e.remote || e.cfg.boss ? 5 : 3.6) * dpr, e.remote ? (this.game.friend(e) ? '#7ad86a' : '#ffffff') : '#d83a2a', e.remote || e.cfg.boss ? (this.game.friend(e) ? '#1c4a18' : '#d83a2a') : 'rgba(0,0,0,.7)');
     }
+    this.drawFlags(ctx, at, dpr, R);
     for (const m of this.marks) {                     // a mark beyond the rim sits on the rim, in its direction
       let [x, y] = at(m.x, m.z); const dx = x - R, dy = y - R, l = Math.hypot(dx, dy), lim = R - 9 * dpr;
       if (l > lim) { x = R + dx / l * lim; y = R + dy / l * lim; }
@@ -132,15 +153,28 @@ export class MapView {
   drawBig(P) {
     const c = this.big, S = c.width, ctx = c.getContext('2d'), f = S / N, k = this.k * f;
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, S, S);
-    ctx.drawImage(this.base, 0, 0, S, S);
+    ctx.drawImage(this.base, 0, 0, S, S); ctx.drawImage(this.fog, 0, 0, S, S);
     const at = (x, z) => [(x - this.x0) * k, (z - this.z0) * k], dpr = S / 700;
-    for (const e of this.game.enemies) { if (!this.seen(e)) continue; const [x, y] = at(e.pos.x, e.pos.z); dot(ctx, x, y, (e.remote || e.cfg.boss ? 6 : 4.5) * dpr, e.remote ? '#ffffff' : '#d83a2a', e.remote || e.cfg.boss ? '#d83a2a' : 'rgba(0,0,0,.7)'); }
+    for (const e of this.game.enemies) { if (!this.seen(e)) continue; const [x, y] = at(e.pos.x, e.pos.z); dot(ctx, x, y, (e.remote || e.cfg.boss ? 6 : 4.5) * dpr, e.remote ? (this.game.friend(e) ? '#7ad86a' : '#ffffff') : '#d83a2a', e.remote || e.cfg.boss ? (this.game.friend(e) ? '#1c4a18' : '#d83a2a') : 'rgba(0,0,0,.7)'); }
+    this.drawFlags(ctx, at, dpr * 1.3, 0);
     for (const m of this.marks) { const [x, y] = at(m.x, m.z); pinDot(ctx, x, y, m.n, dpr * 1.2, this.accent); }
     const [px, py] = at(P.pos.x, P.pos.z); arrow(ctx, px, py, -P.yaw, 10 * dpr);
     ctx.font = `${15 * dpr}px Georgia, serif`; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillStyle = 'rgba(244,234,212,.85)';
     ctx.fillText('N ↑   ·   middle mouse button: mark a place   ·   release Tab to close', 14 * dpr, 12 * dpr);
   }
 
+  /** Capture the flag: both flags always show (blue, this player's; red, the other's), on the rim of the mini-map when far. */
+  drawFlags(ctx, at, s, rim) {
+    const D = this.game.duel; if (!D || !D.flags) return;
+    for (const f of D.flags) {
+      let [x, y] = at(f.x, f.z);
+      if (rim) { const dx = x - rim, dy = y - rim, l = Math.hypot(dx, dy), lim = rim - 9 * s; if (l > lim) { x = rim + dx / l * lim; y = rim + dy / l * lim; } }
+      const mine = f.i === (D.isHost ? 0 : 1);
+      ctx.fillStyle = '#f4ead4'; ctx.fillRect(x - 1 * s, y - 11 * s, 2 * s, 13 * s);
+      ctx.beginPath(); ctx.moveTo(x + 1 * s, y - 11 * s); ctx.lineTo(x + 10 * s, y - 7.5 * s); ctx.lineTo(x + 1 * s, y - 4 * s); ctx.closePath();
+      ctx.fillStyle = mine ? '#2a62d8' : '#d8322a'; ctx.fill(); ctx.lineWidth = s; ctx.strokeStyle = 'rgba(0,0,0,.8)'; ctx.stroke();
+    }
+  }
   /** Size the canvases to the screen (sharp on high-density displays). */
   resize() {
     const r = Math.min(2, devicePixelRatio || 1);

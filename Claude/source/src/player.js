@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { merge, xf } from './build.js';
 import { gBox, gCyl, gSph, gCone, gCap, gStar } from './actors.js';
 import { clamp, damp, lerp } from './util.js';
-import { ROUNDS, MAX_SLOTS, MAX_ITEMS } from './loot.js';
+import { ROUNDS, MAX_SLOTS, MAX_ITEMS, START, PACK, most, weaponName } from './loot.js';
 
 export class Input {
   constructor(canvas) {
@@ -116,8 +116,23 @@ export class Player {
   /** The hero's own weapon. It never runs out; the arsenal starts again from it (what was picked up is lost). */
   setWeapon(kind, sleeve = 0x9a8a6a, cuff) {
     this.sleeve = sleeve; this.cuff = cuff;
-    this.slots = [{ type: 'weapon', kind, own: true, weapon: new Weapon(this, kind, sleeve, cuff) }, { type: 'weapon', kind: 'fists', own: true, fists: true, weapon: new Weapon(this, 'fists', sleeve, cuff) }];
+    const own = new Weapon(this, kind, sleeve, cuff), n = START[kind] || 20;            // the hero's weapon too has only so many shots
+    own.reserve = own.mag > 1 ? n - own.mag : n;
+    this.slots = [{ type: 'weapon', kind, own: true, weapon: own }, { type: 'weapon', kind: 'fists', own: true, fists: true, weapon: new Weapon(this, 'fists', sleeve, cuff) }];
     this.slot = 0; this.show(0); this.raise = 0;
+  }
+  /** Shots left in a weapon, loaded and spare. */
+  left(w) { return (w.reserve ?? 0) + (w.mag > 1 ? w.ammo : 0); }
+  /** A box of ammunition: for the weapon in hand if it can take more, otherwise for the hero's own, otherwise for any weapon carried. Returns a line to show, or null. */
+  addAmmo() {
+    const cur = this.slots[this.slot], order = [cur, this.slots[0], ...this.slots].filter((q) => q && q.type === 'weapon' && !q.fists);
+    for (const q of order) {
+      const w = q.weapon, room = most(q.kind) - this.left(w);
+      if (room <= 0) continue;
+      const n = Math.min(room, PACK[q.kind] || 5); w.reserve += n;
+      return 'Ammunition: ' + (q.own ? this.game.ownName.split(' & ')[0] : weaponName(q.kind, this.game.def)) + '  +' + n;
+    }
+    return null;
   }
   /** Put the weapon or the thing of slot i into the hands. */
   show(i) {
@@ -133,9 +148,9 @@ export class Player {
   cycle(d) { const n = this.slots.length; if (n > 1) this.select((this.slot + d + n) % n); }
   /** A weapon taken from an enemy: a new place in the arsenal, or more shots for one already carried. Returns a line to show, or null if it is of no use. */
   addWeapon(kind) {
-    const have = this.slots.find((s) => s.type === 'weapon' && s.kind === kind), n = ROUNDS[kind] || 6;
-    if (have && have.own) return null;                             // the hero's own weapon never runs out
-    if (have) { have.weapon.reserve += n; return '+' + n; }
+    const have = this.slots.find((s) => s.type === 'weapon' && s.kind === kind && !s.fists);
+    if (have) { const n = Math.min(ROUNDS[kind] || 6, most(kind) - this.left(have.weapon)); if (n <= 0) return null; have.weapon.reserve += n; return '+' + n; }   // more shots for a weapon already carried
+    const n = ROUNDS[kind] || 6;
     if (this.slots.filter((s) => s.type === 'weapon' && !s.fists).length >= MAX_SLOTS) return null;
     const w = new Weapon(this, kind, this.sleeve, this.cuff); w.reserve = n;
     if (w.mag > 1) { w.ammo = Math.min(w.mag, n); w.reserve = n - w.ammo; }       // it comes loaded
@@ -217,6 +232,11 @@ export class Player {
       }
     }
     this.tidy();
+    { const w = this.weapon, sl = this.slots[this.slot];
+      this.dryT = Math.max(0, (this.dryT || 0) - dt);
+      if (active && input.fire && sl && sl.own && !sl.fists && w.state === 'ready' && w.reserve === 0 && (w.mag > 1 ? w.ammo === 0 : true) && !this.dryT) {
+        this.dryT = 2; G.say('Out of ammunition — look for some on the fallen and in crates. Fists: 2'); G.sound.click(900); this.select(1);
+      } }
     this.duck = damp(this.duck, this.crouch ? 1 : 0, 12, dt);
     const H = this.crouch ? 1.05 : 1.75, eye = 1.65 - 0.7 * this.duck;
     const sprint = (this.sprinting = active && !this.crouch && (K.has('ShiftLeft') || K.has('ShiftRight')));

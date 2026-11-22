@@ -113,6 +113,7 @@ export class Havoc {
     for (const q of W.pieces) if (!q.broken && q !== p && Math.abs(q.y - p.top) < 0.2 && Math.hypot(q.x - p.x, q.z - p.z) < p.r + q.r) this.queue.push({ t: 0.12, p: q });
     if (p.boom) this.queue.push({ t: 0.05, x: p.x, y: p.y + 0.5, z: p.z, boom: true });
     if (send && G.duel && G.duel.active) G.duel.send({ t: 'brk', i: p.id });
+    G.pieceBroken(p);
   }
   /** How far a sound is from the player, 0 (here) .. 1 (far off). */
   far(x, z) { const P = this.game.player.pos; return Math.min(1, Math.hypot(x - P.x, z - P.z) / 90); }
@@ -139,7 +140,7 @@ export class Havoc {
     if (dp < 30 && !P.dead) P.recoil((Math.random() - 0.5) * 3 * (1 - dp / 30));
     // the blast
     const shield = (bx, by, bz) => (W.clear(x, y, z, bx, by, bz) ? 1 : 0.35);
-    if (dp < R) G.hurtPlayer(DMG * 0.6 * (1 - dp / R) * shield(P.pos.x, P.pos.y + 1, P.pos.z), { x, z }, false);
+    if (dp < R && !(o.ghost && G.duel && G.duel.cfg.rules === 'coop')) G.hurtPlayer(DMG * 0.6 * (1 - dp / R) * shield(P.pos.x, P.pos.y + 1, P.pos.z), { x, z }, false);
     for (const e of G.enemies) {
       if (!e.alive || e.remote || e.puppet || e.state === 'hidden') continue;      // the other player and the host's enemies are worked out in their own browser
       const d = Math.hypot(e.pos.x - x, e.pos.y + 1 - y, e.pos.z - z);

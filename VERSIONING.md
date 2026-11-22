@@ -1,12 +1,10 @@
 # Versioning in this repository
 
-This repository holds two games that are numbered separately. A change to one never raises
-the number of the other.
+This repository holds one game, *Lone Hand*, in `Claude/`.
 
 | Game | Folder | Tag | Changelog | Where the number lives |
 | --- | --- | --- | --- | --- |
 | Lone Hand (Claude version) | `Claude/` | `lone-hand-vX.Y.Z` | `Claude/CHANGELOG.md` | `Claude/source/package.json` |
-| Eight Horizons (Gemini version) | `Gemini/` | `eight-horizons-vX.Y.Z` | `Gemini/CHANGELOG.md` | to be set by its author |
 
 ## The number
 
