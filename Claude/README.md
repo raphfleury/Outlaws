@@ -1,6 +1,6 @@
 # Lone Hand — Claude version
 
-**Version 1.7.0** · [What changed (changelog)](CHANGELOG.md) · [All releases](https://github.com/iago-swi/outlaws/releases)
+**Version 1.8.0** · [What changed (changelog)](CHANGELOG.md) · [All releases](https://github.com/iago-swi/outlaws/releases)
 
 A first-person shooter in nine chapters, built with Claude (Anthropic) in the spirit of
 late-1990s Western shooters. From a frontier town to a Japanese shrine, an alpine valley,
@@ -320,6 +320,28 @@ network.
   Running near them, on the other hand, is heard within twelve metres, even through a
   wall. Enemies who close in on you while you cannot see them sneak as well.
 
+### Bystanders, fists, wounds and aimed throws
+
+- **Bystanders** take fright at shots, blasts and missiles landing near them: they run from
+  the danger, crouch with their hands over their heads, and walk back to their work once
+  it has been quiet for a while (if the way back is blocked, they stay where they are).
+  Stand still near one for a moment, without fighting, and he turns to you and talks,
+  waves, nods, shrugs or points; aim at one and he raises his hands. A shot or two kills
+  one; the end of the chapter shows how many bystanders you killed.
+- **Fists** are always the second place of the arsenal (`2`): the left button jabs with
+  either hand in turn (28 damage), the right button throws a hook (55). They reach about
+  a metre and a half, need no ammunition and break crates and fences too.
+- **Wounds.** A shot leaves a dark mark on the body where it went in, pushes the figure back
+  a little, and shows a small health bar over the enemy for four seconds (over the other
+  player of a duel as long as he is hurt). Below 40% of his strength an enemy limps.
+- **Things wear before they break.** Each hit dents and blackens a breakable thing where it
+  struck, and it leans further over the weaker it gets.
+- **Aimed throws.** With a thrown weapon the right button aims (the view narrows a little)
+  and draws the flight as a line of dots, from the hand to a ring where it will land. For a
+  bomb the line follows the bounces and a red ring shows the reach of the blast. The line
+  is worked out with the same steps as the throw itself, so it is exact for walls, roofs
+  and the ground, and for the enemies standing where they are now.
+
 ### Sound settings and voice chat
 
 The *Sound* button on the title screen, *Sound settings* on the pause screen (or `O`) and
@@ -343,10 +365,10 @@ and the other player (green while they speak).
 | `C` | Crouch on and off |
 | `X` | Sneak on and off: half speed, no footsteps, harder to notice, not shown on the other player's map. Running ends it while you run |
 | Left mouse button | Fire, throw stars, shoot a bolt, throw a javelin or an axe, loose an arrow, throw a poisoned dart or a stone; with an item from the bag in hand, use it (drink, eat, throw a bomb) |
-| Right mouse button | Aim (six-shooter, crossbow, the guns of chapters VI to VIII; through the scope with the sniper rifle); katana or sword cut in chapters II and IV and with the bow of chapter VIII; the flail in chapter V; the obsidian-edged club in chapter IX |
-| `F` | Halberd thrust in chapter III, knife in chapters VI to VIII (also the katana, the swords and the flail) |
+| Right mouse button | Aim (six-shooter, crossbow, the guns of chapters VI to VIII; through the scope with the sniper rifle). With a thrown weapon (stars, javelins, axes, darts, stones, bombs) it aims too and shows the flight to where it will land. With the bow, the sword or katana cut; with the fists, a hook |
+| `F` | Halberd thrust in chapter III, knife in chapters VI to VIII, katana in chapter II, sword in chapter IV, flail in chapter V, club in chapter IX |
 | `R` | Reload the six-shooter and the guns of chapters VI to VIII |
-| Mouse wheel | Change weapon: through the arsenal (the hero's weapon, the weapons taken from the enemy) and the bag. `1` to `9` take a place directly |
+| Mouse wheel | Change weapon: through the arsenal (the hero's weapon, the fists, the weapons taken from the enemy) and the bag. `1` to `9` take a place directly; `2` is always the fists |
 | Middle mouse button (press the wheel) | Mark the place the cross-hair points at; again on a mark, take it away |
 | `Tab` (hold) | The map of the whole chapter |
 | `H` | Use a healing item from the bag without taking it in hand |
@@ -416,6 +438,8 @@ green. The end-of-chapter screen notes that the result was reached in practice m
 | [havoc.js](source/src/havoc.js) | Things that break (crates, barrels, jars) and explosions: splinters, the blast, kegs that set each other off. |
 | [map.js](source/src/map.js) | The chapter's map drawn from the world, the mini-map, the whole map on `Tab`, and the marked places with their pins. |
 | [loot.js](source/src/loot.js) | What each kind of enemy leaves behind, the shots that come with a weapon, and the names shown in the arsenal and the bag. |
+| [crowd.js](source/src/crowd.js) | The bystanders: fright and flight, crouching, the way back, talking to the player, hands up, wounds and death. |
+| [arc.js](source/src/arc.js) | The line of dots that shows where a thrown weapon will land. |
 | [voice.js](source/src/voice.js) | Voice chat in a duel: the microphone, the call to the other browser, the other player's voice. |
 | [duel.js](source/src/duel.js) | Duel mode: the other player's figure, rounds and scores, the messages between the two games, the lobby. |
 | [net.js](source/src/net.js) | The connection between the two browsers: the introduction through PeerJS under a short code, then a direct channel. |

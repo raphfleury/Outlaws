@@ -12,11 +12,13 @@ import { Sound } from './audio.js';
 import { makeMaterials } from './tex.js';
 import { World, Builder, Nav } from './build.js';
 import { Player, Input } from './player.js';
-import { Enemy, Shots, makeHumanoid, lookFor, TYPES, dropMesh } from './actors.js';
+import { Enemy, Shots, makeHumanoid, lookFor, TYPES, dropMesh, wound } from './actors.js';
+import { Crowd } from './crowd.js';
+import { Arc } from './arc.js';
 import { Havoc } from './havoc.js';
 import { MapView } from './map.js';
 import { Voice } from './voice.js';
-import { dropsOf, weaponName, weaponAlt, itemName, itemAlt } from './loot.js';
+import { dropsOf, weaponName, weaponAlt, itemName, itemAlt, THROWN } from './loot.js';
 import { rng, clamp, damp } from './util.js';
 import { west } from './levels/west.js';
 import { japan } from './levels/japan.js';
@@ -84,12 +86,13 @@ class Game {
     this.ui = {
       hp: $('#vital .num'), hpbar: $('#hpbar i'), pips: $('#pips'), wname: $('#arms .name'), alt: $('#arms .alt'), foes: $('#foes'),
       boss: $('#boss'), bossName: $('#boss span'), bossBar: $('#boss i'), msg: $('#msg'), hit: $('#hit'),
-      dmg: $('#dmg b'), place: $('#place'), cross: [...document.querySelectorAll('#cross i[data-s]')], bag: $('#bag'),
+      dmg: $('#dmg b'), place: $('#place'), cross: [...document.querySelectorAll('#cross i[data-s]')], bag: $('#bag'), bars: $('#bars'),
     };
     this.cache = {}; this.msgT = 0; this.hitT = 0; this.dmgT = 0; this.crossGap = 6;
     this._v = new THREE.Vector3(); this._v2 = new THREE.Vector3(); this._o = { x: 0, y: 0, z: 0 }; this._d = { x: 0, y: 0, z: 0 };
     this.duel = null;
     this.havoc = new Havoc(this); this.map = new MapView(this); this.voice = new Voice(this); this.bagShown = 0;
+    this.crowd = new Crowd(this); this.arc = new Arc(this); this.bars = [];
     this.sound.onchange = () => { this.voice.settings(); this.soundLabel(); };
     this.bindUI();
   }
@@ -237,6 +240,7 @@ class Game {
     else { const t0 = performance.now(); this.nav = new Nav(this.world); this.navMs = performance.now() - t0; }   // walkable-area grid for enemy route finding
     this.gfx.setEnvironment(L.env); this.gfx.applyDetail();
     this.spawnEnemies();
+    this.crowd.setup(this.world.people);
     for (const p of L.pickups || []) this.addPickup(p[0], p[1], L, p[3] !== undefined ? this.world.height(p[0], p[1]) + p[3] : p[2]);
     this.player.spawn(L.spawn.x, L.spawn.z, L.spawn.yaw, def.weapon);
     this.hero = null;
@@ -281,7 +285,8 @@ class Game {
     P.mods = { hp: 100, armor: 1, speed: 1, fire: 1, reload: 1, draw: 1, melee: 1, reach: 0, regen: 0, power: 1, meleeDmg: 1, gun: 1, stealth: 1, ...h.mods };
     P.maxHp = P.mods.hp; P.hp = P.maxHp;
     P.setWeapon(h.weapon ?? d.weapon, h.sleeve, h.cuff);
-    this.ownName = h.weaponName ?? d.weaponName; this.ownAlt = h.alt ?? d.alt;
+    const kind = h.weapon ?? d.weapon;
+    this.ownName = h.weaponName ?? d.weaponName; this.ownAlt = THROWN[kind] ? weaponAlt(kind, d) : h.alt ?? d.alt;     // a thrown weapon is aimed with the right button, its blade is on F
     this.ui.wname.textContent = this.ownName; this.ui.alt.textContent = this.ownAlt;
     this.ui.place.textContent = h.name + ' · ' + d.place; this.cache = {};
     document.querySelectorAll('#heroes .hero').forEach((c) => c.classList.toggle('sel', +c.dataset.hero === k));
@@ -433,7 +438,9 @@ class Game {
     if (this.duel) this.duel.tracer(m.x, m.y, m.z, hx, hy, hz);
     this.muzzle(m.x + d.x * 0.25, m.y + d.y * 0.25, m.z + d.z * 0.25, d.x, d.y, d.z, 1);
     if (target) this.hitEnemy(target, dmg, head, hx, hy, hz, o.x, o.z);
+    else if (wh && wh.person) this.crowd.hit(wh.person, dmg * (hy > wh.person.py + 1.45 ? 2.5 : 1), hx, hy, hz, true);
     else if (wh) { this.impact(hx, hy, hz, wh.nx, wh.ny, wh.nz, 'bullet'); if (wh.piece) this.havoc.damage(wh.piece, dmg, hx, hy, hz); }
+    this.crowd.alarm(P.pos.x, P.pos.z, P.sneaking ? 14 : 26, P.pos.x, P.pos.z); this.crowd.alarm(hx, hz, 7, P.pos.x, P.pos.z);   // a shot frightens the people around, and more those near where it struck
   }
 
   playerShoot(kind, speed, dmg, grav, turn = 0, lift = 0) {
@@ -446,9 +453,15 @@ class Game {
     if (this.duel) this.duel.shot(kind, sx, sy, sz, d.x, d.y + 0.012 + lift, d.z, speed, grav);
   }
 
-  playerMelee(range, cone, dmg) {
+  playerMelee(range, cone, dmg, fist = false) {
     const P = this.player, f = P.forward(this._v2);
     let any = false;
+    for (const w of this.crowd.list) {                          // a bystander within reach
+      if (w.dead) continue;
+      const dx = w.px - P.pos.x, dy = w.py + 1.1 - (P.pos.y + 1.5), dz = w.pz - P.pos.z, dist = Math.hypot(dx, dy, dz);
+      if (dist > range || (dx * f.x + dy * f.y + dz * f.z) / dist < cone || !this.world.clear(P.pos.x, P.pos.y + 1.5, P.pos.z, w.px, w.py + 1.1, w.pz)) continue;
+      this.crowd.hit(w, dmg, w.px - dx / dist * 0.3, w.py + 1.2, w.pz - dz / dist * 0.3, true); any = true;
+    }
     for (const e of this.enemies) {
       if (!e.alive || e.state === 'hidden') continue;
       const dx = e.pos.x - P.pos.x, dy = e.pos.y + 1.1 - (P.pos.y + 1.5), dz = e.pos.z - P.pos.z, dist = Math.hypot(dx, dy, dz);
@@ -457,15 +470,16 @@ class Game {
       this.hitEnemy(e, dmg, false, e.pos.x - dx / dist * 0.3, e.pos.y + 1.2, e.pos.z - dz / dist * 0.3, P.pos.x, P.pos.z);
       any = true;
     }
-    if (any) { this.stats.shots++; P.recoil(0.3); }
+    if (any) { this.stats.shots++; P.recoil(0.3); if (fist) this.sound.punch(true); }
     else {
       const o = this.gfx.camera.getWorldPosition(this._v), wh = this.world.raycast(o, f, range * 0.75);
-      if (wh) { this.sound.clank(); this.impact(o.x + f.x * wh.t, o.y + f.y * wh.t, o.z + f.z * wh.t, wh.nx, wh.ny, wh.nz, 'bullet'); if (wh.piece) this.havoc.damage(wh.piece, dmg, o.x + f.x * wh.t, o.y + f.y * wh.t, o.z + f.z * wh.t); }
+      if (wh) { if (fist) this.sound.punch(true); else this.sound.clank(); this.impact(o.x + f.x * wh.t, o.y + f.y * wh.t, o.z + f.z * wh.t, wh.nx, wh.ny, wh.nz, 'bullet'); if (wh.piece) this.havoc.damage(wh.piece, dmg, o.x + f.x * wh.t, o.y + f.y * wh.t, o.z + f.z * wh.t); }
     }
   }
 
   hitEnemy(e, dmg, head, x, y, z, fromX, fromZ, quiet) {                     // quiet = poison at work: no hit marker, no sound, not counted as a shot that hit
     const wasBoss = e.cfg.boss, killed = e.damage(dmg, head, fromX, fromZ);
+    if (!quiet && e.rig && !e.cfg.dog) wound(e.rig, x, y, z);          // the wound shows where the shot went in
     if (quiet && !killed) return;
     if (!quiet) this.stats.hits++; if (head) this.stats.heads++;
     const S = this.gfx.soft;
@@ -537,7 +551,7 @@ class Game {
     $('#clear .kicker').textContent = (last ? 'The last chapter is written' : d.chapter + ' complete') + (this.practice ? ' · practice mode' : '');
     $('#clear .big').textContent = d.clearTitle;
     const acc = s.shots ? Math.min(100, Math.round((s.hits / s.shots) * 100)) : 0, mm = Math.floor(s.t / 60), ss = String(Math.floor(s.t % 60)).padStart(2, '0');
-    $('#clear .stats').innerHTML = `<div><b>${mm}:${ss}</b>Time</div><div><b>${acc}%</b>Accuracy</div><div><b>${s.heads}</b>Headshots</div><div><b>${Math.round(this.player.hp)}</b>Health</div>`;
+    $('#clear .stats').innerHTML = `<div><b>${mm}:${ss}</b>Time</div><div><b>${acc}%</b>Accuracy</div><div><b>${s.heads}</b>Headshots</div><div><b>${Math.round(this.player.hp)}</b>Health</div>` + (s.innocents ? `<div><b>${s.innocents}</b>Bystanders killed</div>` : '');
     $('#clear .go').textContent = last ? 'Click to return to the chapters' : 'Click for the next chapter';
   }
 
@@ -562,6 +576,7 @@ class Game {
     P.update(dt, this.input, this.state === 'play');
     if (this.state === 'play' && this.input.mark && !P.dead) this.map.toggleMark();
     for (const e of this.enemies) e.update(dt);
+    this.crowd.update(dt);
     this.shots.update(dt);
     this.havoc.update(dt);
     for (let i = this.pickups.length - 1; i >= 0; i--) {
@@ -589,10 +604,10 @@ class Game {
     const sl = P.slots[P.slot], sig = P.slot + '|' + P.slots.map((q) => q.type === 'item' ? q.count : (q.weapon.reserve ?? '-') + '.' + (q.weapon.ammo ?? '')).join(',');
     if (c.arms !== sig) {
       c.arms = sig;
-      const name = sl.own ? this.ownName : sl.type === 'item' ? itemName(sl.id, this.def) : weaponName(sl.kind, this.def);
+      const name = sl.fists ? 'Fists' : sl.own ? this.ownName : sl.type === 'item' ? itemName(sl.id, this.def) : weaponName(sl.kind, this.def);
       u.wname.innerHTML = esc(name) + (sl.type === 'item' ? ` <span class="res">× ${sl.count}</span>` : P.weapon.reserve !== null ? ` <span class="res">${P.weapon.reserve} more</span>` : '');
-      u.alt.textContent = sl.own ? this.ownAlt : sl.type === 'item' ? itemAlt(sl.id) : weaponAlt(sl.kind, this.def);
-      u.bag.innerHTML = P.slots.length > 1 ? P.slots.map((q, i) => `<div class="${i === P.slot ? 'sel' : ''}"><kbd>${i + 1}</kbd>${esc(q.own ? this.ownName.split(' & ')[0] : q.type === 'item' ? itemName(q.id, this.def) : weaponName(q.kind, this.def))}${q.type === 'item' ? ' × ' + q.count : q.own ? '' : ' · ' + (q.weapon.reserve + (q.weapon.ammo || 0))}</div>`).join('') : '';
+      u.alt.textContent = sl.fists ? weaponAlt('fists') : sl.own ? this.ownAlt : sl.type === 'item' ? itemAlt(sl.id) : weaponAlt(sl.kind, this.def);
+      u.bag.innerHTML = P.slots.length > 1 ? P.slots.map((q, i) => `<div class="${i === P.slot ? 'sel' : ''}"><kbd>${i + 1}</kbd>${esc(q.fists ? 'Fists' : q.own ? this.ownName.split(' & ')[0] : q.type === 'item' ? itemName(q.id, this.def) : weaponName(q.kind, this.def))}${q.type === 'item' ? ' × ' + q.count : q.own ? '' : ' · ' + (q.weapon.reserve + (q.weapon.ammo || 0))}</div>`).join('') : '';
     }
     this.bagShown = Math.max(0, this.bagShown - dt); u.bag.classList.toggle('lit', this.bagShown > 0);
     const h = P.weapon.hud(), key = h.ammo + '/' + h.mag + h.reloading;
@@ -621,6 +636,27 @@ class Game {
     this.dmgT = Math.max(0, this.dmgT - dt); u.dmg.style.opacity = Math.min(1, this.dmgT * 2);
     if (this.msgT > 0) { this.msgT -= dt; if (this.msgT <= 0) u.msg.classList.remove('on'); }
     this.map.update(dt, this.input);
+    this.arc.update();
+    this.healthBars(alive);
+  }
+  /** A small health bar over each enemy who was hit in the last few seconds (and over the other player of a duel while hurt), if in sight. */
+  healthBars(alive) {
+    const cam = this.gfx.camera, P = this.player, W = this.world, box = this.ui.bars, w = innerWidth, h = innerHeight;
+    let n = 0;
+    for (const e of alive) {
+      if (e.state === 'hidden' || !(e.hurtT < 4 || (e.remote && e.hp < e.maxHp))) continue;
+      const top = e.pos.y + 2.05 * (e.scale || 1) + (e.cfg.rider ? 0.9 : 0), d = Math.hypot(e.pos.x - P.pos.x, e.pos.z - P.pos.z);
+      if (d > 70) continue;
+      const v = this._v.set(e.pos.x, top, e.pos.z).project(cam);
+      if (v.z > 1 || Math.abs(v.x) > 1 || Math.abs(v.y) > 1 || !W.clear(P.pos.x, P.pos.y + 1.6, P.pos.z, e.pos.x, top - 0.3, e.pos.z)) continue;
+      let el = this.bars[n];
+      if (!el) { el = this.bars[n] = document.createElement('div'); el.className = 'hb'; el.innerHTML = '<i></i>'; box.appendChild(el); }
+      el.style.display = 'block'; el.style.left = (v.x * 0.5 + 0.5) * w + 'px'; el.style.top = (-v.y * 0.5 + 0.5) * h + 'px';
+      el.style.opacity = e.remote ? 1 : Math.min(1, (4 - e.hurtT) * 2);
+      el.firstChild.style.width = Math.max(0, Math.min(1, e.hp / e.maxHp)) * 100 + '%';
+      n++;
+    }
+    for (let i = n; i < this.bars.length; i++) this.bars[i].style.display = 'none';
   }
 
   frame(now) {

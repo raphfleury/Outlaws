@@ -15,7 +15,7 @@ export const aztec = {
     { look: 'tzilacatzin', name: 'Tzilacatzin', who: 'Warrior of Tlatelolco, who felled Spaniards with stones', trait: 'Stone thrower', effect: 'hurls heavy stones; starts with 130 health', weapon: 'stone', weaponName: 'Stones & obsidian club', mods: { hp: 130 }, sleeve: 0x2a8a4a, cuff: 0xd9a820 },
     { look: 'nezahualcoyotl', name: 'Nezahualcóyotl', who: 'The Fasting Coyote, poet-king of Texcoco', trait: 'Fasting Coyote', effect: 'bow and club; moves 15% faster', weapon: 'bow', weaponName: 'Bow & obsidian club', mods: { speed: 1.15 }, sleeve: 0xb07a50, cuff: 0x2ac8c0 },
   ],
-  keys: '<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move &nbsp; <kbd>Shift</kbd> run &nbsp; <kbd>Space</kbd> jump<br><kbd>Left mouse</kbd> throw or shoot &nbsp; <kbd>Right mouse</kbd> swing the club',
+  keys: '<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move &nbsp; <kbd>Shift</kbd> run &nbsp; <kbd>Space</kbd> jump<br><kbd>Left mouse</kbd> throw or shoot &nbsp; <kbd>Right mouse</kbd> aim (the line shows where it lands) &nbsp; <kbd>F</kbd> swing the club',
   foes: 'invaders remain', foesNone: 'The causeway is clear', bossName: 'Captain Luján of the rear guard', bossDown: 'The captain has fallen', pickupText: 'Cacao  +35',
   deadTitle: 'Mictlan', deadSub: 'The water of the lake closes over you.', clearTitle: 'The city is free tonight',
   build,

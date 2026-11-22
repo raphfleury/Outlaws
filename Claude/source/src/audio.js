@@ -148,6 +148,31 @@ export class Sound {
     this.tone({ f0: 90, f1: 28, dur: 0.9, vol: 1.0 * v });
     this.noise({ t: this.t + 0.08, type: 'lowpass', f0: 400, f1: 80, dur: 2.2, vol: 0.5 * v, att: 0.2, rev: 0.6 });
   }
+  /** A bystander cries out in fright (or, short, when hit). On the voices channel. */
+  scream(far = 0, short = false) {
+    if (!this.ctx) return;
+    const v = Math.max(0.1, 1 - far) * 0.16, f = 520 + Math.random() * 380, d = short ? 0.28 : 0.6 + Math.random() * 0.3, c = this.ctx, t = this.t;
+    const os = c.createOscillator(), g = c.createGain(), lp = c.createBiquadFilter(), lfo = c.createOscillator(), lg = c.createGain();
+    os.type = 'sawtooth'; os.frequency.setValueAtTime(f, t); os.frequency.linearRampToValueAtTime(f * 1.25, t + d * 0.3); os.frequency.exponentialRampToValueAtTime(f * 0.7, t + d);
+    lfo.frequency.value = 9; lg.gain.value = f * 0.04; lfo.connect(lg); lg.connect(os.frequency);
+    lp.type = 'bandpass'; lp.frequency.value = 1400; lp.Q.value = 1.2;
+    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(v, t + 0.04); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+    os.connect(lp); lp.connect(g); g.connect(this.voice);
+    const r = c.createGain(); r.gain.value = 0.3; g.connect(r); r.connect(this.rev);
+    os.start(t); lfo.start(t); os.stop(t + d + 0.05); lfo.stop(t + d + 0.05);
+  }
+  /** A bystander says something to the player: a few murmured syllables. */
+  murmur(far = 0) {
+    if (!this.ctx) return;
+    const v = Math.max(0.1, 1 - far) * 0.1, base = 140 + Math.random() * 110;
+    for (let i = 0, n = 3 + Math.floor(Math.random() * 4); i < n; i++) {
+      const f = base * (0.9 + Math.random() * 0.35);
+      this.tone({ t: this.t + i * 0.17, type: 'sawtooth', f0: f, f1: f * (0.85 + Math.random() * 0.3), dur: 0.13, vol: v, lp: 900 + Math.random() * 500, dest: this.voice });
+    }
+  }
+  /** A punch: the swish of the fist, and the blow when it lands. */
+  punch(hit = false) { this.noise({ type: 'bandpass', f0: 600, f1: 1800, dur: 0.12, vol: 0.25, q: 1.2, att: 0.02 }); if (hit) { this.noise({ type: 'lowpass', f0: 500, f1: 120, dur: 0.1, vol: 0.7 }); this.tone({ f0: 95, f1: 55, dur: 0.09, vol: 0.5 }); } }
+
   /** A pin put on the map, or taken away. */
   mark(on = true) { if (!this.ctx) return; this.tone({ type: 'triangle', f0: on ? 1320 : 990, dur: 0.12, vol: 0.12 }); this.tone({ type: 'triangle', f0: on ? 1760 : 740, dur: 0.16, vol: 0.1, t: this.t + 0.07 }); }
   /** Weapons changed in the hands. */

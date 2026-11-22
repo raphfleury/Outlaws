@@ -116,7 +116,7 @@ export class Player {
   /** The hero's own weapon. It never runs out; the arsenal starts again from it (what was picked up is lost). */
   setWeapon(kind, sleeve = 0x9a8a6a, cuff) {
     this.sleeve = sleeve; this.cuff = cuff;
-    this.slots = [{ type: 'weapon', kind, own: true, weapon: new Weapon(this, kind, sleeve, cuff) }];
+    this.slots = [{ type: 'weapon', kind, own: true, weapon: new Weapon(this, kind, sleeve, cuff) }, { type: 'weapon', kind: 'fists', own: true, fists: true, weapon: new Weapon(this, 'fists', sleeve, cuff) }];
     this.slot = 0; this.show(0); this.raise = 0;
   }
   /** Put the weapon or the thing of slot i into the hands. */
@@ -136,7 +136,7 @@ export class Player {
     const have = this.slots.find((s) => s.type === 'weapon' && s.kind === kind), n = ROUNDS[kind] || 6;
     if (have && have.own) return null;                             // the hero's own weapon never runs out
     if (have) { have.weapon.reserve += n; return '+' + n; }
-    if (this.slots.filter((s) => s.type === 'weapon').length >= MAX_SLOTS) return null;
+    if (this.slots.filter((s) => s.type === 'weapon' && !s.fists).length >= MAX_SLOTS) return null;
     const w = new Weapon(this, kind, this.sleeve, this.cuff); w.reserve = n;
     if (w.mag > 1) { w.ammo = Math.min(w.mag, n); w.reserve = n - w.ammo; }       // it comes loaded
     const at = this.slots.filter((s) => s.type === 'weapon').length;
@@ -310,10 +310,20 @@ class Weapon {
     this.flash = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.34), new THREE.MeshBasicMaterial({ map: player.flashTex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
     this.flash.material.color.setScalar(5); this.flash.visible = false; this.flashT = 0;
     this['build_' + kind](M);
-    if (!this.melee && this.game.def && this.game.def.knife) this.addKnife(M);
+    if (!this.melee && kind !== 'fists' && this.game.def && this.game.def.knife) this.addKnife(M);
     if (this.melee) this.root.add(this.melee);
   }
   get busy() { return this.state === 'reload' || this.state === 'use' || this.meleeT > 0; }
+  /** For a thrown weapon: how it leaves the hand (the same numbers as the throw itself), so that its flight can be drawn while aiming. */
+  launch() {
+    const pw = this.m.power;
+    if (this.kind === 'shuriken') return { kind: 'star', speed: 52 * (1 + (pw - 1) * 0.7), grav: 3, lift: 0 };
+    if (this.slot && this.kind !== 'heal') return { kind: this.kind, speed: 17 * (1 + (pw - 1) * 0.5), grav: 9.8, lift: 0.16, bounce: true };
+    if (this.thrown && !this.slot) { const sh = this.shot || (this.kind === 'javelin' ? [50, 85, 6] : [36, 80, 7]); return { kind: this.kind, speed: sh[0] * (1 + (pw - 1) * 0.7), grav: sh[2], lift: 0 }; }
+    return null;
+  }
+  /** Ready to throw (a throw is not already under way, and there is something to throw). */
+  get loaded() { return this.state === 'ready' && this.meleeT <= 0 && (this.slot ? this.slot.count > 0 : this.stocked); }
   /** Can another shot be loaded or thrown? */
   get stocked() { return this.reserve === null || this.reserve > 0; }
   /** One shot used from the reserve (bows, crossbows, everything thrown). */
@@ -417,7 +427,7 @@ class Weapon {
   // ---- throwing stars + katana (Kagemori) --------------------------------------
   // Three stars leave the hand in a narrow fan: deadly close up, where all three strike, and weak far off, where one does.
   build_shuriken(M) {
-    this.thrown = true; this.canAim = false; this.aimFov = 72; this.cuff = this.cuffIn ?? 0x1a1e2c;
+    this.thrown = true; this.canAim = true; this.aimFov = 60; this.cuff = this.cuffIn ?? 0x1a1e2c;
     const X = Math.PI / 2;
     const star = (p, r, s = 1) => [gStar(0.085 * s, p, r)];
     const g = (this.gun = new THREE.Group());
@@ -614,7 +624,7 @@ class Weapon {
   update_axe(dt, input, active) { this.updateThrown(dt, input, active, false); }
 
   buildThrown(M, jav) {
-    this.thrown = true; this.canAim = false; this.aimFov = 72; this.cuff = this.cuffIn ?? (jav ? 0xb8893a : 0x4a3a2a);
+    this.thrown = true; this.canAim = true; this.aimFov = 60; this.cuff = this.cuffIn ?? (jav ? 0xb8893a : 0x4a3a2a);
     const g = (this.gun = new THREE.Group());
     this.base = jav ? [0.3, -0.15, -0.5, 0.05, 0.1] : [0.3, -0.24, -0.5, -0.35, 0.05];
     g.add(mesh(jav ? [fist([0, 0, 0], [Math.PI / 2, 0, Math.PI], 1.05), ...this.arm(this.sleeve, [0.06, -0.11, 0.2], [1.05, 0, 0.3], 0.34)]
@@ -706,7 +716,7 @@ class Weapon {
   update_dart(dt, input, active) { this.updateThrown(dt, input, active, true); }
   update_stone(dt, input, active) { this.updateThrown(dt, input, active, false); }
   buildMexica(M, dart) {
-    this.thrown = true; this.canAim = false; this.aimFov = 72; this.cuff = this.cuffIn ?? 0xd9a820;
+    this.thrown = true; this.canAim = true; this.aimFov = 60; this.cuff = this.cuffIn ?? 0xd9a820;
     this.shot = dart ? [64, 45, 5] : [30, 120, 13];          // speed, damage, drop: a dart is fast and light (the poison does the rest), a stone slow and heavy
     this.pace = dart ? 0.85 : 1.5;
     const g = (this.gun = new THREE.Group()), X = Math.PI / 2;
@@ -732,6 +742,41 @@ class Weapon {
     for (let i = 0; i < 6; i++) for (const e of [-1, 1]) parts.push(gBox(0.014, 0.1, 0.05, 0x101014, [0, 0.16 + i * 0.118, e * 0.062]));
     k.add(mesh(parts, M.flat)); k.visible = false;
     this.meleeDur = 0.45; this.meleeAt = 0.42; this.meleeRange = 3.1; this.meleeCone = 0.5; this.meleeDmg = 115; this.meleeStyle = 'cut';
+  }
+
+  // ---- bare fists: always in the arsenal; they need no ammunition, break things and can fell an enemy ----
+  build_fists(M) {
+    this.canAim = false; this.aimFov = 72; this.cuff = this.cuffIn ?? 0x4a3020; this.side = 1;
+    const X = Math.PI / 2;
+    this.fR = new THREE.Group(); this.fR.add(mesh([fist([0, 0, 0], [-0.3, 0, -0.15], 1.25), ...this.arm(this.sleeve, [0.02, -0.1, 0.19], [1.15, 0, 0.12], 0.34)], M.flat));    // knuckles forward, as in a boxer's guard
+    this.fL = new THREE.Group(); this.fL.add(mesh([fist([0, 0, 0], [-0.3, 0, 0.15], 1.25, -1), ...this.arm(this.sleeve, [-0.02, -0.1, 0.19], [1.15, 0, -0.12], 0.34)], M.flat));
+    void X;
+    this.root.add(this.fR, this.fL); this.gun = this.fR;
+  }
+  update_fists(dt, input, active) {
+    const P = this.p, G = this.game;
+    if (this.state === 'ready') {
+      if (active && (input.shoot || input.melee)) {
+        this.state = input.shoot ? 'jab' : 'hook'; this.t = 0; this.hit = false; this.meleeT = 0.0001;
+        if (this.state === 'jab') this.side = -this.side; else this.side = 1;
+        G.sound.punch(false);
+      }
+    } else {
+      const jab = this.state === 'jab', dur = jab ? 0.34 : 0.6, at = jab ? 0.11 : 0.27;
+      this.t += dt / this.m.melee; this.meleeT = this.t;
+      if (!this.hit && this.t >= at) { this.hit = true; G.playerMelee(2.1 + this.m.reach, jab ? 0.62 : 0.45, (jab ? 28 : 55) * this.m.meleeDmg, true); }
+      if (this.t >= dur) { this.state = 'ready'; this.meleeT = 0; }
+    }
+    // the guard: both fists up; a jab drives one straight out, a hook swings the right one across
+    const k = this.state === 'ready' ? 0 : this.t / (this.state === 'jab' ? 0.34 : 0.6);
+    const out = this.state === 'jab' ? (k < 0.35 ? ease(k / 0.35) : 1 - ease((k - 0.35) / 0.65)) : 0;
+    const back = this.state === 'hook' ? (k < 0.4 ? ease(k / 0.4) : 0) : 0, sweep = this.state === 'hook' && k >= 0.4 ? Math.sin(Math.min(1, (k - 0.4) / 0.45) * Math.PI) : 0;
+    const bob = Math.sin(G.time * 2.2) * 0.008;
+    const R = this.side > 0 ? out : 0, L = this.side < 0 ? out : 0;
+    this.fR.position.set(0.22 - R * 0.17 + back * 0.12 - sweep * 0.35 + P.swayX * 0.5, -0.24 + R * 0.12 + bob + sweep * 0.06, -0.48 - R * 0.42 + back * 0.12 - sweep * 0.25);
+    this.fR.rotation.set(P.swayY - R * 0.2, back * 0.6 - sweep * 0.9, -sweep * 0.5 + P.swayX);
+    this.fL.position.set(-0.24 + L * 0.17 + P.swayX * 0.5, -0.25 + L * 0.12 - bob, -0.5 - L * 0.42);
+    this.fL.rotation.set(P.swayY - L * 0.2, 0, P.swayX);
   }
 
   // ---- things from the bag: something that heals (fire to drink or eat it), and bombs (fire to throw) ----
@@ -770,7 +815,7 @@ class Weapon {
   update_grenade(dt, input, active) { this.updateBomb(dt, input, active); }
   update_hbomb(dt, input, active) { this.updateBomb(dt, input, active); }
   buildBomb(M) {
-    this.canAim = false; this.aimFov = 72; this.cuff = this.cuffIn ?? 0x4a3020; this.thrown = true;
+    this.canAim = true; this.aimFov = 60; this.cuff = this.cuffIn ?? 0x4a3020; this.thrown = true;
     const g = (this.gun = new THREE.Group()), X = Math.PI / 2;
     g.add(mesh([fist([0, 0, 0], [0, 0, 0], 1.05), ...this.arm(this.sleeve, [0.04, -0.2, 0.12], [0.5, 0, 0.2], 0.36)], M.flat));
     this.missile = new THREE.Group();
@@ -831,6 +876,7 @@ class Weapon {
   }
 
   hud() {
+    if (this.kind === 'fists') return { ammo: 0, mag: 0, reloading: false };
     if (this.slot) return { ammo: Math.min(12, this.slot.count), mag: Math.min(12, this.slot.count), reloading: false, item: true };
     if (this.kind === 'revolver') return { ammo: this.ammo, mag: this.mag, reloading: this.state === 'reload' };
     if (this.kind === 'bow') return { ammo: this.state === 'nock' ? 0 : 1, mag: 1, reloading: false };

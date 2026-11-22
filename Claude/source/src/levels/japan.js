@@ -15,7 +15,7 @@ export const japan = {
     { look: 'tomoe', name: 'Tomoe Gozen', who: 'Woman warrior of the Genpei War', trait: 'Swift hands', effect: 'throws her stars almost twice as fast', mods: { fire: 0.55 }, sleeve: 0xf0ece0, cuff: 0xa81c1c },
     { look: 'date', name: 'Date Masamune', who: 'The One-Eyed Dragon of Sendai', trait: 'Black armour', effect: 'takes 30% less damage', mods: { armor: 0.7 }, sleeve: 0x17171c, cuff: 0xd9b23a },
   ], weaponName: 'Shuriken & katana', alt: 'right mouse — katana',
-  keys: '<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move &nbsp; <kbd>Shift</kbd> run &nbsp; <kbd>Space</kbd> jump<br><kbd>Left mouse</kbd> throw stars &nbsp; <kbd>Right mouse</kbd> katana cut',
+  keys: '<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move &nbsp; <kbd>Shift</kbd> run &nbsp; <kbd>Space</kbd> jump<br><kbd>Left mouse</kbd> throw stars &nbsp; <kbd>Right mouse</kbd> aim (the line shows where they land) &nbsp; <kbd>F</kbd> katana cut',
   foes: 'foes remain', foesNone: 'The shrine is silent', bossName: 'Kurogane, the Iron Ronin', bossDown: 'Kurogane has fallen', pickupText: 'Rice cake  +35',
   deadTitle: 'Honour lost', deadSub: 'The forest keeps your name.', clearTitle: 'The shrine is restored',
   build,

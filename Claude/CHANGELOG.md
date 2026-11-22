@@ -16,6 +16,38 @@ Each version is a Git tag named `lone-hand-vX.Y.Z` and a
 game as one downloadable file. The number is also shown in the bottom right corner of the
 title screen.
 
+## [1.8.0] - 2026-11-22
+
+### Added
+
+- **Bystanders come alive.** Shots, blasts and missiles landing near them frighten them:
+  they cry out, run from the danger with their arms over their heads, crouch with their
+  hands over their heads, and when all has been quiet for a while walk back and take up
+  their work again. Stand near one for a moment without fighting and he turns to you and
+  talks, waves, nods, shrugs or points; aim at him and he raises his hands. They can be
+  hurt and killed; the end of the chapter counts the bystanders you killed.
+- **Damage shows before things break.** Every hit dents and blackens a crate, a fence, a
+  table or a cart where it struck, and the weaker it gets, the more it leans over, until it
+  gives way.
+- **Damage shows on people.** A wound marks the body where a shot went in, the figure is
+  pushed back a little, and a small health bar shows over an enemy for a few seconds after
+  each hit (over the other player of a duel while hurt). A badly hurt enemy limps and goes
+  slower.
+- **Fists**, always in the arsenal in second place (`2`): left button a quick jab with
+  either hand, right button a heavier hook. No ammunition: they break things and can fell
+  an enemy.
+- **Aimed throws with the line of their flight.** With a thrown weapon (throwing stars,
+  javelins, axes, darts, stones, dynamite, grenades, fire bombs) the right button aims, and
+  a line of dots shows the flight to where it will land, with a ring on the spot; a bomb's
+  line follows its bounces, and a red ring shows how far its blast reaches. The left button
+  throws. The blade of chapters II, IV, V and IX (katana, sword, flail, club) moves to `F`.
+
+### Changed
+
+- **Better walks.** Legs now bend at the knee: the knee bends as the foot comes through,
+  strides are longer and knees higher when running, the body leans forward and bobs, and the
+  arms swing against the legs. Seated people sit with their shins hanging.
+
 ## [1.7.0] - 2026-11-22
 
 ### Added

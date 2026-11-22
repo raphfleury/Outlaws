@@ -1,6 +1,6 @@
 // Duel mode: two players, one in each browser, hunting each other in a chapter's world.
 import * as THREE from 'three';
-import { Enemy, TYPES } from './actors.js';
+import { Enemy, TYPES, stride } from './actors.js';
 import { Link } from './net.js';
 import { damp } from './util.js';
 
@@ -26,7 +26,7 @@ export class RemotePlayer extends Enemy {
   /** A hit by this player's weapon: the damage is applied in the other browser. */
   damage(amount, head, fromX, fromZ) {
     if (!this.alive) return false;
-    this.flinch = 1; this.flash = 1;
+    this.flinch = 1; this.flash = 1; this.hurtT = 0;
     this.game.duel.send({ t: 'hit', d: r2(amount * (head ? 2.5 : 1) * DUEL_DMG), x: r2(fromX), z: r2(fromZ) });
     return false;
   }
@@ -34,14 +34,16 @@ export class RemotePlayer extends Enemy {
   revive() {
     this.state = 'idle'; this.hp = 100; this.slump = false; this.deathT = 0;
     const rig = this.rig; rig.group.rotation.set(0, this.yaw, 0);
-    for (const k of ['armL', 'armR', 'legL', 'legR', 'hips']) rig[k].rotation.set(0, 0, 0);
+    for (const k of ['armL', 'armR', 'legL', 'legR', 'hips', 'shinL', 'shinR']) if (rig[k]) rig[k].rotation.set(0, 0, 0);
+    rig.group.traverse((o) => { if (o.userData.wound) o.removeFromParent(); }); rig.wounds = 0;     // a new round: no wounds
   }
   update(dt) {
     if (this.state === 'dead') { super.update(dt); return; }
     const rig = this.rig, n = this.net;
-    this.flash = Math.max(0, this.flash - dt * 7); this.flinch = Math.max(0, this.flinch - dt * 5);
+    this.flash = Math.max(0, this.flash - dt * 7); this.flinch = Math.max(0, this.flinch - dt * 5); this.hurtT += dt;
     rig.mat.emissive.setScalar(this.flash * 0.7);
     if (!n) return;
+    if (n.h !== undefined) { this.hp = n.h; this.maxHp = n.mh || 100; }          // the other player's health, as his browser reports it
     rig.group.visible = true;
     const bx = this.pos.x, bz = this.pos.z, k = Math.min(1, dt * 14), inv = 1 / Math.max(dt, 1e-3);
     if (Math.hypot(n.x - bx, n.z - bz) > 6) this.pos.set(n.x, n.y, n.z);                    // a respawn: jump, do not slide
@@ -50,13 +52,14 @@ export class RemotePlayer extends Enemy {
     this.vel.set(moved < 3 ? (this.pos.x - bx) * inv : 0, 0, moved < 3 ? (this.pos.z - bz) * inv : 0);
     let dy = n.yaw + Math.PI - this.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); this.yaw += dy * k;   // the figure faces +Z, a player looks down -Z
     this.moving = damp(this.moving, Math.min(1, moved * inv / 3), 10, dt); this.walk += Math.min(moved, 1) * 2.6;
+    this.runK = damp(this.runK, Math.max(0, Math.min(1, (moved * inv - 2.4) / 3)), 6, dt);
     this.sync();
-    const sw = Math.sin(this.walk) * 0.75 * this.moving;
-    rig.legL.rotation.x = sw; rig.legR.rotation.x = -sw;
+    const sw = -stride(rig, this.walk, this.moving, this.runK, this.hp < this.maxHp * 0.4 ? 1 : 0);
     rig.group.position.y = this.pos.y + Math.abs(Math.cos(this.walk)) * 0.04 * this.moving;
     rig.hips.rotation.x = this.moving * 0.08 - this.flinch * 0.35;
     const dk = (this.duck = damp(this.duck, n.f & 8 ? 1 : 0, 12, dt));
-    if (dk > 0.01) { rig.group.position.y -= 0.5 * dk; rig.legL.rotation.x = sw * (1 - dk) - 1.35 * dk; rig.legR.rotation.x = -sw * (1 - dk) + 0.9 * dk; rig.hips.rotation.x += 0.25 * dk; }   // down on one knee
+    if (dk > 0.01) { rig.group.position.y -= 0.5 * dk; rig.legL.rotation.x = rig.legL.rotation.x * (1 - dk) - 1.35 * dk; rig.legR.rotation.x = rig.legR.rotation.x * (1 - dk) + 0.9 * dk; rig.hips.rotation.x += 0.25 * dk;
+      if (rig.shinL) { rig.shinL.rotation.x = rig.shinL.rotation.x * (1 - dk) + 1.35 * dk; rig.shinR.rotation.x = rig.shinR.rotation.x * (1 - dk) + 1.6 * dk; } }   // down on one knee
     this.aimF = damp(this.aimF, n.f & 1 ? 1 : 0.6, 12, dt);
     this.swing = n.f & 2 ? Math.min(1, this.swing + dt * 5) : Math.max(0, this.swing - dt * 6);
     rig.armR.rotation.x = (-Math.PI / 2 - n.pitch) * this.aimF + sw * 0.5 * (1 - this.aimF) - Math.sin(this.swing * Math.PI) * 1.2;
@@ -163,7 +166,7 @@ export class Duel {
     this.sendT -= dt; if (this.sendT <= 0) { this.sendT = 0.05; this.sendState(); }
     if (this.isHost && this.ai.length) {
       this.enT -= dt;
-      if (this.enT <= 0) { this.enT = 0.1; this.send({ t: 'en', e: this.ai.map((e) => [r2(e.pos.x), r2(e.pos.y), r2(e.pos.z), r2(e.yaw), e.state === 'dead' ? 2 : e.state === 'combat' ? 1 : 0, e.armPose > 0.5 ? 1 : 0, e.sneaking ? 1 : 0]) }); }
+      if (this.enT <= 0) { this.enT = 0.1; this.send({ t: 'en', e: this.ai.map((e) => [r2(e.pos.x), r2(e.pos.y), r2(e.pos.z), r2(e.yaw), e.state === 'dead' ? 2 : e.state === 'combat' ? 1 : 0, e.armPose > 0.5 ? 1 : 0, e.sneaking ? 1 : 0, r2(Math.max(0, e.hp) / e.maxHp)]) }); }
     }
     if (this.cfg.rules === 'timed') {
       this.clock -= dt;
@@ -175,7 +178,7 @@ export class Duel {
     }
   }
   sendState() {
-    const P = this.game.player, w = P.weapon, m = { t: 's', x: r2(P.pos.x), y: r2(P.pos.y), z: r2(P.pos.z), yaw: r3(P.yaw), pitch: r3(P.pitch), f: (P.aim > 0.5 ? 1 : 0) | (w && w.meleeT > 0 ? 2 : 0) | (P.dead ? 4 : 0) | (P.crouch ? 8 : 0) | (P.sneaking ? 16 : 0) };
+    const P = this.game.player, w = P.weapon, m = { t: 's', x: r2(P.pos.x), y: r2(P.pos.y), z: r2(P.pos.z), yaw: r3(P.yaw), pitch: r3(P.pitch), f: (P.aim > 0.5 ? 1 : 0) | (w && w.meleeT > 0 ? 2 : 0) | (P.dead ? 4 : 0) | (P.crouch ? 8 : 0) | (P.sneaking ? 16 : 0), h: Math.max(0, Math.round(P.hp)), mh: P.maxHp };
     if (this.isHost && this.cfg.rules === 'timed') m.c = Math.ceil(this.clock);
     this.send(m);
   }
@@ -219,12 +222,14 @@ export class Duel {
       case 'died': if (this.remote && this.remote.alive) { this.remote.fall(P.pos.x, P.pos.z); this.score[0]++; G.sound.killmark(); this.afterKill(true); } break;
       case 'tr': {
         const a = m.a, l = Math.hypot(a[3] - a[0], a[4] - a[1], a[5] - a[2]) || 1, d = Math.hypot(a[0] - P.pos.x, a[2] - P.pos.z);
+        G.crowd.alarm(a[0], a[2], 26, a[0], a[2]); G.crowd.alarm(a[3], a[5], 7, a[0], a[2]);
         G.shots.tracer(a[0], a[1], a[2], a[3], a[4], a[5]); G.muzzle(a[0], a[1], a[2], (a[3] - a[0]) / l, (a[4] - a[1]) / l, (a[5] - a[2]) / l, 0.8);
         G.sound.gun(Math.max(0.15, 0.8 - d / 90), Math.min(1, d / 70));
         break;
       }
       case 'sh': case 'esh': ghost(); break;
-      case 'en': if (!this.isHost) m.e.forEach((a, i) => { const e = this.ai[i]; if (e) e.net = { x: a[0], y: a[1], z: a[2], yaw: a[3], st: a[4], pose: a[5], sn: a[6] }; }); break;
+      case 'en': if (!this.isHost) m.e.forEach((a, i) => { const e = this.ai[i]; if (e) e.net = { x: a[0], y: a[1], z: a[2], yaw: a[3], st: a[4], pose: a[5], sn: a[6], hp: a[7] }; }); break;
+      case 'bk': G.crowd.killed(m.i); break;                    // a bystander the other player killed
       case 'brk': { const p = G.world.pieces[m.i]; if (p) G.havoc.breakPiece(p, false); break; }   // a crate or a keg the other player shot to pieces
       case 'ehit': if (this.isHost) { const e = this.ai[m.i]; if (e) e.damage(m.d, !!m.h, m.x, m.z); } break;
       case 'pk': {                       // the other player took something: the nearest of that kind goes here too (a drop lies where the enemy fell, which can differ a little)

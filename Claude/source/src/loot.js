@@ -11,7 +11,7 @@ export const LOOT = {
 };
 /** Shots that come with a weapon picked up (a second one of the same kind adds as many). */
 export const ROUNDS = { revolver: 12, carbine: 16, sten: 64, rifle: 10, bow: 10, crossbow: 8, shuriken: 12, javelin: 5, axe: 6, dart: 10, stone: 8 };
-export const MAX_SLOTS = 6;      // weapons carried at once, the hero's own included
+export const MAX_SLOTS = 6;      // weapons carried at once, the hero's own included (the fists, always there, are not counted)
 export const MAX_ITEMS = 9;      // of each thing in the bag
 
 /** The explosive of each chapter where there is one, and the enemies who may carry it. */
@@ -35,7 +35,7 @@ export function dropsOf(e, chapter) {
   return out;
 }
 
-const WEAPON_NAMES = { revolver: 'Revolver', carbine: 'Rifle', sten: 'Submachine gun', rifle: 'Scoped rifle', bow: 'Bow', crossbow: 'Crossbow', shuriken: 'Throwing stars', javelin: 'Javelins', axe: 'Throwing axes', dart: 'Darts', stone: 'Stones' };
+const WEAPON_NAMES = { fists: 'Fists', revolver: 'Revolver', carbine: 'Rifle', sten: 'Submachine gun', rifle: 'Scoped rifle', bow: 'Bow', crossbow: 'Crossbow', shuriken: 'Throwing stars', javelin: 'Javelins', axe: 'Throwing axes', dart: 'Darts', stone: 'Stones' };
 const BOMB_NAMES = { dynamite: 'Dynamite', grenade: 'Grenades', hbomb: 'Fire bombs' };
 
 export function weaponName(kind, def) { return kind === 'revolver' && def && (def.id === 'russia' || def.id === 'tibet' || def.id === 'war') ? 'Pistol' : WEAPON_NAMES[kind] || kind; }
@@ -47,10 +47,11 @@ export function weaponAlt(kind, def) {
     case 'rifle': return 'right mouse — scope' + knife;
     case 'crossbow': return 'right mouse — aim   ·   F — halberd';
     case 'bow': return id === 'aztec' ? 'right mouse — club' : id === 'japan' ? 'right mouse — katana' : 'right mouse — sword';
-    case 'shuriken': return 'right mouse — katana';
-    case 'javelin': return 'right mouse — sword';
-    case 'axe': return 'right mouse — flail';
-    case 'dart': case 'stone': return 'right mouse — club';
+    case 'shuriken': return 'right mouse — aim   ·   F — katana';
+    case 'javelin': return 'right mouse — aim   ·   F — sword';
+    case 'axe': return 'right mouse — aim   ·   F — flail';
+    case 'dart': case 'stone': return 'right mouse — aim   ·   F — club';
+    case 'fists': return 'left mouse — jab   ·   right mouse — hook';
   }
   return '';
 }
@@ -59,4 +60,6 @@ export function itemName(id, def) {
   if (id === 'heal') return def && def.pickupText ? def.pickupText.split(/\s{2,}|\s\+/)[0].trim() : 'Tonic';
   return BOMB_NAMES[id] || id;
 }
-export function itemAlt(id) { return id === 'heal' ? 'left mouse — use   ·   H — use without taking it in hand' : 'left mouse — throw: it goes off after two seconds'; }
+export function itemAlt(id) { return id === 'heal' ? 'left mouse — use   ·   H — use without taking it in hand' : 'right mouse — aim   ·   left mouse — throw: it goes off after two seconds'; }
+/** The weapons that are thrown: right mouse aims them and shows where they will land. */
+export const THROWN = { shuriken: 1, javelin: 1, axe: 1, dart: 1, stone: 1 };

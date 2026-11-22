@@ -714,20 +714,30 @@ export function person(B, M, root, look, x, y, z, yaw = 0, o = {}) {
   const rq = o.rand || (() => (_pq = (_pq + 0.381966) % 1));
   const spec = { ...lookFor(look, rq), weapon: null, weapon2: null, ...o.over }, f = makeHumanoid(M, spec), s = f.scale || 1, pose = o.pose || 'stand', seat = o.seat ?? 0;
   f.group.position.set(x, y, z); f.group.rotation.y = yaw;
-  if (pose === 'sit') { const up = seat + 0.1, a = Math.acos(Math.min(1, up / (0.92 * s))); f.group.position.y = y + up - 0.92 * s; f.legL.rotation.x = -a; f.legR.rotation.x = -a + 0.08; f.armR.rotation.x = -0.5; f.armL.rotation.x = -0.45; }
+  if (pose === 'sit') {                     // thighs level on the seat, shins hanging from the knees down to the floor
+    const up = seat + 0.1;
+    if (seat > 0.2) { f.group.position.y = y + up - 0.92 * s; f.legL.rotation.x = -1.45; f.legR.rotation.x = -1.37; f.shinL.rotation.x = 1.45; f.shinR.rotation.x = 1.3; }
+    else { const a = Math.acos(Math.min(1, up / (0.92 * s))); f.group.position.y = y + up - 0.92 * s; f.legL.rotation.x = -a; f.legR.rotation.x = -a + 0.08; }
+    f.armR.rotation.x = -0.5; f.armL.rotation.x = -0.45;
+  }
   else if (pose === 'lie') { f.group.rotation.x = -Math.PI / 2; f.group.position.y = y + seat + 0.13; }
   else if (typeof pose === 'function') pose(f); else (POSES[pose] || POSES.stand)(f);
   if (o.arms) { f.armR.rotation.x = o.arms[0]; f.armL.rotation.x = o.arms[1]; }
   if ((spec.extras || []).some((e) => e === 'dress' || e === 'robe' || e === 'kosode' || e === 'chuba' || e === 'hakama') && f.hips.rotation.x > 0.24) f.hips.rotation.x = 0.24;   // a long skirt is one piece with the body: bowing deeply would swing it up
   root.add(f.group);
-  if (o.solid !== false && pose !== 'lie') B.world.addCyl(x, z, 0.36, y - 1, y + (pose === 'sit' ? seat + 1.0 : 1.8));
+  const cyl = o.solid !== false && pose !== 'lie' ? B.world.addCyl(x, z, 0.36, y - 1, y + (pose === 'sit' ? seat + 1.0 : 1.8)) : null;
   f.base = { hy: f.hips.rotation.y, hz: f.hips.rotation.z, ar: f.armR.rotation.x, al: f.armL.rotation.x, ph: rq() * 20, still: pose === 'lie' };
+  if (pose !== 'lie') {                     // every bystander is known to the world: they take fright, look at the player, can be hurt (see crowd.js)
+    const who = { f, x, y, z, yaw, sit: pose === 'sit', cyl };
+    if (cyl) cyl.person = who;
+    (B.world.people || (B.world.people = [])).push(who);
+  }
   return f;
 }
 
 /** Let bystanders breathe, shift their weight and look about. Call it from the level's update(dt, t, g) with the list of figures made by `person`. */
 export function idle(people, t) {
-  for (const f of people) { const b = f.base; if (!b || b.still) continue;
+  for (const f of people) { const b = f.base; if (!b || b.still || f.busy) continue;     // busy: frightened, talking to the player, or dead (crowd.js moves it)
     f.hips.rotation.y = b.hy + Math.sin(t * 0.37 + b.ph) * 0.22 + Math.sin(t * 0.9 + b.ph * 2) * 0.05; f.hips.rotation.z = b.hz + Math.sin(t * 0.6 + b.ph) * 0.02;
     f.armR.rotation.x = b.ar + Math.sin(t * 0.8 + b.ph) * 0.05; f.armL.rotation.x = b.al + Math.sin(t * 0.7 + b.ph * 1.3) * 0.05; }
 }

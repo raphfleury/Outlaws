@@ -115,7 +115,7 @@ export function dropMesh(kind, M) {
 export function makeHumanoid(M, sp) {
   const S = { skin: 0xd6a37c, hair: 0x2a1a10, shirt: 0x8a3a2a, pants: 0x34425c, boots: 0x2a1c12, belt: 0x1c120a, legR: 0.085, ...sp };
   S.sleeve ??= S.shirt;
-  const T = [], AL = [], AR = [], LL = [], LR = [], WM = [], TM = [];
+  const T = [], AL = [], AR = [], LL = [], LR = [], SL = [], SR = [], WM = [], TM = [];
   // torso + head (pivot = hips)
   T.push(gCyl(0.205, 0.165, 0.56, S.shirt, [0, 0.28, 0], [0, 0, 0], [1, 1, 0.64]));
   T.push(gCyl(0.172, 0.172, 0.07, S.belt, [0, 0.02, 0], [0, 0, 0], [1, 1, 0.66]));
@@ -400,9 +400,11 @@ export function makeHumanoid(M, sp) {
     if (S.cuff) A.push(gCyl(0.07, 0.066, 0.1, S.cuff, [0, -0.5, 0]));
   }
   if (S.armband) AL.push(gCyl(0.07, 0.07, 0.08, S.armband, [0, -0.16, 0]));
-  for (const L of [LL, LR]) {
-    L.push(gCap(S.legR, 0.72, S.pants, [0, -0.41, 0]), gBox(0.13, 0.13, 0.28, S.boots, [0, -0.855, 0.045]));
-    if (S.bootTop) L.push(gCyl(0.1, 0.09, 0.3, S.boots, [0, -0.66, 0]));
+  // each leg in two parts, thigh and shin, jointed at the knee (0.45 below the hip): the walk bends the knee
+  for (const L of [LL, LR]) L.push(gCap(S.legR, 0.32, S.pants, [0, -0.205, 0]));
+  for (const L of [SL, SR]) {
+    L.push(gCap(S.legR * 0.94, 0.25, S.pants, [0, -0.2, 0]), gBox(0.13, 0.13, 0.28, S.boots, [0, -0.405, 0.045]));
+    if (S.bootTop) L.push(gCyl(0.1, 0.09, 0.3, S.boots, [0, -0.21, 0]));
   }
   weaponParts(S.weapon, AR, WM);
   if (S.weapon2 === 'revolver') { const f = [], m = []; weaponParts('revolver', f, m); AL.push(...f, ...m); }
@@ -419,24 +421,56 @@ export function makeHumanoid(M, sp) {
   const hips = new THREE.Group(); hips.position.y = 0.92; group.add(hips);
   hips.add(mk(T));
   if (TM.length) hips.add(mk(TM, M.metal));
-  const armL = mk(AL), armR = mk(AR), legL = mk(LL), legR = mk(LR);
+  const armL = mk(AL), armR = mk(AR), legL = mk(LL), legR = mk(LR), shinL = mk(SL), shinR = mk(SR);
   armL.position.set(0.275, 0.5, 0); armR.position.set(-0.275, 0.5, 0);
   legL.position.set(0.1, 0.92, 0); legR.position.set(-0.1, 0.92, 0);
+  shinL.position.y = shinR.position.y = -0.45; legL.add(shinL); legR.add(shinR);
   hips.add(armL, armR); group.add(legL, legR);
   if (WM.length) armR.add(mk(WM, M.metal));
   group.scale.setScalar(S.scale || 1);
-  return { group, hips, armL, armR, legL, legR, mat, scale: S.scale || 1 };
+  return { group, hips, armL, armR, legL, legR, shinL, shinR, mat, scale: S.scale || 1 };
 }
 
 /**
  * A horseman: a figure lifted into the saddle of a horse. The rig's two "legs" are the horse's fore and hind pairs, so the walk cycle
  * moves the horse; the rider's own legs hang astride and stay still. Faces +Z.
  */
+/**
+ * The legs of a walking or running figure. phase: the stride (advances 2.6 per metre walked), moving: 0..1, run: 0..1 (longer strides, higher
+ * knees), limp: 0..1 (the left leg is hurt: a short, stiff step on it). Swinging forward the knee bends, as the foot comes through; on the
+ * ground the leg is nearly straight. Returns the arm swing that goes with it (each arm opposite its leg).
+ */
+export function stride(rig, phase, moving, run = 0, limp = 0) {
+  const A = (0.5 + 0.28 * run) * moving, K = (0.55 + 0.75 * run) * moving, sn = Math.sin(phase), cs = Math.cos(phase);
+  rig.legL.rotation.x = -A * sn * (1 - 0.5 * limp); rig.legR.rotation.x = A * sn;
+  if (rig.shinL) {
+    rig.shinL.rotation.x = (K * Math.max(0, cs) ** 1.3 + 0.08 * moving) * (1 - 0.7 * limp);
+    rig.shinR.rotation.x = K * Math.max(0, -cs) ** 1.3 + 0.08 * moving;
+  }
+  return A * sn * (1 + 0.4 * run);
+}
+
+const WOUND = new THREE.SphereGeometry(1, 7, 5), WOUND_MAT = new THREE.MeshStandardMaterial({ color: 0x4a0606, roughness: 0.45 });
+/** A wound where a shot went in: a dark red mark on the body part at that point (at most seven on a figure). */
+export function wound(rig, x, y, z) {
+  if (!rig || !rig.hips || (rig.wounds = (rig.wounds || 0) + 1) > 7) return;
+  const p = new THREE.Vector3(x, y, z), g = rig.group;
+  g.updateMatrixWorld(true);
+  const lp = g.worldToLocal(p.clone()), part = lp.y > 0.9 || !rig.legL.isMesh ? rig.hips : lp.x > 0 ? rig.legL : rig.legR;
+  const q = part.worldToLocal(p.clone()), m = new THREE.Mesh(WOUND, WOUND_MAT), axis = new THREE.Vector3(q.x, 0, q.z);
+  if (axis.lengthSq() < 1e-6) axis.set(0, 0, 1);
+  axis.normalize(); m.position.copy(q).addScaledVector(axis, 0.01);
+  m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), axis);
+  const k = 0.035 + Math.random() * 0.02; m.scale.set(k, k * 1.3, k * 0.35); m.userData.wound = true;
+  part.add(m);
+}
+
 export function makeRider(M, sp) {
   const man = makeHumanoid(M, sp), g = man.group, mat = man.mat, X = Math.PI / 2, coat = sp.horse ?? 0x5a3a22, dark = 0x1a120c, UP = 0.8;
   const mk = (list) => { const o = new THREE.Mesh(merge(list), mat); o.castShadow = true; o.receiveShadow = true; return o; };
   man.hips.position.y += UP;
   for (const [L, e] of [[man.legL, 1], [man.legR, -1]]) { L.position.set(e * 0.3, 0.92 + UP, 0.02); L.rotation.set(-0.5, 0, e * 0.55); }
+  man.shinL.rotation.x = man.shinR.rotation.x = 0.55;
   g.add(mk([gCap(0.36, 1.1, coat, [0, 1.35, 0], [X, 0, 0], [1, 1, 1.1]), gCap(0.17, 0.75, coat, [0, 1.95, 0.85], [0.75, 0, 0]), gCap(0.14, 0.36, coat, [0, 2.28, 1.3], [1.85, 0, 0]), gBox(0.2, 0.2, 0.2, dark, [0, 2.17, 1.55]),
     gCone(0.05, 0.14, coat, [0.09, 2.5, 1.12]), gCone(0.05, 0.14, coat, [-0.09, 2.5, 1.12]), gBox(0.06, 0.7, 0.12, dark, [0, 2.1, 0.72], [0.75, 0, 0]), gCone(0.1, 0.9, dark, [0, 1.1, -1.0], [-2.7, 0, 0]),
     gBox(0.5, 0.07, 0.62, 0x7a1c1c, [0, 1.73, -0.05]), gBox(0.78, 0.46, 0.05, 0x7a1c1c, [0, 1.47, -0.05], [0, X, 0])]));                      // the horse, with a red saddle cloth
@@ -777,6 +811,7 @@ export class Enemy {
     this.walk = r() * 6; this.moving = 0; this.flinch = 0; this.flash = 0; this.stuck = 0; this.detour = 0; this.detourDir = 1;
     this.wanderT = 2 + r() * 4; this.wander = null; this.throwT = 2 + r() * 2; this.deathT = 0; this.react = 0;
     this.armPose = 0; this.name = o.name; this.path = null; this.pathI = 0; this.pathT = r() * 0.6; this.slump = false;
+    this.maxHp = this.cfg.hp; this.hurtT = 99; this.runK = 0;      // hurtT: seconds since the last hit (the health bar shows for a while after one)
     game.gfx.root.add(this.rig.group);
     this.rig.group.visible = this.state !== 'hidden';
     this.sync();
@@ -836,9 +871,13 @@ export class Enemy {
 
   damage(amount, head, fromX, fromZ) {
     if (!this.alive || this.state === 'hidden') return false;
-    if (this.puppet) { this.flinch = 1; this.flash = 1; this.game.duel.send({ t: 'ehit', i: this.idx, d: amount, h: head ? 1 : 0, x: fromX, z: fromZ }); return false; }   // duel guest: the host decides
+    if (this.puppet) { this.flinch = 1; this.flash = 1; this.hurtT = 0; this.game.duel.send({ t: 'ehit', i: this.idx, d: amount, h: head ? 1 : 0, x: fromX, z: fromZ }); return false; }   // duel guest: the host decides
     this.hp -= amount * (head ? 2.5 : 1);
-    this.flinch = 1; this.flash = 1;
+    this.flinch = 1; this.flash = 1; this.hurtT = 0;
+    if (this.hp > 0 && !this.cfg.boss && !this.cfg.rider && !this.static) {            // the blow pushes him back a little
+      const dx = this.pos.x - fromX, dz = this.pos.z - fromZ, d = Math.hypot(dx, dz) || 1, k = Math.min(0.25, amount / 250);
+      this.pos.x += dx / d * k; this.pos.z += dz / d * k; this.game.world.collide(this.pos, 0.38, 1.7);
+    }
     if (this.state === 'idle') { this.state = 'combat'; this.react = 0.25; for (const e of this.game.enemies) if (e.state === 'idle' && e.pos.distanceToSquared(this.pos) < 144) e.alert(0.4); }
     if (this.hp <= 0) {
       this.state = 'dead'; this.deathT = 0;
@@ -855,7 +894,7 @@ export class Enemy {
 
   update(dt) {
     const G = this.game, P = (this.tgt = G.duel ? G.duel.targetFor(this) : G.player), cfg = this.cfg, rig = this.rig, r = G.rand;
-    this.flash = Math.max(0, this.flash - dt * 7); this.flinch = Math.max(0, this.flinch - dt * 5);
+    this.flash = Math.max(0, this.flash - dt * 7); this.flinch = Math.max(0, this.flinch - dt * 5); this.hurtT += dt;
     rig.mat.emissive.setScalar(this.flash * 0.7);
 
     if (this.poison > 0 && this.alive && !this.puppet) {                       // poison: it goes on working for five seconds, and turns the skin green
@@ -873,6 +912,7 @@ export class Enemy {
       rig.armL.rotation.x = damp(rig.armL.rotation.x, -0.6, 6, dt); rig.armR.rotation.x = damp(rig.armR.rotation.x, 0.5, 6, dt);
       rig.armL.rotation.z = damp(rig.armL.rotation.z, 0.9, 6, dt); rig.armR.rotation.z = damp(rig.armR.rotation.z, -0.7, 6, dt);
       rig.legL.rotation.x = damp(rig.legL.rotation.x, 0.25, 6, dt); rig.legR.rotation.x = damp(rig.legR.rotation.x, -0.2, 6, dt);
+      if (rig.shinL) { rig.shinL.rotation.x = damp(rig.shinL.rotation.x, this.slump ? 2.2 : 0.35, 6, dt); rig.shinR.rotation.x = damp(rig.shinR.rotation.x, this.slump ? 2.2 : 0.1, 6, dt); }
       return;
     }
     if (this.puppet) { this.puppetUpdate(dt); return; }
@@ -967,6 +1007,8 @@ export class Enemy {
     // closing in on a target that cannot see him, an enemy goes slowly and quietly: then he does not show on the player's map
     this.sneaking = this.state === 'combat' && !cfg.dog && !cfg.rider && !this.los && dist < 28 && speed > 0;
     if (this.sneaking) speed *= 0.6;
+    const limp = this.hp < this.maxHp * 0.4 && !cfg.dog && !cfg.rider ? 1 : 0;       // badly hurt: he limps, and goes slower
+    if (limp) speed *= 0.78;
     // ---- movement ----
     if (speed > 0) {
       const ml = Math.hypot(mvx, mvz) || 1; mvx /= ml; mvz /= ml;
@@ -991,9 +1033,9 @@ export class Enemy {
       const moved = Math.hypot(this.pos.x - bx, this.pos.z - bz);
       if (moved < speed * dt * 0.35) this.stuck += dt; else this.stuck = Math.max(0, this.stuck - dt * 2);
       if (this.stuck > 0.35) { this.stuck = 0; this.detour = 0.7 + r() * 0.6; this.detourDir = r.sign(); if (this.wander) this.wander = null; }
-      this.moving = damp(this.moving, Math.min(1, moved / dt / 3), 10, dt);
+      this.moving = damp(this.moving, Math.min(1, moved / dt / 3), 10, dt); this.runK = damp(this.runK, clamp((moved / dt - 2.4) / 3, 0, 1), 6, dt);
       this.walk += moved * 2.6;
-    } else this.moving = damp(this.moving, 0, 10, dt);
+    } else { this.moving = damp(this.moving, 0, 10, dt); this.runK = damp(this.runK, 0, 6, dt); }
     const gy = G.world.groundAt(this.pos.x, this.pos.z, this.pos.y);
     this.pos.y = gy > this.pos.y ? gy : Math.max(gy, this.pos.y - 12 * dt);
     if (this.pos.y < G.world.waterY - 1.2) { this.wetT = (this.wetT || 0) + dt; if (this.wetT > 1.5) { this.pos.copy(this.home); this.path = null; this.wetT = 0; } } else this.wetT = 0;   // fallen into deep water: back to where he started
@@ -1002,11 +1044,12 @@ export class Enemy {
     let dYaw = wantYaw - this.yaw; dYaw = Math.atan2(Math.sin(dYaw), Math.cos(dYaw));
     this.yaw += dYaw * Math.min(1, dt * (this.state === 'combat' ? 9 : 4));
     this.sync();
-    const sw = Math.sin(this.walk) * 0.75 * this.moving;
-    rig.legL.rotation.x = sw; rig.legR.rotation.x = -sw;
-    rig.group.position.y = this.pos.y + Math.abs(Math.cos(this.walk)) * 0.04 * this.moving;
-    rig.hips.rotation.x = this.moving * 0.08 - this.flinch * 0.35 + (cfg.melee && pose ? 0.12 : 0);
-    rig.hips.rotation.y = Math.sin(this.walk) * 0.08 * this.moving;
+    const sw = cfg.dog || cfg.rider ? Math.sin(this.walk) * 0.75 * this.moving : -stride(rig, this.walk, this.moving, this.runK, limp);
+    if (cfg.dog || cfg.rider) { rig.legL.rotation.x = sw; rig.legR.rotation.x = -sw; }
+    rig.group.position.y = this.pos.y + Math.abs(Math.cos(this.walk)) * (0.04 + 0.03 * this.runK) * this.moving - limp * Math.max(0, Math.sin(this.walk)) * 0.05 * this.moving;
+    rig.hips.rotation.x = this.moving * (0.08 + 0.14 * this.runK) - this.flinch * 0.35 + (cfg.melee && pose ? 0.12 : 0);
+    rig.hips.rotation.y = Math.sin(this.walk) * (0.08 + 0.06 * this.runK) * this.moving;
+    rig.hips.rotation.z = limp * Math.sin(this.walk) * 0.1 * this.moving;
     this.armPose = damp(this.armPose, pose, 12, dt);
     const pitch = Math.atan2(dy, dist);
     let ax, lx = sw * -0.7, lz = 0.08, az = -0.08;
@@ -1038,9 +1081,11 @@ export class Enemy {
     let dy = n.yaw - this.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); this.yaw += dy * k;
     const moved = Math.hypot(this.pos.x - bx, this.pos.z - bz);
     this.moving = damp(this.moving, Math.min(1, moved / Math.max(dt, 1e-3) / 3), 10, dt); this.walk += moved * 2.6;
+    this.runK = damp(this.runK, clamp((moved / Math.max(dt, 1e-3) - 2.4) / 3, 0, 1), 6, dt); this.hurtT += dt;
+    if (n.hp !== undefined) this.hp = n.hp * this.maxHp;
     this.sync();
-    const sw = Math.sin(this.walk) * 0.75 * this.moving;
-    rig.legL.rotation.x = sw; rig.legR.rotation.x = -sw;
+    const sw = this.cfg.dog || this.cfg.rider ? Math.sin(this.walk) * 0.75 * this.moving : -stride(rig, this.walk, this.moving, this.runK, this.hp < this.maxHp * 0.4 ? 1 : 0);
+    if (this.cfg.dog || this.cfg.rider) { rig.legL.rotation.x = sw; rig.legR.rotation.x = -sw; }
     this.armPose = damp(this.armPose, n.pose, 12, dt);
     rig.armR.rotation.x = (this.cfg.melee ? -1.25 : -Math.PI / 2) * this.armPose + sw * 0.5 * (1 - this.armPose);
     rig.armL.rotation.x = this.cfg.twoHand ? -1.25 * this.armPose : sw * -0.7;
@@ -1059,6 +1104,7 @@ export class Enemy {
     ax += (r() - 0.5) * 2 * sp; ay += (r() - 0.5) * 1.4 * sp; az += (r() - 0.5) * 2 * sp;
     G.shots.spawn(cfg.proj, mx, my, mz, ax, ay, az, cfg.pspeed, false, cfg.dmg);
     if (G.duel) G.duel.enemyShot(cfg.proj, mx, my, mz, ax, ay, az, cfg.pspeed);
+    if (cfg.proj === 'bullet' || cfg.proj === 'ball') G.crowd.alarm(mx, mz, cfg.proj === 'ball' ? 45 : 24, mx, mz);
     if (cfg.proj === 'bullet' || cfg.proj === 'ball') { G.muzzle(mx + ax * 0.3, my + ay * 0.3, mz + az * 0.3, ax, ay, az, cfg.proj === 'ball' ? 2.2 : 0.7); G.sound.gun(cfg.proj === 'ball' ? 1 : Math.max(0.15, 0.8 - dist / 90), Math.min(1, dist / 70)); }
     else G.sound.bow();
   }
@@ -1171,7 +1217,14 @@ export class Shots {
         else { hitEnemy.rig.hips.attach(s.mesh); s.stuck = 30; }
         continue;
       }
+      if (wh && wh.person && !s.ghost) {                                             // a bystander in the way
+        G.crowd.hit(wh.person, s.dmg, s.x, s.y, s.z, s.fromPlayer);
+        if (s.kind === 'bullet' || !wh.person.f) { s.mesh.removeFromParent(); this.list.splice(i, 1); }
+        else { wh.person.f.hips.attach(s.mesh); s.stuck = 30; }
+        continue;
+      }
       if (wh) {
+        if (s.fromPlayer && !s.ghost) G.crowd.alarm(s.x, s.z, 6, s.x - _d.x * 20, s.z - _d.z * 20);   // a missile landing near people frightens them
         if (wh.piece && !s.ghost) G.havoc.damage(wh.piece, s.dmg * (s.kind === 'ball' ? 3 : 1), s.x, s.y, s.z);   // crates, barrels and jars are shot to pieces
         G.impact(s.x, s.y, s.z, wh.nx, wh.ny, wh.nz, s.kind);
         if (s.kind === 'bullet' || (wh.piece && wh.piece.broken)) { s.mesh.removeFromParent(); this.list.splice(i, 1); }
