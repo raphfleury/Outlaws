@@ -1,6 +1,6 @@
 # Lone Hand — Claude version
 
-**Version 1.7.0** · [What changed (changelog)](CHANGELOG.md) · [All releases](https://github.com/iago-swi/outlaws/releases)
+**Version 1.9.0** · [What changed (changelog)](CHANGELOG.md) · [All releases](https://github.com/iago-swi/outlaws/releases)
 
 A first-person shooter in nine chapters, built with Claude (Anthropic) in the spirit of
 late-1990s Western shooters. From a frontier town to a Japanese shrine, an alpine valley,
@@ -18,7 +18,7 @@ The whole game is one file, `index.html`. Every texture, model, sound and piece 
 is generated in the browser when the game starts; there are no image, model or audio
 files.
 
-**[Play it in your browser](https://iago-swi.github.io/outlaws/Claude/)**
+**[Play it in your browser](https://outlaws.kaiseregg.com/)**
 
 | Chapter I · Dry Gulch | Chapter II · Kagemori | Chapter III · Uri |
 | :---: | :---: | :---: |
@@ -204,13 +204,14 @@ fighting; the player clears the road ahead of him. Gompo Tashi Andrugtsang and A
 did fight in those years; Songtsen Gampo is a king of the seventh century. The Red Guards
 belong to the years after 1966 and are in the chapter by request, not by the calendar.
 
-### Duel: two players online
+### Two players online: duel, capture the flag, together
 
-Click **Duel** on the title screen. Two players, each on their own computer, hunt each
-other in one of the nine chapters; the goal is to kill the other player.
+Click **Two players online** on the title screen. Two players, each on their own computer,
+play one of the nine chapters against each other, or together against its enemies.
 
-1. One player chooses the chapter, the rules and how many computer enemies stay in
-   the world (none, or one to nine), then clicks *Create and get the invite link*.
+1. One player chooses the chapter, the game and how many computer enemies are in the
+   world (none, or 3 to 24 by threes; at least 3 together), then clicks *Create and get
+   the invite link*.
 2. They send the link, or its code of five characters, to the other player, who opens
    the link or types the code.
 3. Both choose a fighter. The duel starts when both have chosen.
@@ -218,11 +219,15 @@ other in one of the nine chapters; the goal is to kill the other player.
    the Duel screen, where the host picks the next chapter and rules and starts again.
    No new link or code is needed until one of the players leaves.
 
-| Rule | How it ends |
+| Game | How it is played, and how it ends |
 | --- | --- |
-| First to 3 rounds | Each kill ends a round. Both players start again with full health, at opposite ends of the map, and change ends every round. |
-| One life | The first kill decides. |
-| 5 minutes, most kills | A player comes back three seconds after dying, at the end of the map farther from the opponent. |
+| Duel · first to 5 rounds | Each kill ends a round. Both players start again with full health, at opposite ends of the map, and change ends every round. The first to win five rounds wins. |
+| Duel · 7 minutes, most kills | A player comes back three seconds after dying, at the end of the map farther from the opponent. After seven minutes, the most kills wins. |
+| Capture the flag | Each player's flag stands at his end of the map: blue is yours, red the other's, on the maps too. Walk into the red flag to take it, and into yours, at home, to score a capture. A carrier who falls drops the flag where he fell; walk into your own lying out there to send it home (it goes home by itself after 25 seconds). A carrier shows on the other player's map even when sneaking. First to three captures, or the most after seven minutes. A fallen player comes back at his end after four seconds. |
+| Together against the enemy | Both players start side by side against 3 to 24 of the chapter's enemies, the boss among them. Nothing one fires or swings can hurt the other. Each counts his own kills (the host's browser decides who struck the last blow). A fallen player is back at the start five seconds later. The mission is over when the last enemy falls. |
+
+In every game the enemies stand at places drawn at random for that game, the same in both
+browsers (the host's browser draws a number that both use).
 
 In a duel each chapter offers its villains beside its three heroes. Heroes stand in a
 row marked with a gold star, villains in a row marked with a red skull, and every card
@@ -286,22 +291,46 @@ network.
 
 ### Arsenal, bag, map and things that break
 
+- **Every weapon runs out.** The hero sets out with a limited supply (42 rounds for the
+  six-shooter or a pistol, 128 for a submachine gun, 40 for a rifle, 25 for the scoped
+  rifle, 30 arrows, 20 bolts, 20 throws of stars, 10 javelins or axes, 20 darts, 15
+  stones) and can carry at most twice that. More is found on the fallen and in crates,
+  chests and barrels, as boxes of ammunition: a box fills the weapon in hand if it can
+  take more, otherwise the hero's own. With nothing left to fire, the hands go to the
+  fists (`2`), which never run out.
 - **Weapons taken from the enemy.** Gunmen, archers, crossbowmen, javelin throwers,
   axemen and ninjas leave their weapon where they fall, glowing on the ground; walk over
   it to take it. It comes with a number of shots (12 for a revolver, 16 for a rifle, 64
   for a submachine gun, 10 arrows, 8 bolts, 5 javelins, 6 axes, 12 throws of stars);
-  another of the same kind adds as many. Up to six weapons are carried. A taken weapon
-  leaves the arsenal when it is empty; the hero's own weapon never runs out. Enemies who
-  fight hand to hand leave nothing to shoot with.
+  another of the same kind, the hero's own included, adds as many. Up to six weapons are
+  carried. A taken weapon leaves the arsenal when it is empty. Enemies who fight hand to
+  hand often leave a box of ammunition.
+- **Enemies at new places every game.** The chapter's enemies are a different choice each
+  time (the boss always among them), and those who walk the ground start at random free
+  places, most within thirty metres of their usual post, some anywhere, always far from
+  the start. Those posted on roofs, towers and perches, and those lying in ambush, keep
+  their places.
+- **Healing food and drink lie where one would put them**: on tables, chests, market
+  counters and shelves, at other places each game. Broken, a table drops what lay on it.
 - **The bag** holds up to nine of each thing: the chapter's healing food or drink (35
   health each), and in chapters I, II, VI, VII and VIII the bombs some enemies leave
   (dynamite, a clay fire bomb, grenades). Take one in hand with the wheel and press the
   left button to use it, or press `H` to heal without changing weapons. A bomb bounces,
   rolls to a stop and goes off two seconds or so after the throw.
 - **The map.** The mini-map in the top-right corner shows 55 m around you and turns with
-  you (N marks north on its rim); `Tab` shows the whole chapter, north up. Enemies are
-  red dots, the boss and the other player of a duel larger, but only while they move:
-  one who stands still or creeps up unseen does not show.
+  you (N marks north on its rim); `Tab` shows the whole chapter, north up. It starts dark:
+  only the ground you have passed within about thirty metres of is uncovered. Enemies show
+  as red dots (the boss larger) where the map is uncovered, while they move about, after
+  they have fired, and once they have seen you; one who stands still or creeps up unseen
+  does not. In a duel the other player shows while he moves openly; together, your
+  team-mate always shows, in green.
+- **Life around.** Small flocks of birds peck on open ground and take wing at a shot, a
+  blast or someone coming too near. Gusts lift the dust (in the snow chapters, the snow)
+  and drive it along the ground; on the dry plains of chapters I and VIII a dust devil
+  wanders across now and then. In chapter I a train comes in along the line from the
+  west, stops short of the depot with its bell ringing and backs out again; in chapter
+  VII a tank crosses the town along the street over the prospekt. Both push aside
+  whoever is in their way, and a knock hurts.
 - **Marked places.** The middle button marks the place under the cross-hair (up to nine,
   numbered); pressed again on a mark, it takes it away. A mark is a pin in the world, a
   label with its distance seen through walls, and a dot on both maps; a mark beyond the
@@ -319,6 +348,28 @@ network.
   hero at two thirds of the usual distance, and from behind only within three metres.
   Running near them, on the other hand, is heard within twelve metres, even through a
   wall. Enemies who close in on you while you cannot see them sneak as well.
+
+### Bystanders, fists, wounds and aimed throws
+
+- **Bystanders** take fright at shots, blasts and missiles landing near them: they run from
+  the danger, crouch with their hands over their heads, and walk back to their work once
+  it has been quiet for a while (if the way back is blocked, they stay where they are).
+  Stand still near one for a moment, without fighting, and he turns to you and talks,
+  waves, nods, shrugs or points; aim at one and he raises his hands. A shot or two kills
+  one; the end of the chapter shows how many bystanders you killed.
+- **Fists** are always the second place of the arsenal (`2`): the left button jabs with
+  either hand in turn (28 damage), the right button throws a hook (55). They reach about
+  a metre and a half, need no ammunition and break crates and fences too.
+- **Wounds.** A shot leaves a dark mark on the body where it went in, pushes the figure back
+  a little, and shows a small health bar over the enemy for four seconds (over the other
+  player of a duel as long as he is hurt). Below 40% of his strength an enemy limps.
+- **Things wear before they break.** Each hit dents and blackens a breakable thing where it
+  struck, and it leans further over the weaker it gets.
+- **Aimed throws.** With a thrown weapon the right button aims (the view narrows a little)
+  and draws the flight as a line of dots, from the hand to a ring where it will land. For a
+  bomb the line follows the bounces and a red ring shows the reach of the blast. The line
+  is worked out with the same steps as the throw itself, so it is exact for walls, roofs
+  and the ground, and for the enemies standing where they are now.
 
 ### Sound settings and voice chat
 
@@ -343,10 +394,10 @@ and the other player (green while they speak).
 | `C` | Crouch on and off |
 | `X` | Sneak on and off: half speed, no footsteps, harder to notice, not shown on the other player's map. Running ends it while you run |
 | Left mouse button | Fire, throw stars, shoot a bolt, throw a javelin or an axe, loose an arrow, throw a poisoned dart or a stone; with an item from the bag in hand, use it (drink, eat, throw a bomb) |
-| Right mouse button | Aim (six-shooter, crossbow, the guns of chapters VI to VIII; through the scope with the sniper rifle); katana or sword cut in chapters II and IV and with the bow of chapter VIII; the flail in chapter V; the obsidian-edged club in chapter IX |
-| `F` | Halberd thrust in chapter III, knife in chapters VI to VIII (also the katana, the swords and the flail) |
+| Right mouse button | Aim (six-shooter, crossbow, the guns of chapters VI to VIII; through the scope with the sniper rifle). With a thrown weapon (stars, javelins, axes, darts, stones, bombs) it aims too and shows the flight to where it will land. With the bow, the sword or katana cut; with the fists, a hook |
+| `F` | Halberd thrust in chapter III, knife in chapters VI to VIII, katana in chapter II, sword in chapter IV, flail in chapter V, club in chapter IX |
 | `R` | Reload the six-shooter and the guns of chapters VI to VIII |
-| Mouse wheel | Change weapon: through the arsenal (the hero's weapon, the weapons taken from the enemy) and the bag. `1` to `9` take a place directly |
+| Mouse wheel | Change weapon: through the arsenal (the hero's weapon, the fists, the weapons taken from the enemy) and the bag. `1` to `9` take a place directly; `2` is always the fists |
 | Middle mouse button (press the wheel) | Mark the place the cross-hair points at; again on a mark, take it away |
 | `Tab` (hold) | The map of the whole chapter |
 | `H` | Use a healing item from the bag without taking it in hand |
@@ -416,6 +467,9 @@ green. The end-of-chapter screen notes that the result was reached in practice m
 | [havoc.js](source/src/havoc.js) | Things that break (crates, barrels, jars) and explosions: splinters, the blast, kegs that set each other off. |
 | [map.js](source/src/map.js) | The chapter's map drawn from the world, the mini-map, the whole map on `Tab`, and the marked places with their pins. |
 | [loot.js](source/src/loot.js) | What each kind of enemy leaves behind, the shots that come with a weapon, and the names shown in the arsenal and the bag. |
+| [life.js](source/src/life.js) | Life around: birds, gusts and dust devils, the train of chapter I and the tank of chapter VII. |
+| [crowd.js](source/src/crowd.js) | The bystanders: fright and flight, crouching, the way back, talking to the player, hands up, wounds and death. |
+| [arc.js](source/src/arc.js) | The line of dots that shows where a thrown weapon will land. |
 | [voice.js](source/src/voice.js) | Voice chat in a duel: the microphone, the call to the other browser, the other player's voice. |
 | [duel.js](source/src/duel.js) | Duel mode: the other player's figure, rounds and scores, the messages between the two games, the lobby. |
 | [net.js](source/src/net.js) | The connection between the two browsers: the introduction through PeerJS under a short code, then a direct channel. |
@@ -678,8 +732,8 @@ and whether they aim or swing, in a small JSON message over a WebRTC data channe
   dead and announces it; both sides then count the score by the same rule.
 - **What you see of the other's fire.** Tracers and projectiles are sent as "ghosts":
   they are drawn and heard, but hit nothing on the receiving side.
-- **Shared computer enemies.** If the host asked for them, six of the chapter's enemies
-  stay. They are simulated on the host only and turn on whichever player is nearer. The
+- **Shared computer enemies.** If the host asked for them, 3 to 24 of the chapter's enemies
+  are in the world, chosen and placed from the host's random number in both browsers. They are simulated on the host only and turn on whichever player is nearer. The
   guest receives their positions ten times a second and shows them as puppets; a guest's
   hit on a puppet is sent to the host, which applies it.
 - **Voice.** Each player whose microphone is on makes a WebRTC audio call to the other
@@ -866,7 +920,7 @@ new to play raises the middle one, a rebuilt game the first. The number lives in
 `package.json`; the build writes it onto the title screen. Every published version has an
 entry in [CHANGELOG.md](CHANGELOG.md), a Git tag `lone-hand-vX.Y.Z`, and a
 [release on GitHub](https://github.com/iago-swi/outlaws/releases) that carries the notes and
-the game as one HTML file. The Gemini version in this repository keeps its own numbering.
+the game as one HTML file.
 
 ### Build from source
 

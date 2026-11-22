@@ -24,6 +24,38 @@ export class Havoc {
       for (let i = 0; i < 6; i++) this.game.gfx.soft.spawn(x, y, z, (Math.random() - 0.5) * 3, Math.random() * 2.5, (Math.random() - 0.5) * 3, { life: 0.5 + Math.random() * 0.4, s0: 0.06, s1: 0.04, r: _c.r * 1.4, g: _c.g * 1.4, b: _c.b * 1.4, a: 0.95, grav: 9, drag: 0.5 });
     }
     if (p.hp <= 0) this.breakPiece(p, true);
+    else if (x !== undefined) this.wear(p, x, y, z);
+  }
+  /**
+   * The damage shows before the thing gives way. Where it was hit, its surface is dented and blackened (a hole, a split, a crack);
+   * and the weaker it gets, the more it leans over on its base, as a fence or a stack of crates does when it is about to go.
+   */
+  wear(p, x, y, z) {
+    const frac = 1 - p.hp / p.hp0, lean = (p.kind === 'clay' ? 0.07 : p.kind === 'straw' || p.kind === 'cloth' ? 0.12 : 0.2) * Math.min(1, p.r) ** 0.3;
+    if (p.axis === undefined) { p.axis = Math.random() * 6.283; p.leaned = 0; }
+    const da = (frac - p.leaned) * lean; p.leaned = frac;
+    const ax = Math.cos(p.axis), az = Math.sin(p.axis), ca = Math.cos(da), sa = Math.sin(da), R = Math.min(0.26, 0.12 + p.r * 0.12), R2 = R * R;
+    for (const r of p.ranges) {
+      const pos = r.mesh.geometry.attributes.position, col = r.mesh.geometry.attributes.color, a = pos.array, c = col ? col.array : null;
+      for (let i = r.start * 3; i < (r.start + r.count) * 3; i += 3) {
+        // lean: a turn of da about a level axis through the base (Rodrigues' formula, the axis has no y)
+        let vx = a[i] - p.x, vy = a[i + 1] - p.y, vz = a[i + 2] - p.z;
+        if (da) {
+          const dot = vx * ax + vz * az, cx = az * vy, cy = ax * vz - az * vx, cz = -ax * vy;            // axis × v, with axis = (ax, 0, az)
+          vx = vx * ca + cx * sa + ax * dot * (1 - ca); vy = vy * ca + cy * sa; vz = vz * ca + cz * sa + az * dot * (1 - ca);
+          a[i] = p.x + vx; a[i + 1] = p.y + vy; a[i + 2] = p.z + vz;
+        }
+        // the dent and the mark where the shot went in
+        const hx = a[i] - x, hy = a[i + 1] - y, hz = a[i + 2] - z, d2 = hx * hx + hy * hy + hz * hz;
+        if (d2 < R2) {
+          const k = 1 - Math.sqrt(d2) / R, ox = p.x - a[i], oz = p.z - a[i + 2], ol = Math.hypot(ox, oz) || 1;
+          a[i] += ox / ol * 0.04 * k + (Math.random() - 0.5) * 0.02 * k; a[i + 1] += (Math.random() - 0.5) * 0.02 * k; a[i + 2] += oz / ol * 0.04 * k + (Math.random() - 0.5) * 0.02 * k;
+          if (c) { const m = 1 - 0.6 * k; c[i] *= m; c[i + 1] *= m; c[i + 2] *= m; }
+        }
+      }
+      pos.addUpdateRange(r.start * 3, r.count * 3); pos.needsUpdate = true;
+      if (col) { col.addUpdateRange(r.start * 3, r.count * 3); col.needsUpdate = true; }
+    }
   }
   /** What a level laid on a table or a chest (merged into the world with everything else): every triangle lying wholly in the space above its top is made to vanish with it. */
   sweep(p) {
@@ -81,6 +113,7 @@ export class Havoc {
     for (const q of W.pieces) if (!q.broken && q !== p && Math.abs(q.y - p.top) < 0.2 && Math.hypot(q.x - p.x, q.z - p.z) < p.r + q.r) this.queue.push({ t: 0.12, p: q });
     if (p.boom) this.queue.push({ t: 0.05, x: p.x, y: p.y + 0.5, z: p.z, boom: true });
     if (send && G.duel && G.duel.active) G.duel.send({ t: 'brk', i: p.id });
+    G.pieceBroken(p);
   }
   /** How far a sound is from the player, 0 (here) .. 1 (far off). */
   far(x, z) { const P = this.game.player.pos; return Math.min(1, Math.hypot(x - P.x, z - P.z) / 90); }
@@ -107,7 +140,7 @@ export class Havoc {
     if (dp < 30 && !P.dead) P.recoil((Math.random() - 0.5) * 3 * (1 - dp / 30));
     // the blast
     const shield = (bx, by, bz) => (W.clear(x, y, z, bx, by, bz) ? 1 : 0.35);
-    if (dp < R) G.hurtPlayer(DMG * 0.6 * (1 - dp / R) * shield(P.pos.x, P.pos.y + 1, P.pos.z), { x, z }, false);
+    if (dp < R && !(o.ghost && G.duel && G.duel.cfg.rules === 'coop')) G.hurtPlayer(DMG * 0.6 * (1 - dp / R) * shield(P.pos.x, P.pos.y + 1, P.pos.z), { x, z }, false);
     for (const e of G.enemies) {
       if (!e.alive || e.remote || e.puppet || e.state === 'hidden') continue;      // the other player and the host's enemies are worked out in their own browser
       const d = Math.hypot(e.pos.x - x, e.pos.y + 1 - y, e.pos.z - z);
@@ -115,6 +148,7 @@ export class Havoc {
       else if (d < 45 && e.state === 'idle' && !e.static) e.alert(0.3 + Math.random() * 0.5);
     }
     G.noise = 1.5;
+    G.crowd.blast(x, y, z, R, DMG * 0.6);
     for (const q of W.pieces) { if (q.broken) continue; const d = Math.hypot(q.x - x, (q.y + q.top) / 2 - y, q.z - z); if (d < R * 0.85) this.queue.push({ t: 0.02 + d * 0.025, p: q }); }
   }
 

@@ -140,6 +140,7 @@ export class Builder {
    */
   piece(o) {
     const W = this.world, p = { id: W.pieces.length, hp: 40, kind: 'wood', boom: false, color: 0x8a623a, ...o, ranges: [], cols: [], broken: false };
+    p.hp0 = p.hp;
     W.pieces.push(p); this.stack.push(this.cur); this.cur = W.curPiece = p;
     return p;
   }
@@ -238,7 +239,7 @@ export class World {
     if (this.curPiece) { b.piece = this.curPiece; this.curPiece.cols.push(b); }
     this.boxes.push(b);
   }
-  addCyl(x, z, r, y0, y1) { const c = { x, z, r, y0, y1 }; if (this.curPiece) { c.piece = this.curPiece; this.curPiece.cols.push(c); } this.cyls.push(c); }
+  addCyl(x, z, r, y0, y1) { const c = { x, z, r, y0, y1 }; if (this.curPiece) { c.piece = this.curPiece; this.curPiece.cols.push(c); } this.cyls.push(c); return c; }
   /** Take away the colliders of a piece that has been broken. */
   removeCols(p) { const gone = new Set(p.cols); this.boxes = this.boxes.filter((b) => !gone.has(b)); this.cyls = this.cyls.filter((c) => !gone.has(c)); }
 
@@ -420,7 +421,7 @@ export class World {
         if (tt >= best) break;
       }
     }
-    return hit ? { t: best, nx, ny, nz, piece: obj && obj.piece && !obj.piece.broken ? obj.piece : null } : null;
+    return hit ? { t: best, nx, ny, nz, piece: obj && obj.piece && !obj.piece.broken ? obj.piece : null, person: obj && obj.person && !obj.person.dead ? obj.person : null } : null;
   }
 
   /** True if nothing solid lies between two points. */

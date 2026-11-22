@@ -66,6 +66,9 @@
   #bigmap { position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); z-index:7; border:1px solid rgba(244,234,212,.4); box-shadow:0 8px 40px rgba(0,0,0,.8); opacity:0; pointer-events:none; transition:opacity .15s; }
   #bigmap.on { opacity:1; }
   #pins .pin { position:absolute; transform:translate(-50%,-100%); font-family:Consolas,'Cascadia Mono',Menlo,monospace; font-size:13px; font-weight:bold; color:#140e08; background:var(--accent); padding:1px 6px; border-radius:3px; box-shadow:0 1px 4px rgba(0,0,0,.7); white-space:nowrap; }
+  /* health bars over enemies who were just hit */
+  #bars .hb { position:absolute; width:48px; height:5px; margin-top:-4px; transform:translate(-50%,-100%); background:rgba(0,0,0,.6); border:1px solid rgba(244,234,212,.4); }
+  #bars .hb i { display:block; height:100%; background:linear-gradient(90deg,#b8261a,#e85a3a); }
   /* the arsenal and the bag, above the weapon's name */
   #bag { display:flex; flex-direction:column; align-items:flex-end; gap:2px; font-size:14px; color:var(--dim); opacity:.45; transition:opacity .3s; }
   #bag.lit { opacity:1; }
@@ -225,6 +228,7 @@
   <div id="arms" class="panel"><div id="bag"></div><div id="pips"></div><div class="name"></div><div class="alt"></div></div>
   <canvas id="minimap" width="200" height="200"></canvas>
   <div id="pins"></div>
+  <div id="bars"></div>
   <div id="voice"></div>
 </div>
 <canvas id="bigmap" width="700" height="700"></canvas>
@@ -263,26 +267,26 @@
     <div class="card az" data-level="8"><div class="n">IX</div><div class="t">Tenochtitlan</div><div class="p">Mexico, 30 June 1520.<br>Poisoned darts on the causeway at dusk.</div></div>
   </div>
   <div class="foot">Choose a chapter</div>
-  <div id="duelbtn">Duel &nbsp;·&nbsp; two players online</div>
+  <div id="duelbtn">Two players online &nbsp;·&nbsp; duel, flags, together</div>
 </div>
 
 <div id="duel" class="layer screen">
   <div class="veil"></div>
   <div class="kicker">Two players &nbsp;·&nbsp; online</div>
-  <div class="big">Duel</div>
+  <div class="big">Two players</div>
   <div class="dpanel">
     <div class="dcol">
-      <h3 id="dhosttitle">Create a duel</h3>
+      <h3 id="dhosttitle">Create a game</h3>
       <label>Chapter <select id="dlevel"><option value="0">I · Dry Gulch</option><option value="1">II · Kagemori</option><option value="2">III · Uri</option><option value="3">IV · Ithaca</option><option value="4">V · Jarnvik</option><option value="5">VI · Sainte-Aubine</option><option value="6">VII · Stalnogorsk</option><option value="7">VIII · Che La</option><option value="8">IX · Tenochtitlan</option></select></label>
-      <label>Rules <select id="drules"><option value="rounds">First to 3 rounds</option><option value="one">One life</option><option value="timed">5 minutes, most kills</option></select></label>
-      <label>Computer enemies, hostile to both <select id="dfoes"><option value="0">None</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option></select></label>
+      <label>Game <select id="drules"><option value="rounds">Duel · first to 5 rounds</option><option value="timed">Duel · 7 minutes, most kills</option><option value="ctf">Capture the flag</option><option value="coop">Together against the enemy</option></select></label>
+      <label><span id="dfoeslab">Computer enemies, hostile to both</span> <select id="dfoes"><option value="0">None</option><option value="3">3</option><option value="6">6</option><option value="9">9</option><option value="12">12</option><option value="15">15</option><option value="18">18</option><option value="21">21</option><option value="24">24</option></select></label>
       <button id="dcreate">Create and get the invite link</button>
-      <button id="dagain">Start the next duel</button>
+      <button id="dagain">Start the next game</button>
       <p id="dguestnote">The host chooses the next duel. You stay connected: no new code is needed.</p>
       <div id="dlinkbox" class="hidden">Code <span id="dcodeout"></span><br>Invite link<input id="dlink" readonly><button id="dcopy">Copy the link</button></div>
     </div>
     <div class="dcol" id="djoincol">
-      <h3>Join a duel</h3>
+      <h3>Join a game</h3>
       <label>Code from your opponent <input id="dcodein" maxlength="12" autocomplete="off" spellcheck="false"></label>
       <button id="djoinbtn">Join</button>
       <p style="margin:14px 0 0;font-size:14px;color:var(--dim);line-height:1.4">Or simply open the invite link your opponent sent you.<br>The two computers talk to each other directly; each player can see the other's network address.</p>
