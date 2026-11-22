@@ -122,14 +122,26 @@ export function rockGeo(seed = 1, detail = 1) {
 // ---------------------------------------------------------------------------
 
 export class Builder {
-  constructor(world) { this.world = world; this.parts = new Map(); }
+  constructor(world) { this.world = world; this.parts = new Map(); this.cur = null; }
 
   add(mat, geo) {
     let a = this.parts.get(mat);
     if (!a) this.parts.set(mat, (a = []));
     a.push(geo);
+    if (this.cur) geo.userData.piece = this.cur;
     return this;
   }
+  /**
+   * A thing that can be shot to pieces (a crate, a barrel, a jar). Everything added until endPiece() belongs to it: its shapes still go into
+   * the big merged meshes (no extra draw calls), and the piece remembers where they lie in them, so that they can be made to vanish.
+   * o: { hp, kind: 'wood' | 'clay', boom (explodes), color, x, y, z, r (radius), top (height of its top) }
+   */
+  piece(o) {
+    const W = this.world, p = { id: W.pieces.length, hp: 40, kind: 'wood', boom: false, color: 0x8a623a, ...o, ranges: [], cols: [], broken: false };
+    W.pieces.push(p); this.cur = W.curPiece = p;
+    return p;
+  }
+  endPiece() { this.cur = this.world.curPiece = null; }
   /** Box with (x,y,z) = centre of its BASE. o: {ry, rx, rz, c (colour), solid} */
   box(mat, w, h, d, x, y, z, o = {}) {
     const g = boxGeo(w, h, d, mat.userData.tile || 1);
@@ -153,6 +165,8 @@ export class Builder {
     const out = [];
     for (const [mat, list] of this.parts) {
       const mesh = new THREE.Mesh(merge(list), mat);
+      let at = 0;
+      for (const g of list) { const n = g.attributes.position.count; if (g.userData.piece) g.userData.piece.ranges.push({ mesh, start: at, count: n }); at += n; }
       mesh.castShadow = !mat.userData.noShadow;
       mesh.receiveShadow = !mat.userData.noShadow;
       parent.add(mesh); out.push(mesh);
@@ -215,11 +229,16 @@ export class World {
     this.bounds = null;            // {x0,x1,z0,z1} or {r} hard limits
     this.maxSlope = 1.15;          // steeper terrain cannot be climbed
     this.waterY = -Infinity;       // terrain below this is too deep to enter
+    this.pieces = []; this.curPiece = null;   // things that can be shot to pieces (see Builder.piece)
   }
   addBox(x, z, w, d, ry, y0, y1) {
-    this.boxes.push({ x, z, hw: w / 2, hd: d / 2, c: Math.cos(ry), s: Math.sin(ry), y0, y1, r: Math.hypot(w, d) / 2 });
+    const b = { x, z, hw: w / 2, hd: d / 2, c: Math.cos(ry), s: Math.sin(ry), y0, y1, r: Math.hypot(w, d) / 2 };
+    if (this.curPiece) { b.piece = this.curPiece; this.curPiece.cols.push(b); }
+    this.boxes.push(b);
   }
-  addCyl(x, z, r, y0, y1) { this.cyls.push({ x, z, r, y0, y1 }); }
+  addCyl(x, z, r, y0, y1) { const c = { x, z, r, y0, y1 }; if (this.curPiece) { c.piece = this.curPiece; this.curPiece.cols.push(c); } this.cyls.push(c); }
+  /** Take away the colliders of a piece that has been broken. */
+  removeCols(p) { const gone = new Set(p.cols); this.boxes = this.boxes.filter((b) => !gone.has(b)); this.cyls = this.cyls.filter((c) => !gone.has(c)); }
 
   /** Height of the floor under a point for something whose feet are at feetY. */
   groundAt(x, z, feetY) {
@@ -325,7 +344,7 @@ export class World {
    * {t, nx, ny, nz} within `max` metres, or null.
    */
   raycast(o, d, max = 300) {
-    let best = max, nx = 0, ny = 1, nz = 0, hit = false;
+    let best = max, nx = 0, ny = 1, nz = 0, hit = false, obj = null;
     for (const b of this.boxes) {
       const ox = o.x - b.x, oz = o.z - b.z;
       const lox = ox * b.c - oz * b.s, loz = ox * b.s + oz * b.c;
@@ -360,7 +379,7 @@ export class World {
         if (t0 > t1) continue;
       }
       if (axis < 0 || t0 >= best) continue;
-      best = t0; hit = true;
+      best = t0; hit = true; obj = b;
       if (axis === 1) { nx = 0; ny = sgn; nz = 0; }
       else if (axis === 0) { nx = sgn * b.c; ny = 0; nz = -sgn * b.s; }
       else { nx = sgn * b.s; ny = 0; nz = sgn * b.c; }
@@ -376,7 +395,7 @@ export class World {
       if (t <= 0 || t >= best) continue;
       const y = o.y + d.y * t;
       if (y < c.y0 || y > c.y1) continue;
-      best = t; hit = true;
+      best = t; hit = true; obj = c;
       nx = (ox + d.x * t) / c.r; ny = 0; nz = (oz + d.z * t) / c.r;
     }
     // terrain: march, then refine
@@ -392,14 +411,14 @@ export class World {
             const mid = (lo + hi) / 2;
             if (o.y + d.y * mid < this.height(o.x + d.x * mid, o.z + d.z * mid)) hi = mid; else lo = mid;
           }
-          best = lo; hit = true; nx = 0; ny = 1; nz = 0;
+          best = lo; hit = true; nx = 0; ny = 1; nz = 0; obj = null;
           break;
         }
         pt = tt;
         if (tt >= best) break;
       }
     }
-    return hit ? { t: best, nx, ny, nz } : null;
+    return hit ? { t: best, nx, ny, nz, piece: obj && obj.piece && !obj.piece.broken ? obj.piece : null } : null;
   }
 
   /** True if nothing solid lies between two points. */
@@ -428,7 +447,6 @@ export class Nav {
     const n = this.nx * this.nz;
     this.free = new Uint8Array(n); this.hgt = new Float32Array(n); this.onT = new Uint8Array(n); this.links = new Map();
     this.g = new Float32Array(n); this.from = new Int32Array(n); this.mark = new Uint32Array(n); this.stamp = 0;
-    const p = { x: 0, y: 0, z: 0 };
     // While the grid is built, the world's colliders are swapped for the few near each cell (buckets of 4 x 4 cells):
     // every test below then looks at a handful of boxes instead of all of them.
     const allB = world.boxes, allC = world.cyls, BS = cell * 4, bnx = Math.ceil(this.nx / 4) + 1, bnz = Math.ceil(this.nz / 4) + 1, bb = new Array(bnx * bnz), bc = new Array(bnx * bnz), none = [];
@@ -438,23 +456,40 @@ export class Nav {
     };
     for (const b of allB) put(bb, b, b.r + 0.7); for (const c of allC) put(bc, c, c.r + 0.7);
     for (let j = 0; j < this.nz; j++) for (let i = 0; i < this.nx; i++) {
-      const x = this.x0 + (i + 0.5) * cell, z = this.z0 + (j + 0.5) * cell, k = j * this.nx + i, q0 = (j >> 2) * bnx + (i >> 2);
+      const q0 = (j >> 2) * bnx + (i >> 2);
       world.boxes = bb[q0] || none; world.cyls = bc[q0] || none;
-      const gy = world.height(x, z), wet = gy < world.waterY, g0 = wet ? world.waterY : gy;   // over deep water the search starts at the surface: a bridge or a deck may cross it
-      if (wet && world.groundAt(x, z, g0 + 4) < world.waterY) { this.hgt[k] = gy; continue; }   // open water
-      // find the lowest surface here on which a body fits: the ground, or a floor / step / plinth above it
-      let y = Math.max(g0, world.groundAt(x, z, g0 + 0.05)), fits = false;
-      for (let tries = 0; tries < 8; tries++) {
-        for (let q = 0; q < 8; q++) { const up = world.groundAt(x, z, y); if (up > y + 0.01) y = up; else break; }   // a walker is lifted onto anything within step height
-        p.x = x; p.y = y; p.z = z; world.collide(p, 0.25, 1.7);
-        if (!(wet && y < world.waterY + 0.02) && Math.abs(p.x - x) + Math.abs(p.z - z) < 0.03 && !world.inBox(x, z, y, 1.7)) { fits = true; break; }   // the water surface itself is never a place to stand
-        const y2 = world.nextUp(x, z, y);
-        if (y2 - g0 > 18) break;                            // nothing higher. (A roof is found too, but with no steps up to it nothing links it to the ground.)
-        y = y2;
-      }
-      this.hgt[k] = y; this.onT[k] = !wet && y - gy < 0.03 ? 1 : 0; if (fits && !(wet && y < world.waterY + 0.02)) this.free[k] = 1;
+      this.cellAt(i, j);
     }
     world.boxes = allB; world.cyls = allC;
+  }
+  /** Work out one cell of the grid from the world's colliders: its floor height, and whether a body fits there. */
+  cellAt(i, j) {
+    const world = this.w, cell = this.cell, p = this._p || (this._p = { x: 0, y: 0, z: 0 });
+    const x = this.x0 + (i + 0.5) * cell, z = this.z0 + (j + 0.5) * cell, k = j * this.nx + i;
+    this.free[k] = 0; this.onT[k] = 0;
+    const gy = world.height(x, z), wet = gy < world.waterY, g0 = wet ? world.waterY : gy;   // over deep water the search starts at the surface: a bridge or a deck may cross it
+    if (wet && world.groundAt(x, z, g0 + 4) < world.waterY) { this.hgt[k] = gy; return; }   // open water
+    // find the lowest surface here on which a body fits: the ground, or a floor / step / plinth above it
+    let y = Math.max(g0, world.groundAt(x, z, g0 + 0.05)), fits = false;
+    for (let tries = 0; tries < 8; tries++) {
+      for (let q = 0; q < 8; q++) { const up = world.groundAt(x, z, y); if (up > y + 0.01) y = up; else break; }   // a walker is lifted onto anything within step height
+      p.x = x; p.y = y; p.z = z; world.collide(p, 0.25, 1.7);
+      if (!(wet && y < world.waterY + 0.02) && Math.abs(p.x - x) + Math.abs(p.z - z) < 0.03 && !world.inBox(x, z, y, 1.7)) { fits = true; break; }   // the water surface itself is never a place to stand
+      const y2 = world.nextUp(x, z, y);
+      if (y2 - g0 > 18) break;                            // nothing higher. (A roof is found too, but with no steps up to it nothing links it to the ground.)
+      y = y2;
+    }
+    this.hgt[k] = y; this.onT[k] = !wet && y - gy < 0.03 ? 1 : 0; if (fits && !(wet && y < world.waterY + 0.02)) this.free[k] = 1;
+  }
+  /** Something in this square (x0..x1, z0..z1) has changed (a crate shot to pieces): work its cells out again. */
+  refresh(x0, z0, x1, z1) {
+    const i0 = Math.max(0, Math.floor((x0 - this.x0) / this.cell) - 1), i1 = Math.min(this.nx - 1, Math.floor((x1 - this.x0) / this.cell) + 1);
+    const j0 = Math.max(0, Math.floor((z0 - this.z0) / this.cell) - 1), j1 = Math.min(this.nz - 1, Math.floor((z1 - this.z0) / this.cell) + 1);
+    const W = this.w, allB = W.boxes, allC = W.cyls, m = 2.5;                   // only the colliders near the square take part: a break costs no more than a few milliseconds
+    W.boxes = allB.filter((b) => b.x + b.r > x0 - m && b.x - b.r < x1 + m && b.z + b.r > z0 - m && b.z - b.r < z1 + m);
+    W.cyls = allC.filter((c) => c.x + c.r > x0 - m && c.x - c.r < x1 + m && c.z + c.r > z0 - m && c.z - c.r < z1 + m);
+    try { for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) this.cellAt(i, j); } finally { W.boxes = allB; W.cyls = allC; }
+    this.links.clear();
   }
   idx(x, z) { const i = Math.floor((x - this.x0) / this.cell), j = Math.floor((z - this.z0) / this.cell); return i < 0 || j < 0 || i >= this.nx || j >= this.nz ? -1 : j * this.nx + i; }
   /** Nearest walkable cell to a point (searches a few rings outward). */

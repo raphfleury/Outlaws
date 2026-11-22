@@ -12,7 +12,11 @@ import { Sound } from './audio.js';
 import { makeMaterials } from './tex.js';
 import { World, Builder, Nav } from './build.js';
 import { Player, Input } from './player.js';
-import { Enemy, Shots, makeHumanoid, lookFor, TYPES } from './actors.js';
+import { Enemy, Shots, makeHumanoid, lookFor, TYPES, dropMesh } from './actors.js';
+import { Havoc } from './havoc.js';
+import { MapView } from './map.js';
+import { Voice } from './voice.js';
+import { dropsOf, weaponName, weaponAlt, itemName, itemAlt } from './loot.js';
 import { rng, clamp, damp } from './util.js';
 import { west } from './levels/west.js';
 import { japan } from './levels/japan.js';
@@ -27,6 +31,7 @@ import { tibet } from './levels/tibet.js';
 import { aztec } from './levels/aztec.js';
 
 const LEVELS = [west, japan, swiss, greece, north, war, russia, tibet, aztec];
+const esc = (t) => String(t).replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
 const $ = (s) => document.querySelector(s);
 const MAX_FOES = 30;
 /**
@@ -79,11 +84,13 @@ class Game {
     this.ui = {
       hp: $('#vital .num'), hpbar: $('#hpbar i'), pips: $('#pips'), wname: $('#arms .name'), alt: $('#arms .alt'), foes: $('#foes'),
       compass: $('#compass'), boss: $('#boss'), bossName: $('#boss span'), bossBar: $('#boss i'), msg: $('#msg'), hit: $('#hit'),
-      dmg: $('#dmg b'), place: $('#place'), cross: [...document.querySelectorAll('#cross i[data-s]')], dots: [],
+      dmg: $('#dmg b'), place: $('#place'), cross: [...document.querySelectorAll('#cross i[data-s]')], dots: [], bag: $('#bag'),
     };
     this.cache = {}; this.msgT = 0; this.hitT = 0; this.dmgT = 0; this.crossGap = 6;
     this._v = new THREE.Vector3(); this._v2 = new THREE.Vector3(); this._o = { x: 0, y: 0, z: 0 }; this._d = { x: 0, y: 0, z: 0 };
     this.duel = null;
+    this.havoc = new Havoc(this); this.map = new MapView(this); this.voice = new Voice(this); this.bagShown = 0;
+    this.sound.onchange = () => { this.voice.settings(); this.soundLabel(); };
     this.bindUI();
   }
 
@@ -103,7 +110,11 @@ class Game {
     $('#heroes').addEventListener('click', (e) => { const k = cardOf(e); if (k >= 0 && this.state === 'intro' && !(this.duel && this.duel.myPick >= 0)) { this.applyHero(k); this.begin(); } });
     bindDuelUI(this);
     this.canvas.addEventListener('mousedown', () => { if (this.state === 'play' && !this.input.locked && !this.input.free) this.input.lock(); });   // a click captures the mouse again
-    $('#pause').addEventListener('click', () => { if (this.state === 'pause') { this.setState('play'); this.input.lock(); } });
+    // Closing the tab or the browser by accident while playing (Ctrl+W, Ctrl+Q...) asks first: the browser shows its "Leave the page?" question.
+    addEventListener('beforeunload', (e) => { if (this.state === 'play' || this.state === 'pause' || this.state === 'dead' || (this.duel && this.duel.link.open)) { e.preventDefault(); e.returnValue = ''; } });
+    this.bindSound();
+    addEventListener('resize', () => this.map.resize()); this.map.resize();
+    $('#pause').addEventListener('click', (e) => { if (e.target.closest('.soundbtn')) return; if (this.state === 'pause') { this.setState('play'); this.input.lock(); } });
     $('#dead').addEventListener('click', () => { if (this.state === 'dead' && this.player.deadT > 1) this.openLevel(this.index, true); });
     $('#clear').addEventListener('click', () => { if (this.state !== 'clear') return; if (this.duel) { if (this.duel.link.open) this.duel.again(); else this.toTitle(); return; } if (this.index + 1 < LEVELS.length) this.openLevel(this.index + 1); else this.toTitle(); });
     this.input.onLock = (locked) => {
@@ -112,7 +123,8 @@ class Game {
     };
     addEventListener('keydown', (e) => {
       if (e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;             // typing a duel code is not playing
-      if (e.code === 'KeyM') { this.muted = !this.muted; this.sound.setMuted(this.muted); }
+      if (e.code === 'KeyM') { this.sound.init(); const on = this.sound.toggleMusic(); if (this.state === 'play') this.say(on ? 'Music on' : 'Music off'); }   // M: the music only; the other sounds stay
+      if (e.code === 'KeyO' && (this.state === 'pause' || this.state === 'title' || this.state === 'duel')) this.soundPanel(!this.soundOpen);
       if (e.code === 'KeyG' && (this.state === 'play' || this.state === 'pause')) {         // G steps through the graphics levels without leaving the chapter
         const all = ['auto', ...GFX_ORDER]; this.setGraphics(all[(all.indexOf(this.gfxWant) + 1) % all.length]);
         if (this.state === 'play') this.say('Graphics: ' + GFX_NAMES[this.gfxWant]);
@@ -125,7 +137,8 @@ class Game {
           if (this.state === 'pause' && this.pausedByP) { this.setState('play'); this.say(this.practice ? 'Practice mode — they cannot hurt you' : 'Practice mode off'); }   // the P of PAX had paused the game
         }
       }
-      if (e.code === 'KeyQ' && this.state === 'pause') this.toTitle();
+      if (e.code === 'KeyQ' && this.state === 'pause' && !this.soundOpen) this.toTitle();
+      if (e.code === 'Escape' && this.soundOpen) this.soundPanel(false);
       if (this.state === 'intro') {
         const k = ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'Digit7'].indexOf(e.code);  // hero keys
         if (k >= 0 && k < this.roster().length && !(this.duel && this.duel.myPick >= 0)) this.applyHero(k);
@@ -148,6 +161,29 @@ class Game {
     sel.value = this.gfxWant; sel.options[0].textContent = this.gfxWant === 'auto' ? 'Automatic (now ' + now + ')' : 'Automatic';
     $('#gfxnow').textContent = 'Graphics: ' + (this.gfxWant === 'auto' ? 'Automatic, now ' + now : now);
   }
+  // ---- the sound settings: four volumes, the music on or off, the microphone of the duel ----
+  bindSound() {
+    const S = this.sound, panel = $('#sound');
+    for (const k of ['master', 'effects', 'voice', 'music']) {
+      const el = $('#snd-' + k);
+      el.value = Math.round(S.set[k] * 100);
+      el.addEventListener('input', () => { S.init(); S.change({ [k]: el.value / 100, ...(k === 'music' && +el.value > 0 ? { musicOn: true } : {}) }); });
+    }
+    $('#snd-musicOn').addEventListener('change', (e) => { S.init(); S.change({ musicOn: e.target.checked }); });
+    $('#snd-mic').addEventListener('change', (e) => { S.change({ mic: e.target.value }); e.target.blur(); });
+    $('#snd-close').addEventListener('click', () => this.soundPanel(false));
+    panel.addEventListener('click', (e) => { e.stopPropagation(); if (e.target === panel) this.soundPanel(false); });
+    panel.addEventListener('mousedown', (e) => e.stopPropagation());
+    document.querySelectorAll('.soundbtn').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); S.init(); this.soundPanel(true); }));
+    this.soundLabel();
+  }
+  soundPanel(on) { this.soundOpen = on; $('#sound').classList.toggle('on', on); if (on) this.soundLabel(); }
+  soundLabel() {
+    const S = this.sound.set;
+    for (const k of ['master', 'effects', 'voice', 'music']) { $('#snd-' + k).value = Math.round(S[k] * 100); $('#snv-' + k).textContent = Math.round(S[k] * 100) + '%'; }
+    $('#snd-musicOn').checked = S.musicOn; $('#snd-mic').value = S.mic;
+  }
+
   /**
    * Automatic graphics, called with the mean frame time of the last 80 frames. Below about 42 frames a second it
    * steps one level down. If a step brought nothing (a display or a processor that sets the pace, not the picture),
@@ -176,12 +212,13 @@ class Game {
     if (this.state === 'play') this.say(this.practice ? 'Practice mode — they cannot hurt you' : 'Practice mode off');
   }
 
-  show(id) { for (const s of ['title', 'intro', 'pause', 'dead', 'clear', 'duel']) $('#' + s).classList.toggle('on', s === id); }
+  show(id) { for (const s of ['title', 'intro', 'pause', 'dead', 'clear', 'duel']) $('#' + s).classList.toggle('on', s === id); if (id && id !== 'pause' && this.soundOpen) this.soundPanel(false); }
 
   setState(s) {
     this.state = s; this.input.active = s === 'play'; if (s === 'play') this.pausedByP = false;
     document.body.classList.toggle('playing', s === 'play'); if (s !== 'play') document.body.classList.remove('scoped');
     document.body.classList.toggle('cine', s === 'title' || s === 'intro' || s === 'duel');
+    if (s !== 'play') this.map.big.classList.remove('on');
     this.show(s === 'play' ? null : s);
     if (this.hero) this.hero.visible = s === 'intro';
   }
@@ -190,8 +227,8 @@ class Game {
   loadLevel(i, backdrop = false) {
     const def = LEVELS[i];
     this.index = i; this.def = def;
-    this.gfx.clearLevel(); this.shots.reset(); this.enemies = []; this.pickups = [];
-    this.world = new World(); this.rand = rng(4242 + i * 977);
+    this.gfx.clearLevel(); this.shots.reset(); this.havoc.reset(); this.enemies = []; this.pickups = [];
+    this.world = new World(); this.world.chapter = def.id; this.rand = rng(4242 + i * 977);
     const B = new Builder(this.world);
     const L = (this.level = def.build({ game: this, gfx: this.gfx, world: this.world, B, M: this.M, root: this.gfx.root, rand: this.rand, shared: this.gfx.shared }));
     L.enemies = capFoes(L.enemies);
@@ -207,6 +244,7 @@ class Game {
     this.applyHero(clamp(this.heroPick[def.id] ?? want, 0, this.roster().length - 1));
     for (const c of [...document.body.classList]) if (c.startsWith('theme-')) document.body.classList.remove(c);
     document.body.classList.add(def.theme);
+    if (!backdrop) this.map.build(); else this.map.clearMarks();      // the map of this chapter (after its colours are set)
     this.stats = { shots: 0, hits: 0, heads: 0, t: 0 };
     this.timeScale = 1; this.slow = 0; this.noise = 0; this.cache = {};
     this.ui.boss.classList.remove('on');
@@ -243,7 +281,8 @@ class Game {
     P.mods = { hp: 100, armor: 1, speed: 1, fire: 1, reload: 1, draw: 1, melee: 1, reach: 0, regen: 0, power: 1, meleeDmg: 1, gun: 1, stealth: 1, ...h.mods };
     P.maxHp = P.mods.hp; P.hp = P.maxHp;
     P.setWeapon(h.weapon ?? d.weapon, h.sleeve, h.cuff);
-    this.ui.wname.textContent = h.weaponName ?? d.weaponName; this.ui.alt.textContent = h.alt ?? d.alt;
+    this.ownName = h.weaponName ?? d.weaponName; this.ownAlt = h.alt ?? d.alt;
+    this.ui.wname.textContent = this.ownName; this.ui.alt.textContent = this.ownAlt;
     this.ui.place.textContent = h.name + ' · ' + d.place; this.cache = {};
     document.querySelectorAll('#heroes .hero').forEach((c) => c.classList.toggle('sel', +c.dataset.hero === k));
   }
@@ -265,7 +304,8 @@ class Game {
     $('#intro .chap').textContent = d.chapter;
     $('#intro h2').innerHTML = (d.kanji ? `<span class="kanji">${d.kanji}</span>` : '') + d.title;
     $('#intro .story').textContent = d.story;
-    $('#intro .keys').innerHTML = d.keys.replace('<kbd>Space</kbd> jump', '<kbd>Space</kbd> jump &nbsp; <kbd>C</kbd> crouch');
+    $('#intro .keys').innerHTML = d.keys.replace('<kbd>Space</kbd> jump', '<kbd>Space</kbd> jump &nbsp; <kbd>C</kbd> crouch &nbsp; <kbd>X</kbd> sneak')
+      + '<br><kbd>Wheel</kbd> change weapon &nbsp; <kbd>Middle button</kbd> mark a place &nbsp; <kbd>Tab</kbd> map &nbsp; <kbd>H</kbd> heal from the bag';
     const duel = this.duel && this.duel.active, n = d.heroes.length;
     if (duel) {
       const c = this.duel.cfg;
@@ -347,12 +387,36 @@ class Game {
     return i;
   }
 
-  addPickup(x, z, L, hint = 2) {
+  /** Something to pick up: what = { type: 'item', id: 'heal' } (the chapter's healing food or drink, the default), { type: 'item', id: bomb } or { type: 'weapon', kind }. */
+  addPickup(x, z, L, hint = 2, what = { type: 'item', id: 'heal' }) {
     const y = this.world.groundAt(x, z, hint);
-    const mesh = L.makePickup ? L.makePickup() : new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 0.3, 8), new THREE.MeshStandardMaterial({ color: 0xb8742a }));
+    let mesh;
+    if (what.type === 'weapon') mesh = dropMesh(what.kind, this.M);
+    else if (what.id !== 'heal') { mesh = new THREE.Mesh(this.shots.geo[what.id], this.M.flat); mesh.scale.setScalar(1.6); }
+    else mesh = L.makePickup ? L.makePickup() : new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 0.3, 8), new THREE.MeshStandardMaterial({ color: 0xb8742a }));
     mesh.position.set(x, y + 0.5, z); mesh.castShadow = true;
     this.gfx.root.add(mesh);
-    this.pickups.push({ mesh, x, y, z, t: this.rand() * 6 });
+    this.pickups.push({ mesh, x, y, z, t: ((x * 7.3 + z * 3.1) % 6 + 6) % 6, what });
+  }
+  pickupKey(w) { return w ? (w.type === 'weapon' ? 'w:' + w.kind : 'i:' + w.id) : 'i:heal'; }
+  /** An enemy has fallen: it leaves its weapon (and now and then a bomb or something that heals) where it fell. */
+  enemyDown(e) {
+    if (e.remote || !this.level) return;
+    const list = dropsOf(e, this.def.id);
+    list.forEach((what, i) => {
+      const a = e.yaw + 1.2 + i * 1.9, r = 0.7 + i * 0.35, x = e.pos.x + Math.sin(a) * r, z = e.pos.z + Math.cos(a) * r;
+      this.addPickup(x, z, this.level, e.pos.y + 0.6, what);
+    });
+  }
+  /** The player walks over something: is it taken? Returns the line to show, or null if it is of no use now. */
+  takePickup(p) {
+    const P = this.player, w = p.what || { type: 'item', id: 'heal' };
+    if (w.type === 'weapon') {
+      const r = P.addWeapon(w.kind); if (!r) return null;
+      return r === 'new' ? weaponName(w.kind, this.def) + ' taken — mouse wheel to use it' : weaponName(w.kind, this.def) + '  ' + r;
+    }
+    if (!P.addItem(w.id)) return null;
+    return itemName(w.id, this.def) + ' in the bag (' + P.count(w.id) + ')' + (w.id === 'heal' ? ' — H to use' : ' — mouse wheel to take it');
   }
 
   // ---- combat ---------------------------------------------------------------
@@ -369,17 +433,17 @@ class Game {
     if (this.duel) this.duel.tracer(m.x, m.y, m.z, hx, hy, hz);
     this.muzzle(m.x + d.x * 0.25, m.y + d.y * 0.25, m.z + d.z * 0.25, d.x, d.y, d.z, 1);
     if (target) this.hitEnemy(target, dmg, head, hx, hy, hz, o.x, o.z);
-    else if (wh) this.impact(hx, hy, hz, wh.nx, wh.ny, wh.nz, 'bullet');
+    else if (wh) { this.impact(hx, hy, hz, wh.nx, wh.ny, wh.nz, 'bullet'); if (wh.piece) this.havoc.damage(wh.piece, dmg); }
   }
 
-  playerShoot(kind, speed, dmg, grav, turn = 0) {
+  playerShoot(kind, speed, dmg, grav, turn = 0, lift = 0) {
     const P = this.player, o = this.gfx.camera.getWorldPosition(this._v), d = P.forward(this._v2);
     if (turn) { const c = Math.cos(turn), s = Math.sin(turn), x = d.x * c - d.z * s; d.z = d.x * s + d.z * c; d.x = x; }      // one missile of a fan: turned a little to the side
     const rx = Math.cos(P.yaw), rz = -Math.sin(P.yaw);
     this.stats.shots++; this.crossGap = 14;
     const sx = o.x + d.x * 0.5 + rx * 0.04, sy = o.y + d.y * 0.5 - 0.07, sz = o.z + d.z * 0.5 + rz * 0.04;
-    this.shots.spawn(kind, sx, sy, sz, d.x, d.y + 0.012, d.z, speed, true, dmg, grav);
-    if (this.duel) this.duel.shot(kind, sx, sy, sz, d.x, d.y + 0.012, d.z, speed, grav);
+    this.shots.spawn(kind, sx, sy, sz, d.x, d.y + 0.012 + lift, d.z, speed, true, dmg, grav);
+    if (this.duel) this.duel.shot(kind, sx, sy, sz, d.x, d.y + 0.012 + lift, d.z, speed, grav);
   }
 
   playerMelee(range, cone, dmg) {
@@ -396,7 +460,7 @@ class Game {
     if (any) { this.stats.shots++; P.recoil(0.3); }
     else {
       const o = this.gfx.camera.getWorldPosition(this._v), wh = this.world.raycast(o, f, range * 0.75);
-      if (wh) { this.sound.clank(); this.impact(o.x + f.x * wh.t, o.y + f.y * wh.t, o.z + f.z * wh.t, wh.nx, wh.ny, wh.nz, 'bullet'); }
+      if (wh) { this.sound.clank(); this.impact(o.x + f.x * wh.t, o.y + f.y * wh.t, o.z + f.z * wh.t, wh.nx, wh.ny, wh.nz, 'bullet'); if (wh.piece) this.havoc.damage(wh.piece, dmg); }
     }
   }
 
@@ -496,15 +560,19 @@ class Game {
     this.noise = Math.max(0, this.noise - dt);
     this.stats.t += dt;
     P.update(dt, this.input, this.state === 'play');
+    if (this.state === 'play' && this.input.mark && !P.dead) this.map.toggleMark();
     for (const e of this.enemies) e.update(dt);
     this.shots.update(dt);
+    this.havoc.update(dt);
     for (let i = this.pickups.length - 1; i >= 0; i--) {
       const p = this.pickups[i]; p.t += dt;
       p.mesh.rotation.y = p.t * 1.2; p.mesh.position.y = p.y + 0.55 + Math.sin(p.t * 2.2) * 0.08;
       if (Math.random() < dt * 5) this.gfx.glow.spawn(p.x + (Math.random() - 0.5) * 0.5, p.y + 0.3, p.z + (Math.random() - 0.5) * 0.5, 0, 0.6 + Math.random() * 0.5, 0, { life: 1.2, s0: 0.05, s1: 0.0, r: 1.2, g: 2.2, b: 0.9, a: 0.9 });
-      if (!P.dead && P.hp < P.maxHp && (p.x - P.pos.x) ** 2 + (p.z - P.pos.z) ** 2 < 1.7 && Math.abs(p.y - P.pos.y) < 2) {
-        P.hp = Math.min(P.maxHp, P.hp + 35); this.gfx.heal = 1; this.sound.pickup(); this.say(this.def.pickupText);
-        if (this.duel) this.duel.send({ t: 'pk', x: p.x, z: p.z });
+      if (!P.dead && (p.x - P.pos.x) ** 2 + (p.z - P.pos.z) ** 2 < 1.7 && Math.abs(p.y - P.pos.y) < 2) {
+        const line = this.takePickup(p);
+        if (!line) continue;                              // of no use now (the bag is full, or it is the hero's own weapon): it stays where it lies
+        this.sound.pickup(); this.say(line);
+        if (this.duel) this.duel.send({ t: 'pk', x: p.x, z: p.z, k: this.pickupKey(p.what) });
         p.mesh.removeFromParent(); this.pickups.splice(i, 1);
       }
     }
@@ -518,6 +586,15 @@ class Game {
     const P = this.player, u = this.ui, c = this.cache;
     const hp = Math.ceil(P.hp);
     if (c.hp !== hp) { c.hp = hp; u.hp.textContent = hp; u.hpbar.style.width = Math.min(100, (hp / P.maxHp) * 100) + '%'; }
+    const sl = P.slots[P.slot], sig = P.slot + '|' + P.slots.map((q) => q.type === 'item' ? q.count : (q.weapon.reserve ?? '-') + '.' + (q.weapon.ammo ?? '')).join(',');
+    if (c.arms !== sig) {
+      c.arms = sig;
+      const name = sl.own ? this.ownName : sl.type === 'item' ? itemName(sl.id, this.def) : weaponName(sl.kind, this.def);
+      u.wname.innerHTML = esc(name) + (sl.type === 'item' ? ` <span class="res">× ${sl.count}</span>` : P.weapon.reserve !== null ? ` <span class="res">${P.weapon.reserve} more</span>` : '');
+      u.alt.textContent = sl.own ? this.ownAlt : sl.type === 'item' ? itemAlt(sl.id) : weaponAlt(sl.kind, this.def);
+      u.bag.innerHTML = P.slots.length > 1 ? P.slots.map((q, i) => `<div class="${i === P.slot ? 'sel' : ''}"><kbd>${i + 1}</kbd>${esc(q.own ? this.ownName.split(' & ')[0] : q.type === 'item' ? itemName(q.id, this.def) : weaponName(q.kind, this.def))}${q.type === 'item' ? ' × ' + q.count : q.own ? '' : ' · ' + (q.weapon.reserve + (q.weapon.ammo || 0))}</div>`).join('') : '';
+    }
+    this.bagShown = Math.max(0, this.bagShown - dt); u.bag.classList.toggle('lit', this.bagShown > 0);
     const h = P.weapon.hud(), key = h.ammo + '/' + h.mag + h.reloading;
     if (c.ammo !== key) {
       c.ammo = key; u.pips.className = h.mag === 1 ? 'long' : h.mag > 10 ? 'many' : '';
@@ -555,6 +632,7 @@ class Game {
     this.hitT = Math.max(0, this.hitT - dt); u.hit.style.opacity = Math.min(1, this.hitT * 8);
     this.dmgT = Math.max(0, this.dmgT - dt); u.dmg.style.opacity = Math.min(1, this.dmgT * 2);
     if (this.msgT > 0) { this.msgT -= dt; if (this.msgT <= 0) u.msg.classList.remove('on'); }
+    this.map.update(dt, this.input);
   }
 
   frame(now) {
@@ -574,6 +652,8 @@ class Game {
     this.time += dt;
     this.flashLight.intensity = Math.max(0, this.flashLight.intensity - real * 700);
     if (this.duel) this.duel.tick(real);
+    this.voice.update(this.input);
+    this.map.setPinsVisible(this.state === 'play');
     if (this.state === 'title' || this.state === 'intro' || this.state === 'duel') {
       this.cineT += real;
       P.vm.visible = false;

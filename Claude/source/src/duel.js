@@ -19,6 +19,8 @@ export class RemotePlayer extends Enemy {
     this.rig.group.visible = false;                    // until the first report arrives
   }
   get dead() { return !this.alive; }
+  /** The other player sneaks (X): enemies notice him later, and he does not show on the map. */
+  get sneaking() { return !!this.net && !!(this.net.f & 16); }
   /** A crouching opponent is hit where the figure is drawn: half a metre lower. */
   rayHit(o, d, max) { const k = 0.5 * this.duck; this.pos.y -= k; const h = super.rayHit(o, d, max); this.pos.y += k; return h; }
   /** A hit by this player's weapon: the damage is applied in the other browser. */
@@ -73,10 +75,11 @@ export class Duel {
   send(m) { this.link.send(m); }
 
   connected() {
+    this.game.voice.attach(this.link);
     if (this.isHost) { this.send({ t: 'setup', c: this.cfg }); this.enterPick(); }
     else this.game.duelStatus('Connected. Waiting for the host…');
   }
-  lost() { if (this.phase !== 'over' && this.phase !== 'left') this.finish('left'); }
+  lost() { this.game.voice.close(); if (this.phase !== 'over' && this.phase !== 'left') this.finish('left'); }
   enterPick() { this.phase = 'pick'; this.myPick = this.theirPick = -1; this.remote = null; this.ai = []; this.wait = 0; this.game.openLevel(this.cfg.level); }
   /** After a duel the two browsers stay connected: back to the Duel screen, where the host starts the next one. */
   again() { if (this.phase === 'over' && this.link.open) { this.phase = 'lounge'; this.game.duelLounge(); } }
@@ -99,6 +102,7 @@ export class Duel {
     const G = this.game;
     this.ai = G.enemies.slice(); this.ai.forEach((e, i) => { e.idx = i; e.puppet = !this.isHost; });
     this.remote = new RemotePlayer(G, G.roster()[this.theirPick]); G.enemies.push(this.remote);
+    G.voice.paint();
     this.score = [0, 0]; this.round = 0; this.clock = TIMED;
     G.practice = false; document.body.classList.remove('practice');          // no practice mode in a duel
     this.startRound();
@@ -151,7 +155,7 @@ export class Duel {
     if (was === 'lobby' || was === 'pick' || was === 'lounge') { this.game.duelAborted(); return; }
     this.game.duelOver(why === 'left' ? 'Your opponent left' : a > b ? 'You win the duel' : a < b ? 'You lose the duel' : 'A draw', a, b);
   }
-  leave() { if (this.phase !== 'left') { this.send({ t: 'bye' }); this.phase = 'left'; const l = this.link; setTimeout(() => l.close(), 250); } }
+  leave() { this.game.voice.close(); if (this.phase !== 'left') { this.send({ t: 'bye' }); this.phase = 'left'; const l = this.link; setTimeout(() => l.close(), 250); } }
 
   /** Called every frame. */
   tick(dt) {
@@ -159,7 +163,7 @@ export class Duel {
     this.sendT -= dt; if (this.sendT <= 0) { this.sendT = 0.05; this.sendState(); }
     if (this.isHost && this.ai.length) {
       this.enT -= dt;
-      if (this.enT <= 0) { this.enT = 0.1; this.send({ t: 'en', e: this.ai.map((e) => [r2(e.pos.x), r2(e.pos.y), r2(e.pos.z), r2(e.yaw), e.state === 'dead' ? 2 : e.state === 'combat' ? 1 : 0, e.armPose > 0.5 ? 1 : 0]) }); }
+      if (this.enT <= 0) { this.enT = 0.1; this.send({ t: 'en', e: this.ai.map((e) => [r2(e.pos.x), r2(e.pos.y), r2(e.pos.z), r2(e.yaw), e.state === 'dead' ? 2 : e.state === 'combat' ? 1 : 0, e.armPose > 0.5 ? 1 : 0, e.sneaking ? 1 : 0]) }); }
     }
     if (this.cfg.rules === 'timed') {
       this.clock -= dt;
@@ -171,7 +175,7 @@ export class Duel {
     }
   }
   sendState() {
-    const P = this.game.player, w = P.weapon, m = { t: 's', x: r2(P.pos.x), y: r2(P.pos.y), z: r2(P.pos.z), yaw: r3(P.yaw), pitch: r3(P.pitch), f: (P.aim > 0.5 ? 1 : 0) | (w && w.meleeT > 0 ? 2 : 0) | (P.dead ? 4 : 0) | (P.crouch ? 8 : 0) };
+    const P = this.game.player, w = P.weapon, m = { t: 's', x: r2(P.pos.x), y: r2(P.pos.y), z: r2(P.pos.z), yaw: r3(P.yaw), pitch: r3(P.pitch), f: (P.aim > 0.5 ? 1 : 0) | (w && w.meleeT > 0 ? 2 : 0) | (P.dead ? 4 : 0) | (P.crouch ? 8 : 0) | (P.sneaking ? 16 : 0) };
     if (this.isHost && this.cfg.rules === 'timed') m.c = Math.ceil(this.clock);
     this.send(m);
   }
@@ -197,6 +201,7 @@ export class Duel {
   onmsg(m) {
     const G = this.game, P = G.player;
     const ghost = () => {
+      if (!G.shots.geo[m.k]) return;
       const s = G.shots.spawn(m.k, m.a[0], m.a[1], m.a[2], m.a[3], m.a[4], m.a[5], m.a[6], false, 0, m.g ?? undefined); s.ghost = true;
       const d = Math.hypot(m.a[0] - P.pos.x, m.a[2] - P.pos.z);
       if (m.k === 'bullet') { G.muzzle(m.a[0], m.a[1], m.a[2], m.a[3], m.a[4], m.a[5], 0.7); G.sound.gun(Math.max(0.15, 0.8 - d / 90), Math.min(1, d / 70)); } else if (d < 40) G.sound.bow();
@@ -219,9 +224,15 @@ export class Duel {
         break;
       }
       case 'sh': case 'esh': ghost(); break;
-      case 'en': if (!this.isHost) m.e.forEach((a, i) => { const e = this.ai[i]; if (e) e.net = { x: a[0], y: a[1], z: a[2], yaw: a[3], st: a[4], pose: a[5] }; }); break;
+      case 'en': if (!this.isHost) m.e.forEach((a, i) => { const e = this.ai[i]; if (e) e.net = { x: a[0], y: a[1], z: a[2], yaw: a[3], st: a[4], pose: a[5], sn: a[6] }; }); break;
+      case 'brk': { const p = G.world.pieces[m.i]; if (p) G.havoc.breakPiece(p, false); break; }   // a crate or a keg the other player shot to pieces
       case 'ehit': if (this.isHost) { const e = this.ai[m.i]; if (e) e.damage(m.d, !!m.h, m.x, m.z); } break;
-      case 'pk': { const i = G.pickups.findIndex((q) => Math.hypot(q.x - m.x, q.z - m.z) < 0.6); if (i >= 0) { G.pickups[i].mesh.removeFromParent(); G.pickups.splice(i, 1); } break; }
+      case 'pk': {                       // the other player took something: the nearest of that kind goes here too (a drop lies where the enemy fell, which can differ a little)
+        let best = -1, bd = m.k ? 2.5 : 0.6;
+        G.pickups.forEach((q, i) => { const d = Math.hypot(q.x - m.x, q.z - m.z); if (d < bd && (!m.k || G.pickupKey(q.what) === m.k)) { bd = d; best = i; } });
+        if (best >= 0) { G.pickups[best].mesh.removeFromParent(); G.pickups.splice(best, 1); }
+        break;
+      }
       case 'over': this.finish('time'); break;
       case 'bye': this.finish('left'); break;
     }
@@ -246,7 +257,8 @@ export function bindDuelUI(G) {
   G.duelJoin = join;
   $('#duelbtn').addEventListener('click', () => { G.sound.init(); G.openDuel(); });
   $('#dback').addEventListener('click', () => G.closeDuel());
-  $('#dcreate').addEventListener('click', async () => {
+  $('#dcreate').addEventListener('click', async (e) => {
+    e.currentTarget.blur();
     const d = fresh(true), code = code5(); d.cfg = cfg(); G.duelStatus('Creating the duel…');
     try {
       await d.link.host(code);
@@ -254,7 +266,7 @@ export function bindDuelUI(G) {
       G.duelStatus('Send the link or the code to your opponent, then wait here.');
     } catch (e) { fail(e); }
   });
-  $('#dagain').addEventListener('click', () => { if (G.duel) G.duel.startNext(cfg()); });
+  $('#dagain').addEventListener('click', (e) => { e.currentTarget.blur(); if (G.duel) G.duel.startNext(cfg()); });
   $('#dcopy').addEventListener('click', () => copy($('#dlink').value, 'Link copied. Send it to your opponent, then wait here.'));
-  $('#djoinbtn').addEventListener('click', () => join($('#dcodein').value));
+  $('#djoinbtn').addEventListener('click', (e) => { e.currentTarget.blur(); join($('#dcodein').value); });   // blurred: Enter, which then chooses the hero, must not press Join again
 }
