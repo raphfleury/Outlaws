@@ -38,17 +38,17 @@ export const PLACES = {
     ['Lenin Prospekt', 0, 60, 18], ['Block 7 Courtyard', -40, 58, 16], ['The Garages', 55, 72, 14], ['The Checkpoint', 5.6, 31, 8],
     ['Revolution Square', 0, 0, 17], ['The Committee', 0, -47, 17], ['The Works', 80, -50, 18], ['The Metro Pavilion', 28, 34.5, 7],
     ['The District Library', -80, -44, 10], ['The Building Site', -86, 62, 14], ['The Goods Siding', 92, 0, 15],
-    ['The Kolkhoz Market', -35, 28, 10], ['The Boiler House', -93, -27, 10], ['The Palace of Culture', -64, -6, 12],
+    ['The Kolkhoz Market', -35, 28, 10], ['The Kvas Tanker', -44, 38, 6], ['The Boiler House', -93, -27, 10], ['The Palace of Culture', -64, -6, 12],
     ['Revolution Square Station', 56, 39, 13], ['Entrance 2', -36, 78, 7], ['The Church of St Nicholas', -92, 19, 11],
   ],
   tibet: [
     ['The Mani Wall', -45, 60, 10], ['Che La Village', 10, 25, 20], ['The Village Temple', -24, 2, 8], ['The Ruined Fort', 80, 40, 10],
     ['The Frozen Lake', -58, 4, 20], ['The Army Camp', 47, -28, 14], ['The Great Stair', 0, -40, 10], ['Che La Monastery', 0, -80, 18],
-    ['The Barley Terraces', 56, 70, 15], ['The Checkpoint', 84, -22, 8], ['The Hermit’s Cell', -20, 49, 6], ['The Log Bridge', -47.5, -35, 6],
+    ['The Barley Terraces', 56, 70, 15], ['The Checkpoint', 84, -22, 8], ['The Hermit’s Cell', -20, 49, 6], ['The Iron Bridge', -47.5, -35, 7],
   ],
   aztec: [
     ['The Sacred Precinct', 0, 50, 14], ['The Great Temple', 0, 82, 13], ['The House of the Eagles', 29, 90, 8], ['The Market Quarter', 55, 88, 14],
-    ['The Palace of Axayacatl', -58, 75, 14], ['The Causeway', 0, -45, 14], ['The Landing', 0, -112, 18],
+    ['The Palace of Axayacatl', -58, 75, 14], ['The House of Birds', -54, 99, 8], ['The Causeway', 0, -45, 14], ['The Landing', 0, -112, 18],
   ],
 };
 

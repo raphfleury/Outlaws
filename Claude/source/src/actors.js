@@ -272,6 +272,10 @@ export function makeHumanoid(M, sp) {
     case 'stahl':   // steel helmet with a flared rim
       T.push(gSph(0.15, S.hatC ?? 0x4a5248, [0, HT - 0.045, -0.005], [1.02, 0.84, 1.1]), gCyl(0.165, 0.175, 0.05, S.hatC ?? 0x4a5248, [0, HY + 0.035, -0.02], [0.08, 0, 0], [1, 1, 1.1], 14));
       break;
+    case 'm1':      // the round steel helmet of the American soldier, its strap hanging
+      T.push(gSph(0.158, S.hatC ?? 0x4a4e3a, [0, HT - 0.04, -0.005], [1.04, 0.9, 1.12]), gCyl(0.168, 0.172, 0.022, S.hatC ?? 0x4a4e3a, [0, HY + 0.05, -0.01], [0.05, 0, 0], [1, 1, 1.1], 14),
+        gBox(0.012, 0.12, 0.012, 0x3a3020, [0.15, HY - 0.02, 0.02]), gBox(0.012, 0.12, 0.012, 0x3a3020, [-0.15, HY - 0.02, 0.02]));
+      break;
     case 'peaked':  // officer's peaked cap
       T.push(gCyl(0.165, 0.14, 0.07, S.hatC ?? 0x5a6258, [0, HT + 0.03, 0], [0.12, 0, 0], 1, 14), gCyl(0.138, 0.136, 0.05, S.hatBand ?? 0x2a3a2e, [0, HT - 0.025, 0], [0, 0, 0], 1, 14),
         gBox(0.17, 0.012, 0.09, 0x0c0c0c, [0, HT - 0.05, 0.14], [0.3, 0, 0]));

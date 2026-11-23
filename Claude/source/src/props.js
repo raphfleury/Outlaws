@@ -733,6 +733,7 @@ const POSES = {
   pray: (f) => { f.hips.rotation.x = 0.16; f.armR.rotation.x = -1.3; f.armL.rotation.x = -1.3; f.armR.rotation.z = 0.5; f.armL.rotation.z = -0.5; },
   cheer: (f) => { f.armR.rotation.x = -2.8; f.armL.rotation.x = -2.8; f.armR.rotation.z = -0.3; f.armL.rotation.z = 0.3; },
   hips: (f) => { f.armR.rotation.z = -0.5; f.armL.rotation.z = 0.5; f.armR.rotation.x = 0.2; f.armL.rotation.x = 0.2; },
+  wait: (f) => { f.armR.rotation.x = 0.05; f.armL.rotation.x = -0.35; f.armL.rotation.z = 0.12; f.hips.rotation.y = 0.1; },   // waiting in a line: one hand at the side, the other holding a bag; stays in place
 };
 
 /**

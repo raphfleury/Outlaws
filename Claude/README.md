@@ -1,6 +1,6 @@
 # Lone Hand — Claude version
 
-**Version 2.4.0** · [What changed (changelog)](CHANGELOG.md) · [All releases](https://github.com/iago-swi/outlaws/releases)
+**Version 2.5.0** · [What changed (changelog)](CHANGELOG.md) · [All releases](https://github.com/iago-swi/outlaws/releases)
 
 A first-person shooter in nine chapters, built with Claude (Anthropic) in the spirit of
 late-1990s Western shooters. From a frontier town to a Japanese shrine, an alpine valley,
@@ -77,7 +77,7 @@ and some enemies wait indoors, on deck or behind the waterfall.
 | I | saloon with its upper floor and balcony, the Grand Hotel with lobby, stairs, bedrooms and balcony, barber's, doctor's, jail with two barred cells, bank with its safe, general store, sheriff's office with a cell, livery stable, blacksmith's forge, undertaker's, telegraph office, most with a back door onto the lots behind the street; the church, with its nave, a choir gallery and a stair inside the tower up to the bell; a barn with a hayloft, a homestead, the crypt on Boot Hill; the railroad station, a boxcar to walk through, the stage station, the Silver Queen mine |
 | II | every house, each furnished differently (walk-through, with open screens), the shrine hall with a back door and an inner sanctuary behind it, the dojo in its walled compound, a hermitage; two storeys of the pagoda, a storehouse, the bell tower; a granary on stilts, a cow shed, a barn by the rice paddies; the arched bridge over the pond, a jetty with a boat |
 | III | the chalets, two of them with an upper room reached by an outside stair, the chapel, a Habsburg watchtower with a fighting gallery; the keep under construction (a masons' store below, a scaffold to the top), the bailiff's pavilion and a soldiers' tent; the barns on their stone stilts and a drive-through hay barn with a loft; a mill with a turning wheel, the Sust (goods store) at the lake landing and a lake boat to board; the ledge behind the waterfall |
-| IV | every house, each with its trade (potter, smith, baker, weaver, fishermen), the temple's inner room with a golden Athena, a treasury on the hill, the round temple, the beacon tower on the fishermen's cape up to its fire platform; a villa with a colonnaded court and a pool, the market under the colonnade, the theatre with its stage house, the olive grove with its press; two tents in the harbour, the Cave of the Nymphs, a swineherd's farm |
+| IV | every house, each with its trade (potter, smith, baker, weaver, fishermen), the temple's inner room with a golden Athena, a treasury on the hill, the round temple, the beacon tower on the fishermen's cape up to its fire platform; the House of Odysseus, with a colonnaded court and a pool, the market under the colonnade, the theatre with its stage house, the olive grove with its press; two tents in the harbour, the Cave of the Nymphs, a swineherd's farm |
 | V | every longhouse, each with its trade (weaver, cook, mead store, fisherman), two of them with a second door and window openings, the jarl's great hall with a back door, a small temple of the old gods; a boat shed, an open smithy, a byre with a hay loft, a shipyard with a hull on the stocks; four longships to board by gangplank: two at the jetty, your own on the beach and the jarl's great ship with a tent on deck |
 | VI | the ground floor of every house (a café, a bakery, a school and a forge among them) and the upper room of the café, the command bunker, both gun casemates, the manor, the windmill with its milling floor; the church, now a roofless ruin after the bombing, and its tower up to the belfry; a farm barn with a hayloft, a cider farm, a railway station |
 | VII | the food shop with its store room, two garages, the Palace of Culture with its stage, the works with a gallery, and the Committee building: lobby, cells, archive, records room and the colonel's office; a block of flats with a stairwell to walk through and a furnished flat, a tram, a goods wagon, a boiler house, a church closed and used as a store; the metro pavilion with its turnstiles and the escalator hall down to Revolution Square Station, 10 m below ground (a platform between two tracks, marble columns, chandeliers, a train standing with its doors open); Entrance 2 of the long block on the courtyard, a stairwell up five floors with a furnished flat on every landing (hall, kitchen, living room); the church of St Nicholas, still open (refectory, bell tower, the screen of icons); the district library, a building site with a concrete slab to climb and the builders' hut |
@@ -109,6 +109,22 @@ In the tea garden of Kagemori a bamboo deer scarer (*shishi-odoshi*) fills from 
 empties into its stone basin and knocks on its stone about every six seconds; the knock is
 heard up to about 34 metres away, from the side it comes from.
 
+### One place for each world
+
+Each chapter has a place that belongs to its culture or its time:
+
+| Chapter | Place |
+| --- | --- |
+| I · Dry Gulch | **The Mission**, south-west of town: a white church in the manner of the Spanish missions of the Sonoran desert (such as San Xavier del Bac near Tucson, finished in 1797), two bell towers with their bells, a carved portal of red-brown plaster between them, a dome over the sanctuary. The door stands open: pews, a gilded altarpiece, candles, a friar and a woman at prayer. |
+| II · Kagemori | **Kagemori Castle**, on the eastern hillside: a keep of three storeys, white plaster and black boards under curved roofs of grey tile, gilded fish on the ridge, on a battered base of stone. From the valley its walls are out of reach; from the hillside behind, one walks onto its base, up to the keep. |
+| III · Uri | **The Devil's Bridge**: below the waterfall the stream runs in a gorge of bare rock, and a span of timber on struts crosses it, wet with spray. The first bridge over the Reuss in the Schöllenen gorge is usually dated to about 1230, and in 1306 it was called the *stiebende Brugge*, the spraying bridge; the legend says the Devil built it for the first soul to cross, and the men of Uri sent a goat. A goat grazes at the far end. |
+| IV · Ithaca | **The contest of the bow** (*Odyssey*, book XXI), in the court of the House of Odysseus: twelve axes set up in a row, a ring at the top of each, and at the end of the row the great bow on a stand, with its quiver. |
+| V · Jarnvik | **The Thing Field**: a ring of twelve standing stones round a low mound with the law rock on it, where the lawspeaker speaks to the free men of the district; a staff with a shield. |
+| VI · Sainte-Aubine | **The paratrooper on the church tower**: dropped in the night, his canopy caught on the highest stump of the broken tower, he hangs against its wall, kicking and reaching up to the risers, as John Steele of the 82nd Airborne hung from the church of Sainte-Mère-Église on 6 June 1944. |
+| VII · Stalnogorsk | **The kvas tanker** at the corner of the market: a yellow tank on two wheels with КВАС on its side, the seller in her white coat at the tap with her glasses, a line waiting; against the flats, two soda-water machines with one glass each. |
+| VIII · Che La | **The Iron Bridge** over the dry stream bed, which is deeper there: two whitewashed gates with a small chorten on each, iron chains slung between them, a walk of planks hung from the chains, prayer flags along them, in the manner of the chain bridges Thangtong Gyalpo built in Tibet in the fifteenth century. |
+| IX · Tenochtitlan | **The House of Birds** (*Totocalli*), at the north end of the west quarter: a great cage of cane with a lattice roof, macaws, parrots and quetzals on perches and on the wing, a spoonbill and herons at the pool before it, and the keepers. Moctezuma's aviary was described by Cortés and destroyed during the conquest. |
+
 ### Animals
 
 | Chapter | Animals |
@@ -116,7 +132,7 @@ heard up to about 34 metres away, from the side it comes from.
 | I | horses in the corral, at the livery and at the hitching rail, a mule, hens |
 | II | an ox in its shed |
 | III | cows on the pasture, two pack mules at the Sust |
-| IV | goats, pigs, and the old dog Argos lying by the villa's door |
+| IV | goats, pigs, and the old dog Argos lying by the door of Odysseus' house |
 | V | ponies, sheep |
 | VIII | yaks, horses |
 | Large maps | a horse tied up by some of the hamlets |
@@ -134,7 +150,7 @@ that remain.
 | I | the woman who keeps the bar, the pianist, the storekeeper, the telegraph operator, the hotel keeper, the barber, the doctor, the undertaker, the preacher, a deputy locked in his own cell, a woman hanging out washing, a homesteader's wife, a gravedigger |
 | II | three flute monks (komusō) under basket hats and four geisha under oil-paper umbrellas; a woman at the well, two planters in the rice paddies, an old man on the tea-house veranda, an angler, a woodcutter, a pilgrim, a weaver |
 | III | three confederates by the flags at the start; the Senn and the dairywoman, a woman spinning with distaff and spindle, the miller's wife, a priest, a boatman, a woman mending nets, masons; on the Rütli meadow three men raise their hands for the oath |
-| IV | three women at the well, Penelope at her upright loom, the swineherd Eumaeus, the old dog Argos by the villa's door, a baker at her oven, a market woman, a priestess, a potter, an old fisherman, a bard with a lyre, a shepherd with goats |
+| IV | three women at the well, Penelope at her upright loom, the swineherd Eumaeus, the old dog Argos by the door of Odysseus' house, a baker at her oven, a market woman, a priestess, a potter, an old fisherman, a bard with a lyre, a shepherd with goats |
 | V | Norse women at the loom, the cauldron, the mead casks and the cod racks, one in a doorway looking out to sea; a skald, a priest of the old gods, a boat builder, a shepherd, two of your crew aboard your ship; two captives at a post in the raiders' yard |
 | VI | the baker and his wife, a woman at the café window, the schoolmistress, an old woman in the churchyard, a farm woman, the curé, a farmer, a railwayman, a man of the Resistance, a wounded glider pilot by the wreck |
 | VII | a saleswoman and the people waiting outside the food shop, two men at chess, a yard-keeper, a librarian, two stallholders, an ice fisherman, a lathe worker, two prisoners in the Committee's cells; passengers and a cleaner in the metro; people at home in the flats; an Orthodox priest and old women at prayer in the church of St Nicholas |
@@ -161,7 +177,7 @@ the roof or the deck. A jump clears about 1.3 m.
 | V | a fighting step behind the palisade on both sides of the gate, with stairs; a hole under the palisade; a beacon crag with a ladder; the byre's loft; a watch platform in the village; an earth cellar; a tunnel of cod racks, an upturned boat and the keel of the ship being built to crawl under; firewood stacks behind the houses; ice floes from the beach to the jetty; the decks of the longships |
 | VI | fourteen holes to crawl through the hedgerows, and a sunken lane between two of them; a trench through a gap in the wire to a lookout on the cliff; the belfry of the church tower, by two ladders; the roof of a gun casemate under a camouflage net; the barn's hayloft; three hollow hayricks; two railway wagons to crawl under; a hunter's stand among the hedgerows; a dugout; the churchyard with its gravestones |
 | VII | three ways into the Committee building beside the front steps: a side door, a service door and a drain under the wall; the roofs of the garages, the food shop and the works, by ladder; the gallery in the works; the top slab of the building site and a perch on its crane; an ice slide, a snow fort and snowbanks on the square; a boxcar and the heating pipes to duck under; a cellar hatch |
-| VIII | a gully from the frozen lake to the foot of the monastery hill, with a log bridge over it; the flat roofs of three houses and of the fort, by ladder; a boulder with a ladder beside the monastery court; a breach in the fort's wall to crawl through; two lorries to crawl under; dry-stone walls on the barley terraces; a lookout beside the road; a hermit's cell |
+| VIII | a gully from the frozen lake to the foot of the monastery hill, with an iron chain bridge over it; the flat roofs of three houses and of the fort, by ladder; a boulder with a ladder beside the monastery court; a breach in the fort's wall to crawl through; two lorries to crawl under; dry-stone walls on the barley terraces; a lookout beside the road; a hermit's cell |
 | IX | the top of the Great Temple, 17 m up, reached by its stair, with two shrines for cover; two ways to the shore beside the causeway: over the garden plots on planks, and along an aqueduct; a row of four house roofs to cross on planks; the roof of the palace; a drain through the precinct wall; raised market floors and upturned canoes to crawl under; a reed watchtower and a reed lookout with ladders; a rock with a ladder at the landing; a steam bath to crawl into |
 
 Every watch platform, lookout, high seat and hunter's stand has a ladder too.
@@ -1262,6 +1278,12 @@ turns on the player, reaches him and kicks him (100 to 40 health in five seconds
 to six shots; a hen shot dies and its collider goes; a horse shot that does not fight runs
 12 metres; a bystander shot who fights back becomes a cowboy with a gun; the throw line of
 the shuriken turns red on an enemy nine metres away and stays pale two metres beside him.
+
+Version 2.5.0 was checked the same way: all nine chapters load without an error with the new
+places, and each place was looked at in a picture taken in the game (the mission from the
+town, the castle from the valley, the bridge from the bank of the gorge, the axes from inside
+the court, the thing field, the paratrooper from below the tower, the kvas tanker and its
+line, the iron bridge from the bank, the house of birds from the street).
 
 Version 1.5.0 enlarged all nine chapters at once. Each chapter was first checked with the
 `&check` flag in a browser without a window: every enemy that walks has a route to the
