@@ -1,6 +1,6 @@
 # Lone Hand — Claude version
 
-**Version 2.3.0** · [What changed (changelog)](CHANGELOG.md) · [All releases](https://github.com/iago-swi/outlaws/releases)
+**Version 2.4.0** · [What changed (changelog)](CHANGELOG.md) · [All releases](https://github.com/iago-swi/outlaws/releases)
 
 A first-person shooter in nine chapters, built with Claude (Anthropic) in the spirit of
 late-1990s Western shooters. From a frontier town to a Japanese shrine, an alpine valley,
@@ -105,6 +105,10 @@ themselves. About one in four, hurt by you and still standing, fights back: he d
 weapon of the chapter's commonest enemy and becomes one of them, as strong as they are and
 no more, with his own looks (not in a game online).
 
+In the tea garden of Kagemori a bamboo deer scarer (*shishi-odoshi*) fills from a spout, tips,
+empties into its stone basin and knocks on its stone about every six seconds; the knock is
+heard up to about 34 metres away, from the side it comes from.
+
 ### Animals
 
 | Chapter | Animals |
@@ -134,7 +138,7 @@ that remain.
 | V | Norse women at the loom, the cauldron, the mead casks and the cod racks, one in a doorway looking out to sea; a skald, a priest of the old gods, a boat builder, a shepherd, two of your crew aboard your ship; two captives at a post in the raiders' yard |
 | VI | the baker and his wife, a woman at the café window, the schoolmistress, an old woman in the churchyard, a farm woman, the curé, a farmer, a railwayman, a man of the Resistance, a wounded glider pilot by the wreck |
 | VII | a saleswoman and the people waiting outside the food shop, two men at chess, a yard-keeper, a librarian, two stallholders, an ice fisherman, a lathe worker, two prisoners in the Committee's cells; passengers and a cleaner in the metro; people at home in the flats; an Orthodox priest and old women at prayer in the church of St Nicholas |
-| VIII | the Dalai Lama with two monks and three Khampa riders at the start; nuns at the prayer wheels, women in striped aprons at the loom, the tea churn and on the terraces, two Nepalese traders with their bales, a Khampa herder with his yaks, an old hermit in his cell |
+| VIII | the Dalai Lama with two monks and three Khampa riders at the start, and a pilgrim going round the chorten beside them by prostrations, boards strapped under her hands (she never takes up arms); nuns at the prayer wheels, women in striped aprons at the loom, the tea churn and on the terraces, two Nepalese traders with their bales, a Khampa herder with his yaks, an old hermit in his cell |
 | IX | a drummer at the great drum on the Great Temple, market women, a woman at the grinding stone, a weaver, an old man in a doorway, a conch-blower on the palace roof, men and women in canoes on the lake |
 
 ### Climb, jump and hide

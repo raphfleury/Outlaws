@@ -16,6 +16,20 @@ Each version is a Git tag named `lone-hand-vX.Y.Z` and a
 game as one downloadable file. The number is also shown in the bottom right corner of the
 title screen.
 
+## [2.4.0] - 2026-11-23
+
+### Added
+
+- **Kagemori (chapter II): a bamboo deer scarer** (*shishi-odoshi*) in the tea garden, between
+  the tea house and the pond. Water runs from a bamboo spout into a pivoting bamboo tube; it
+  fills, tips, empties into a basin of stones, swings back, and its tail knocks on a stone
+  about every six seconds. The knock is heard up to about 34 m, from the side it comes from.
+- **Che La (chapter VIII): a pilgrim going round the chorten by prostrations**, beside the
+  place where you start: joined hands to the crown, the face and the heart, down on her
+  knees, the hands slide out on wooden boards until she lies flat, up again, a body length
+  further, and again. She answers you, raises her hands when aimed at, runs from shots and
+  comes back to her round; she never takes up arms.
+
 ## [2.3.0] - 2026-11-23
 
 ### Added
