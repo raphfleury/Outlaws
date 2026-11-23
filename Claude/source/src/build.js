@@ -284,6 +284,7 @@ export class World {
     const b = { x, z, hw: w / 2, hd: d / 2, c: Math.cos(ry), s: Math.sin(ry), y0, y1, r: Math.hypot(w, d) / 2 };
     if (this.curPiece) { b.piece = this.curPiece; this.curPiece.cols.push(b); }
     this.boxes.push(b);
+    return b;
   }
   addCyl(x, z, r, y0, y1) { const c = { x, z, r, y0, y1 }; if (this.curPiece) { c.piece = this.curPiece; this.curPiece.cols.push(c); } this.cyls.push(c); return c; }
   /** Take away the colliders of a piece that has been broken. */
@@ -340,6 +341,7 @@ export class World {
   }
   ladderFor(p, fx, fz) {
     for (const L of this.ladders) {
+      if (L.stair) continue;                                     // a flight of stairs is walked, not climbed (it is listed for the enemies' routes)
       const k = (L.lean || 0) * Math.max(0, L.y1 - p.y), dx = p.x - L.x - L.nx * k, dz = p.z - L.z - L.nz * k, out = dx * L.nx + dz * L.nz, lat = dz * L.nx - dx * L.nz;   // (a leaning ladder stands further out the lower you are)
       if (out > 0.05 && out < 1.0 && Math.abs(lat) < 0.55 && p.y > L.y0 - 0.4 && p.y < L.y1 + 0.1 && -(fx * L.nx + fz * L.nz) > 0.4) return L;
     }

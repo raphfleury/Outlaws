@@ -263,6 +263,9 @@ export function makeHumanoid(M, sp) {
       T.push(gCyl(0.152, 0.146, 0.09, 0xf0ece0, [0, HT - 0.01, 0], [0, 0, 0], [1, 1, 1.05], 12), gCyl(0.095, 0.135, 0.15, S.hatC ?? 0xb01c1c, [0, HT + 0.1, 0], [0, 0, 0], 1, 10),
         gCyl(0.155, 0.155, 0.025, 0xd9b23a, [0, HT - 0.05, 0], [0, 0, 0], [1, 1, 1.05], 12), gSph(0.03, 0xd9b23a, [0, HT + 0.19, 0]));
       break;
+    case 'kamilavka':   // an Orthodox priest's tall black hat, wider at the top
+      T.push(gCyl(0.15, 0.125, 0.2, S.hatC ?? 0x0e0e12, [0, HT + 0.06, 0], [0, 0, 0], 1, 14), gCyl(0.152, 0.152, 0.012, 0x1c1c22, [0, HT + 0.16, 0], [0, 0, 0], 1, 14));
+      break;
     case 'fez':     // black fez with a tassel
       T.push(gCyl(0.1, 0.128, 0.15, S.hatC ?? 0x15151a, [0, HT + 0.045, 0], [0, 0, 0], 1, 12), gBox(0.012, 0.11, 0.012, 0xd9b23a, [0.07, HT + 0.07, 0.07]), gCyl(0.02, 0.02, 0.012, 0xd9b23a, [0, HT + 0.125, 0], [0, 0, 0], 1, 6));
       break;
@@ -319,6 +322,10 @@ export function makeHumanoid(M, sp) {
     }
     if (e === 'bandolier') T.push(gBox(0.5, 0.05, 0.3, 0x3a2414, [0, 0.32, 0], [0, 0, 0.9]));
     if (e === 'coat') T.push(gCyl(0.215, 0.26, 0.62, S.coat ?? 0x15120f, [0, -0.2, -0.03], [0, 0, 0], [1, 1, 0.6], 10), gCyl(0.215, 0.215, 0.56, S.coat ?? 0x15120f, [0, 0.29, -0.012], [0, 0, 0], [1.03, 1, 0.66]));
+    if (e === 'pectoral') {                     // a priest's silver cross on a chain, on the chest
+      const C = 0xd8dce0; T.push(gBox(0.012, 0.13, 0.012, C, [0, 0.36, 0.16]), gBox(0.08, 0.012, 0.012, C, [0, 0.4, 0.16]), gBox(0.05, 0.01, 0.012, C, [0, 0.425, 0.16]), gBox(0.05, 0.01, 0.012, C, [0, 0.32, 0.16], [0, 0, 0.35]));
+      for (const s of [-1, 1]) T.push(gBox(0.006, 0.2, 0.006, 0xb8bcc0, [s * 0.05, 0.5, 0.15], [0, 0, s * 0.45]));
+    }
     if (e === 'star') T.push(gCyl(0.03, 0.03, 0.01, 0xd9b23a, [0.09, 0.4, 0.125], [Math.PI / 2, 0, 0], 1, 5));
     if (e === 'obi') T.push(gCyl(0.19, 0.185, 0.1, S.accent ?? 0x1a1a1a, [0, 0.07, 0], [0, 0, 0], [1, 1, 0.68]));
     if (e === 'kimono') T.push(gBox(0.05, 0.5, 0.02, S.trim ?? 0xe8e0d0, [0.05, 0.36, 0.125], [0, 0, 0.32]), gBox(0.05, 0.5, 0.02, S.trim ?? 0xe8e0d0, [-0.05, 0.36, 0.125], [0, 0, -0.32]));
@@ -725,6 +732,7 @@ export function lookFor(type, r) {
         face: [r() < 0.5 ? 'kerchief' : 'bun'], kerchief: pick([0x3a4a6a, 0xd8cdb0, 0x8a3a2a]), extras: r() < 0.6 ? ['dress', 'apron'] : ['dress', 'shawl'], apron: pick([0xd8d0c0, 0x8a9ab0]), bib: true, shawl: 0x3a3a3a, scale: 0.94 }; }
     case 'frenchMan': return { skin: pick([0xe0b89a, 0xd6a88a]), hair: pick([0x2a1c12, 0x5a3a1c, 0x9a9a90]), shirt: pick([0xd8d0c0, 0xb8c0c8, 0xa8a090]), pants: pick([0x3a3a44, 0x4a4034, 0x33415c]), boots: 0x2a1c12,
       hat: 'beret', hatC: pick([0x22222a, 0x3a2a22]), face: [pick(['moustache', 'bigmoustache', 'pipe'])], extras: ['vest'], vest: pick([0x2a2a30, 0x4a3a2a, 0x3a3a3a]) };
+    case 'orthodoxPriest': return { skin: 0xe0bca0, hair: 0x8a8a84, brow: 0x6a6a64, shirt: 0x0e0e12, sleeve: 0x0e0e12, pants: 0x0e0e12, boots: 0x0c0c0c, belt: 0x0e0e12, hat: 'kamilavka', face: ['longbeard', 'longhair'], extras: ['robe', 'pectoral'], robe: 0x0e0e12, sash: 0x0e0e12 };
     case 'cure': return { skin: 0xe0b89a, hair: 0x9a9a90, shirt: 0x15151a, sleeve: 0x15151a, pants: 0x15151a, boots: 0x0c0c0c, belt: 0x15151a, hat: null, face: ['glasses'], extras: ['robe'], robe: 0x15151a, sash: 0x15151a };
     case 'russianWoman': { const d = pick([0x4a4a52, 0x5a4a3a, 0x3a4a5a, 0x5a3a3a]);
       return { skin: pick([0xe6c8b0, 0xe0bca0]), hair: pick([0x8a6a3a, 0x5a3a1c, 0xc8a050, 0x9a9a90]), shirt: d, sleeve: d, pants: d, dress: pick([0x3a3a44, 0x4a3a30, 0x2a3a4a]), boots: pick([0x8a8478, 0x1a1410]), hat: null, lip: 0xa8483c,
@@ -915,31 +923,45 @@ export class Enemy {
     const n = path[this.pathI], ex = n[0] - this.pos.x, ez = n[1] - this.pos.z, el = Math.hypot(ex, ez) || 1;
     return [ex / el, ez / el];
   }
-  /** The ladder that leads from his floor to the floor of (tx, ty, tz), the shortest way round; or null. */
+  /**
+   * The ladder (or flight of stairs) that leads from his floor toward the floor of (tx, ty, tz): straight to it if one does,
+   * otherwise the one that brings him nearest (up a stairwell, one floor at a time). Null if none.
+   */
   ladderTo(tx, ty, tz) {
     const up = ty > this.pos.y; let best = null, bd = 1e9;
     for (const L of this.game.world.ladders) {
-      const f = this.foot(L), ox = L.x - L.nx * 0.55, oz = L.z - L.nz * 0.55;
-      const [ax, az, ay, bx, bz, by] = up ? [f[0], f[1], L.y0, ox, oz, L.y1] : [ox, oz, L.y1, f[0], f[1], L.y0];
-      if (Math.abs(ay - this.pos.y) > 1.6 || Math.abs(by - ty) > 2.2) continue;            // from this floor to that one
-      const d = Math.hypot(ax - this.pos.x, az - this.pos.z) + Math.hypot(bx - tx, bz - tz) * 1.2;
+      const f = this.foot(L), o = this.ladTop(L);
+      const [ax, az, ay, bx, bz, by] = up ? [f[0], f[1], L.y0, o[0], o[1], L.y1] : [o[0], o[1], L.y1, f[0], f[1], L.y0];
+      if (Math.abs(ay - this.pos.y) > 1.6 || (up ? by < this.pos.y + 1 : by > this.pos.y - 1)) continue;      // from this floor, the right way
+      const d = Math.hypot(ax - this.pos.x, az - this.pos.z) + Math.hypot(bx - tx, bz - tz) * 1.2 + Math.max(0, Math.abs(by - ty) - 2.2) * 6;
       if (d < bd && d < 80) { bd = d; best = L; }
     }
     return best;
   }
-  foot(L) { const out = 0.5 + (L.lean || 0) * (L.y1 - L.y0); return [L.x + L.nx * out, L.z + L.nz * out]; }
+  foot(L) { if (L.stair) return [L.pts[0][0], L.pts[0][2]]; const out = 0.5 + (L.lean || 0) * (L.y1 - L.y0); return [L.x + L.nx * out, L.z + L.nz * out]; }
+  ladTop(L) { if (L.stair) { const p = L.pts[L.pts.length - 1]; return [p[0], p[2]]; } return [L.x - L.nx * 0.55, L.z - L.nz * 0.55]; }
   /** On the way to a ladder: to its foot (going up) or to the edge at its top (going down). When there, the climb itself begins. */
   toLadder(dt) {
-    const c = this.climb, L = c.L, [px, pz] = c.up ? this.foot(L) : [L.x - L.nx * 0.55, L.z - L.nz * 0.55];
+    const c = this.climb, L = c.L, [px, pz] = c.up ? this.foot(L) : this.ladTop(L);
     c.T += dt; if (c.T > 25) { this.climb = null; return [0, 0]; }                // could not get there: forget it
     const dx = px - this.pos.x, dz = pz - this.pos.z, d = Math.hypot(dx, dz) || 0.001;
-    if (d < 0.5) { c.ph = c.up ? 'up' : 'on'; c.t = 0; c.x0 = this.pos.x; c.z0 = this.pos.z; return [0, 0]; }
+    if (d < 0.5) {
+      if (L.stair) { c.ph = 'stair'; c.s = 0; c.path = c.up ? L.pts : L.pts.slice().reverse(); return [0, 0]; }   // up or down the flights, step by step
+      c.ph = c.up ? 'up' : 'on'; c.t = 0; c.x0 = this.pos.x; c.z0 = this.pos.z; return [0, 0];
+    }
     if (c.up) return this.route(px, pz, L.y0, d, dt);
     return [dx / d, dz / d];
   }
   /** On the rungs: up, off at the top, or onto the ladder and down. Returns true while it goes on. */
   climbStep(dt) {
     const c = this.climb, L = c.L, lean = L.lean || 0, out = () => 0.47 + lean * Math.max(0, L.y1 - this.pos.y);
+    if (c.ph === 'stair') {                                  // along the flights of a stairwell, at a walk
+      c.s += dt * 2.4; let s = c.s, i = 0;
+      for (; i < c.path.length - 1; i++) { const a = c.path[i], b = c.path[i + 1], l = Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]); if (s <= l) { const k = s / l; this.pos.set(a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k); this.yawTo = Math.atan2(b[0] - a[0], b[2] - a[2]); break; } s -= l; }
+      this.walk += dt * 6; this.moving = 1;
+      if (i >= c.path.length - 1) { const e = c.path[c.path.length - 1]; this.pos.set(e[0], e[1], e[2]); this.climb = null; this.path = null; return false; }
+      return true;
+    }
     this.yawTo = Math.atan2(-L.nx, -L.nz); this.walk += dt * 6;
     if (c.ph === 'up') {
       this.pos.y = Math.min(L.y1 + 0.02, this.pos.y + 2.4 * dt); this.pos.x = L.x + L.nx * out(); this.pos.z = L.z + L.nz * out();
@@ -1299,7 +1321,7 @@ export class Enemy {
     rig.armL.rotation.x = lx; rig.armL.rotation.z = lz;
     this.duckK = damp(this.duckK, cfg.dog || cfg.rider ? 0 : this.duckWant, 7, dt);
     this.crouchPose(this.duckK);
-    if (climbing) {                                          // hand over hand on the rungs
+    if (climbing && !(this.climb && this.climb.L.stair)) {   // hand over hand on the rungs
       const c = Math.sin(this.walk * 1.3);
       rig.armR.rotation.x = -2.5 + c * 0.35; rig.armL.rotation.x = -2.5 - c * 0.35; rig.armR.rotation.z = -0.1; rig.armL.rotation.z = 0.1;
       rig.legL.rotation.x = -0.5 + c * 0.45; rig.legR.rotation.x = -0.5 - c * 0.45;

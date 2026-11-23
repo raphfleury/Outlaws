@@ -59,7 +59,7 @@ export class MapView {
     }
     ctx.putImageData(img, 0, 0);
     // what stands on it, seen from above: low things first, walls and houses darker
-    const boxes = W.boxes.filter((b) => b.hw * b.hd > 0.04).map((b) => ({ b, top: b.y1 - W.height(b.x, b.z) })).filter((o) => o.top > 0.35).sort((a, b) => a.top - b.top);
+    const boxes = W.boxes.filter((b) => b.hw * b.hd > 0.04 && !b.noMap).map((b) => ({ b, top: b.y1 - W.height(b.x, b.z) })).filter((o) => o.top > 0.35).sort((a, b) => a.top - b.top);
     for (const { b, top } of boxes) {
       ctx.setTransform(k * b.c, -k * b.s, k * b.s, k * b.c, (b.x - this.x0) * k, (b.z - this.z0) * k);
       ctx.fillStyle = top > 1.6 ? 'rgba(42,32,24,0.86)' : 'rgba(60,48,36,0.5)';

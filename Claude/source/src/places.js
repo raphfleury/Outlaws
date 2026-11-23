@@ -36,9 +36,10 @@ export const PLACES = {
   ],
   russia: [
     ['Lenin Prospekt', 0, 60, 18], ['Block 7 Courtyard', -40, 58, 16], ['The Garages', 55, 72, 14], ['The Checkpoint', 5.6, 31, 8],
-    ['Revolution Square', 0, 0, 17], ['The Committee', 0, -47, 17], ['The Works', 80, -50, 18], ['The Metro', 28, 34.5, 8],
+    ['Revolution Square', 0, 0, 17], ['The Committee', 0, -47, 17], ['The Works', 80, -50, 18], ['The Metro Pavilion', 28, 34.5, 7],
     ['The District Library', -80, -44, 10], ['The Building Site', -86, 62, 14], ['The Goods Siding', 92, 0, 15],
     ['The Kolkhoz Market', -35, 28, 10], ['The Boiler House', -93, -27, 10], ['The Palace of Culture', -64, -6, 12],
+    ['Revolution Square Station', 56, 39, 13], ['Entrance 2', -36, 78, 7], ['The Church of St Nicholas', -92, 19, 11],
   ],
   tibet: [
     ['The Mani Wall', -45, 60, 10], ['Che La Village', 10, 25, 20], ['The Village Temple', -24, 2, 8], ['The Ruined Fort', 80, 40, 10],
