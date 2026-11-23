@@ -22,17 +22,17 @@ files.
 
 | Chapter I · Dry Gulch | Chapter II · Kagemori | Chapter III · Uri |
 | :---: | :---: | :---: |
-| <img src="screenshot.jpg" width="280" alt="The railroad depot north of Dry Gulch at golden hour: the station house on the right, a loading dock on posts with sacks and crates, a red boxcar with a ladder to its roof on the track, a gang man in a black hat, banded mesas behind, the six-shooter in the foreground"> | <img src="screenshot-japan.jpg" width="280" alt="The hamlet green of Kagemori at dusk: a woman drawing water at a roofed well, the granary on stilts behind her, an open cow shed on the left, cherry trees, stone lanterns and a red bridge beyond; in the foreground the samurai's hands with throwing stars"> | <img src="screenshot-uri.jpg" width="280" alt="The Rütli meadow on the Lake of Uri: three men stand by a boulder and a spring with their right hands raised for the oath, pine forest and snow peaks behind, the lake on the right, the crossbow in the foreground"> |
+| <img src="screenshot.jpg" width="280" alt="Main Street of Dry Gulch at sunset, looking west: the telegraph office on the left and the jail on the right, false-fronted houses with lit windows along both sides, the sun low over the mesa at the end of the street, the six-shooter in the foreground; in the top right corner the mini-map names Main Street"> | <img src="screenshot-japan.jpg" width="280" alt="The hamlet of Kagemori at dusk: thatched houses, cherry trees in bloom, a red torii and the pagoda on the hill behind, lanterns and fireflies, the throwing stars in the foreground; the mini-map names the Hamlet Green"> | <img src="screenshot-uri.jpg" width="280" alt="The Rütli meadow on the Lake of Uri: three men raise their right hands for the oath beside a boulder and a spring, the lake and the pines behind, the crossbow in the foreground"> |
 | **Chapter IV · Ithaca** | **Chapter V · Jarnvik** | **Chapter VI · Sainte-Aubine** |
-| <img src="screenshot-greece.jpg" width="280" alt="The village well of Ithaca in bright sun: one woman draws water, another carries her jar home on her head, a third stands by with a jar at her feet; a Spartan with a round shield on the left, white houses with red tile roofs, a mosaic floor, the temple on its hill, a javelin in the foreground"> | <img src="screenshot-north.jpg" width="280" alt="The farm of Jarnvik on a snowy night: a shepherd with long fair hair beside a haystack, a blonde woman in a red dress carrying a pail between two dark log houses, sheep in a pen, a pony, snow-laden pines, a throwing axe in the foreground"> | <img src="screenshot-normandy.jpg" width="280" alt="The railway halt of Sainte-Aubine before dawn: a stone station house with a lamp, the platform, the track with an open goods wagon and its end ladder, searchlight beams crossing the sky, a scoped rifle in the foreground"> |
+| <img src="screenshot-greece.jpg" width="280" alt="The village of Ithaca in bright sun: women in white at the well, a mosaic floor, olive trees and white houses, the javelin in the foreground"> | <img src="screenshot-north.jpg" width="280" alt="The village of Jarnvik on a snowy night: a bonfire burning between the log houses, a watch platform and a sledge, snow-laden pines under the stars, a throwing axe in the foreground"> | <img src="screenshot-normandy.jpg" width="280" alt="The street of Sainte-Aubine before dawn: stone houses, cobbles, a lit street lamp, a barrier, searchlight beams crossing the sky, the scoped rifle in the foreground"> |
 | **Chapter VII · Stalnogorsk** | **Chapter VIII · Che La** | **Chapter IX · Tenochtitlan** |
-| <img src="screenshot-russia.jpg" width="280" alt="Outside the food shop of Stalnogorsk in falling snow: the sign Gastronom in Cyrillic letters over an open door with a saleswoman at the counter inside, two women in headscarves and long coats talking, a man on a bench, panel blocks with lit windows, a submachine gun in the foreground"> | <img src="screenshot-tibet.jpg" width="280" alt="A field barn above the barley terraces of Che La: a woman in a dark dress with a red blouse and a striped apron works a tall tea churn beside a cooking fire, a herdsman and two yaks behind, snow peaks under a deep blue sky, a rifle in the foreground"> | <img src="screenshot-aztec.jpg" width="280" alt="The lake of Tenochtitlan at sunset seen from the causeway: a canoe with a man poling and a woman paddling, garden plots joined by plank bridges, a reed lookout on stilts, wooded shores and mountains in the haze, the dart-thrower in the foreground"> |
+| <img src="screenshot-russia.jpg" width="280" alt="The church of St Nicholas in Stalnogorsk in falling snow: white walls under onion domes in blue and gold with gold crosses, panel blocks with lit windows behind, bare birches, the submachine gun in the foreground"> | <img src="screenshot-tibet.jpg" width="280" alt="The gateway chorten at the foot of the great stair of Che La: prayer flags, a white stupa with a gilded spire beyond, snow peaks under a deep blue sky, the rifle in the foreground"> | <img src="screenshot-aztec.jpg" width="280" alt="The Great Temple of Tenochtitlan at sunset seen from the sacred precinct: its steep stair between the terraces, the two shrines on top, gardens on the walls, the dart-thrower in the foreground"> |
 
 | Duel · choose your fighter | Duel · face to face |
 | :---: | :---: |
-| <img src="screenshot-duel-pick.jpg" width="400" alt="The fighter selection of a duel in Stalnogorsk: a row of three heroes marked with gold stars (Aleksandr Solzhenitsyn, Andrei Sakharov, Rudolf Nureyev) above a row of four villains marked with red skulls (Joseph Stalin, Yuri Andropov, Lavrentiy Beria, Leonid Brezhnev), with Solzhenitsyn standing in the snowy street between the housing blocks"> | <img src="screenshot-duel.jpg" width="400" alt="A duel on the main avenue of Stalnogorsk in falling snow: the other player, as Joseph Stalin in a white tunic, stands in the road in front of the statue and the tower; the score line reads You 0–0 Joseph Stalin, round 1; the submachine gun is in the foreground"> |
+| <img src="screenshot-duel-pick.jpg" width="400" alt="The fighter selection of a duel in Stalnogorsk: three heroes marked with gold stars (Aleksandr Solzhenitsyn, Andrei Sakharov, Rudolf Nureyev) above four villains marked with red skulls (Joseph Stalin, Yuri Andropov, Lavrentiy Beria, Leonid Brezhnev), each card with its strength and special skill, and Andrei Sakharov standing in the snowy street between the housing blocks"> | <img src="screenshot-duel.jpg" width="400" alt="A duel on Revolution Square in falling snow: the other player, named Cousin, as Joseph Stalin in a white tunic, stands before the red plinth of the monument; the score line reads You 0 · 0 Cousin, round 1; the pistol in the foreground; the microphone and the other player's voice at the top left"> |
 
-![The title screen: the game's name over a Japanese garden at dusk, nine chapter cards in three rows, the Duel button, the Graphics list in the bottom left corner and the version number in the bottom right corner](screenshot-title.jpg)
+![The title screen: the game's name over a Japanese garden at dusk, nine chapter cards in three rows, the Two players online button, the Sound button and the Graphics list in the bottom left corner and the version number in the bottom right corner](screenshot-title.jpg)
 
 ## Run it
 
@@ -82,6 +82,10 @@ and some enemies wait indoors, on deck or behind the waterfall.
 | VIII | the village houses, each furnished differently, the old fort, the monks' houses and the monastery's assembly hall with its gallery, side doors and kitchen; the village temple, the chapel of the great prayer wheel, a nomad tent of black yak hair; two army tents, the bed of a lorry, a field barn with a hay loft |
 | IX | the two shrines on top of the Great Temple, each with an altar heaped with gold; the palace of Axayacatl with its rooms round a patio, the market, the temple of the wind god, the House of the Eagles, the ball court; the white houses of the city and of the landing village; a steam bath |
 
+| Below Stalnogorsk · the metro | Inside the church of St Nicholas |
+| :---: | :---: |
+| <img src="screenshot-metro.jpg" width="400" alt="Revolution Square Station, 10 m under Stalnogorsk: a vaulted hall of white columns and arches with a chandelier, the station's name on the walls, the blue train at the platform on the left, the Committee's men on the platform, a red banner at the far end, the submachine gun in the foreground"> | <img src="screenshot-church.jpg" width="400" alt="Inside the church of St Nicholas: the gilded screen of icons with its royal doors open, the priest in black with his tall hat behind the lectern, two old women at prayer before the candle stands, the chandelier above"> |
+
 Things to find on the way: mosaic floors and a bronze Athena in Ithaca; the hammer and
 sickle on the flags, the monument, the palace and the tower of Stalnogorsk; a gilded
 Buddha in each of the three temples of Che La; bomb craters in Sainte-Aubine.
@@ -114,9 +118,9 @@ from 40% less far, is hidden by anything about a metre high, and fits through lo
 Ladders need no key: face one and walk into it, and you climb; at the top you step onto
 the roof or the deck. A jump clears about 1.3 m.
 
-![The view from the top of Lookout Butte in Dry Gulch: a boulder to crouch behind, the roofs of the town below, the saloon, the jail, the sheriff's office and the bank along the main street, the church on the right, mesas on the horizon, the six-shooter in the foreground](screenshot-butte.jpg)
+![The view from the top of Lookout Butte in Dry Gulch: red rocks in the foreground, the roofs of the town below with the saloon and the jail along the main street, mesas on the horizon, the six-shooter in the foreground](screenshot-butte.jpg)
 
-![The great boulder of Uri in a flowering meadow: a tall grey rock with a flat grassy top and a slim iron cross at its rim, a wooden ladder leaning against its flank, pines, the lake and snow peaks behind](screenshot-boulder.jpg)
+![The great boulder of Uri in a flowering meadow: a tall grey rock with a grassy top, a wooden ladder leaning against its flank, pines, the lake and the mountains behind, the crossbow in the foreground](screenshot-boulder.jpg)
 
 | Chapter | Places for an ambush, a sniper or a way round |
 | --- | --- |
@@ -192,7 +196,7 @@ card:
 | Fury | blows strike twice as hard and 60% quicker, and you move 20% faster | 7 s | 26 s |
 | Eagle eye | every enemy within 90 m is marked through walls and shows on the map | 9 s | 30 s |
 
-![The hero selection for Dry Gulch: the keys W A S D, Shift, Space and C, the Enemies list set to 15, and cards for Wyatt Earp, Calamity Jane and Billy the Kid, with Wyatt Earp in his black coat standing in the desert](screenshot-heroes.jpg)
+![The hero selection for Dry Gulch: the story, the keys, the Enemies, Wits and Map lists, and cards for Wyatt Earp, Calamity Jane and Billy the Kid with their strength and special skill, Wyatt Earp in his black coat standing in the desert, a Main menu button in the top right corner](screenshot-heroes.jpg)
 
 | Chapter | Hero | Who | Strength | Skill (`E`) |
 | --- | --- | --- | --- | --- |
@@ -421,6 +425,8 @@ network.
   blowgun are silent, and so are sneaking and crouching. A thing breaking makes those near
   look round. Enemies who close in on you while you cannot see them sneak as well (clever
   ones crouch).
+
+![The map of Dry Gulch, held open with Tab over the street: the ground found so far uncovered, the names of the places found (Main Street, the Railroad Depot, the Water Tower, the Church, the Corral, the Homestead, Boot Hill, Lookout Butte, the Stage Station, the Silver Queen Mine) and a mark on Boot Hill](screenshot-map.jpg)
 
 ### Bystanders, fists, wounds and aimed throws
 
