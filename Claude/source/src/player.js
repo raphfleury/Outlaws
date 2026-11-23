@@ -448,7 +448,7 @@ class Weapon {
         this.ammo--; this.cd = 0.33 * this.m.fire; this.kickV += 9; P.recoil(0.55); this.drumRot += Math.PI / 3;
         this.flashT = 0.05; this.flash.rotation.z = Math.random() * 6.28; this.flash.scale.setScalar(0.8 + Math.random() * 0.5);
         G.playerHitscan(this.muzzle, P.aim > 0.5 ? 0.002 : 0.012, 35 * this.m.gun);
-        G.sound.gun(1, 0);
+        G.sound.gun(1, 0, G.gunSound('revolver'));
       }
     }
     const rl = this.state === 'reload' ? Math.sin(Math.min(1, this.t / 1.45) * Math.PI) : 0;
@@ -668,7 +668,7 @@ class Weapon {
         this.ammo--; this.cd = c.interval * this.m.fire; this.kickV += c.kick; P.recoil(c.recoil);
         this.flashT = 0.045; this.flash.rotation.z = Math.random() * 6.28; this.flash.scale.setScalar(0.7 + Math.random() * 0.5);
         G.playerHitscan(this.muzzle, P.aim > 0.5 ? c.ads : c.hip, c.dmg * this.m.gun);
-        G.sound.gun(c.vol, 0);
+        G.sound.gun(c.vol, 0, G.gunSound(this.kind));
         if (c.bolt) setTimeout(() => G.sound.click(1500), 380);
       }
     }

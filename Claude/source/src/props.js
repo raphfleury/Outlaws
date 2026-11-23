@@ -736,7 +736,7 @@ export function person(B, M, root, look, x, y, z, yaw = 0, o = {}) {
   const cyl = o.solid !== false && pose !== 'lie' ? B.world.addCyl(x, z, 0.36, y - 1, y + (pose === 'sit' ? seat + 1.0 : 1.8)) : null;
   f.base = { hy: f.hips.rotation.y, hz: f.hips.rotation.z, ar: f.armR.rotation.x, al: f.armL.rotation.x, ph: rq() * 20, still: pose === 'lie' };
   if (pose !== 'lie') {                     // every bystander is known to the world: they take fright, look at the player, can be hurt (see crowd.js)
-    const who = { f, x, y, z, yaw, sit: pose === 'sit', cyl };
+    const who = { f, x, y, z, yaw, sit: pose === 'sit', cyl, look, pose: typeof pose === 'string' ? pose : 'custom' };
     if (cyl) cyl.person = who;
     (B.world.people || (B.world.people = [])).push(who);
   }

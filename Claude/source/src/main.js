@@ -22,6 +22,7 @@ import { Voice } from './voice.js';
 import { dropsOf, lootOf, weaponName, weaponAlt, itemName, itemAlt, THROWN, NOISE } from './loot.js';
 import { SKILLS, skillOf } from './skills.js';
 import { resize } from './outskirts.js';
+import { Voices } from './voices.js';
 import { rng, clamp, damp } from './util.js';
 import { west } from './levels/west.js';
 import { japan } from './levels/japan.js';
@@ -75,7 +76,7 @@ class Game {
   constructor() {
     this.canvas = $('#view');
     this.gfx = new Gfx(this.canvas);
-    this.sound = new Sound();
+    this.sound = new Sound(); this.voices = new Voices(this);
     this.input = new Input(this.canvas);
     this.input.free = params.has('free'); this.peace = params.has('peace');
     this.M = makeMaterials();
@@ -553,6 +554,8 @@ class Game {
     if (all.length > 40) { const old = all[0]; old.ret.taken = true; this.pickups.splice(this.pickups.indexOf(old), 1); }
   }
   itemLabel(id) { return itemName(id, this.def); }
+  /** Which sound a gun of the player makes (the revolver of the wars is a pistol; the lever rifle of the West a carbine). */
+  gunSound(kind) { const id = this.def && this.def.id; return kind === 'revolver' ? (id === 'west' ? 'revolver' : 'pistol') : kind === 'carbine' ? (id === 'west' ? 'carbine' : 'rifle') : kind === 'rifle' ? 'scoped' : kind === 'sten' ? 'sten' : 'rifle'; }
   /** A named place found for the first time: its name, large, for a few seconds. */
   placeBanner(name) {
     const el = this.ui.placeBan; if (!el || this.state !== 'play') return;
@@ -629,7 +632,7 @@ class Game {
     this.havoc.trinketsAlong(o, d, t);                            // bottles, lamps, ornaments on the way break; the shot goes on
     const m = muzzleObj.getWorldPosition(new THREE.Vector3());
     this.shots.tracer(m.x, m.y, m.z, hx, hy, hz);
-    if (this.duel) this.duel.tracer(m.x, m.y, m.z, hx, hy, hz);
+    if (this.duel) this.duel.tracer(m.x, m.y, m.z, hx, hy, hz, this.gunSound(P.weapon.kind));
     this.muzzle(m.x + d.x * 0.25, m.y + d.y * 0.25, m.z + d.z * 0.25, d.x, d.y, d.z, 1);
     if (target) this.hitEnemy(target, dmg, head, hx, hy, hz, o.x, o.z);
     else if (wh && wh.person) this.crowd.hit(wh.person, dmg * (hy > wh.person.py + 1.45 ? 2.5 : 1), hx, hy, hz, true);
@@ -817,6 +820,7 @@ class Game {
       if (Math.abs(c.x - P.pos.x) + Math.abs(c.z - P.pos.z) > 220) continue;
       this.gfx.soft.spawn(c.x, c.y, c.z, (Math.random() - 0.5) * 0.3, 0.7 + Math.random() * 0.4, (Math.random() - 0.5) * 0.3, { life: 4 + Math.random() * 2, s0: 0.35, s1: 2.2, r: 0.5, g: 0.48, b: 0.46, a: 0.45, grav: -0.15, drag: 0.3 });
     }
+    if (this.voices) this.voices.update(dt);
     this.stepT = (this.stepT || 0) - dt;                    // footsteps are heard: walking a little, running much further, sneaking or crouching not at all
     if (this.stepT <= 0 && this.state === 'play') { this.stepT = 0.5; const v = Math.hypot(P.vel.x, P.vel.z); if (P.onGround && !P.dead && v > 1 && !P.sneaking && !P.crouch) this.makeNoise(P.pos.x, P.pos.z, P.sprinting && v > 6 ? 11 : 4, true); }
     if (this.state === 'play' && this.input.mark && !P.dead) this.map.toggleMark();

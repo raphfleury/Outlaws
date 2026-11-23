@@ -23,9 +23,78 @@ export class Crowd {
       for (const k of JOINTS) if (f[k]) saved[k] = f[k].rotation.clone();
       saved.pos = f.group.position.clone(); saved.rot = f.group.rotation.clone();
       f.busy = false;
-      return Object.assign(w, { i, hp: HP, state: 'idle', t: 0, dead: false, px: w.x, py: w.y, pz: w.z, dir: 0, walk: Math.random() * 6, moving: 0, flash: 0, saved, stuck: 0, gest: 'talk', gT: 0, away: 0 });
+      return Object.assign(w, { i, hp: HP, state: 'idle', t: 0, dead: false, px: w.x, py: w.y, pz: w.z, dir: 0, walk: Math.random() * 6, moving: 0, flash: 0, saved, stuck: 0, gest: 'talk', gT: 0, away: 0, act: this.activityOf(w, i) });
     });
     this.calm = 9;
+  }
+
+  /**
+   * What a bystander does while left in peace, from the pose the level gave him: one at work keeps working (hammering, scrubbing,
+   * hoeing), one talking keeps talking with his hands, one seated takes a drink now and then, one at prayer bows; and some of those
+   * standing about go for a stroll (to look at something a few steps away, to the next house) and come back.
+   */
+  activityOf(w, i) {
+    const r = ((i * 7919 + 13) % 101) / 101;
+    if (w.pose === 'work') return { kind: 'work', ph: r * 6 };
+    if (w.pose === 'talk') return { kind: 'chat', ph: r * 6 };
+    if (w.pose === 'pray') return { kind: 'pray', ph: r * 6 };
+    if (w.sit) return r < 0.6 ? { kind: 'sip', t: 3 + r * 8 } : null;
+    if ((w.pose === 'stand' || w.pose === 'hips' || w.pose === 'carry' || w.pose === 'point' || w.pose === 'custom') && r < 0.7) return { kind: 'stroll', phase: 'wait', t: 2 + r * 9 };
+    if (w.pose === 'stand' || w.pose === 'hips') return { kind: 'chat', ph: r * 6, soft: true };
+    return null;
+  }
+  /** One frame of what he does while left in peace (see activityOf). */
+  activity(w, f, dt, t) {
+    const a = w.act, S = w.saved; if (!a) return;
+    const k = 8;
+    switch (a.kind) {
+      case 'work': {                       // two-handed, the rhythm of a hammer, a scrubbing brush, a hoe
+        f.busy = true; const ph = t * 4.2 + a.ph, s = Math.sin(ph), b = Math.max(0, Math.sin(ph));
+        f.armR.rotation.x = damp(f.armR.rotation.x, S.armR.x - 0.55 * b + 0.15, k, dt); f.armL.rotation.x = damp(f.armL.rotation.x, S.armL.x - 0.35 * b + 0.1, k, dt);
+        f.hips.rotation.x = damp(f.hips.rotation.x, S.hips.x + 0.08 * s, k, dt); f.hips.rotation.y = damp(f.hips.rotation.y, S.hips.y + 0.12 * Math.sin(ph * 0.5), 4, dt);
+        break;
+      }
+      case 'chat': {                       // talking with whoever is there, with the hands
+        f.busy = true; const ph = t + a.ph;
+        f.armR.rotation.x = damp(f.armR.rotation.x, S.armR.x + Math.sin(ph * 3.1) * 0.35, 6, dt); f.armL.rotation.x = damp(f.armL.rotation.x, S.armL.x + Math.sin(ph * 2.3 + 1) * 0.2, 6, dt);
+        f.hips.rotation.y = damp(f.hips.rotation.y, S.hips.y + Math.sin(ph * 0.4) * 0.25, 3, dt);
+        break;
+      }
+      case 'pray': { f.busy = true; const b = Math.max(0, Math.sin(t * 0.9 + a.ph)) ** 3; f.hips.rotation.x = damp(f.hips.rotation.x, S.hips.x + 0.35 * b, 5, dt); break; }   // bowing, slowly
+      case 'sip': {                        // seated: a drink from the cup now and then
+        a.t -= dt; f.busy = true;
+        const up = a.t < 0 && a.t > -1.6 ? Math.sin(Math.min(1, -a.t / 1.6) * Math.PI) : 0;
+        f.armR.rotation.x = damp(f.armR.rotation.x, S.armR.x - up * 1.6, 7, dt); f.armR.rotation.z = damp(f.armR.rotation.z, S.armR.z + up * 0.5, 7, dt);
+        if (a.t < -1.6) a.t = 5 + Math.random() * 9;
+        break;
+      }
+      case 'stroll': {
+        a.t -= dt;
+        if (a.phase === 'wait') {                                  // standing at home
+          if (a.t > 0) return;
+          const W = this.game.world;
+          for (let n = 0; n < 6; n++) {                            // somewhere a few steps away that he can walk to in a straight line
+            const ang = Math.random() * 6.283, d = 4 + Math.random() * 6, tx = w.x + Math.sin(ang) * d, tz = w.z + Math.cos(ang) * d;
+            if (!W.clear(w.x, w.y + 0.6, w.z, tx, w.y + 0.6, tz) || !W.clear(w.x, w.y + 1.5, w.z, tx, w.y + 1.5, tz) || Math.abs(W.groundAt(tx, tz, w.y + 0.5) - w.y) > 0.4) continue;
+            a.tx = tx; a.tz = tz; a.phase = 'go'; this.standUp(w); return;
+          }
+          a.t = 4 + Math.random() * 6; return;
+        }
+        if (a.phase === 'there') {                                 // looking at something, then home again
+          for (const q of ['legL', 'legR', 'shinL', 'shinR']) f[q].rotation.x = damp(f[q].rotation.x, 0, 6, dt);
+          f.armR.rotation.x = damp(f.armR.rotation.x, 0, 4, dt); f.armL.rotation.x = damp(f.armL.rotation.x, 0, 4, dt); f.group.position.set(w.px, w.py, w.pz);
+          if (a.t <= 0) a.phase = 'back';
+          return;
+        }
+        const [gx, gz] = a.phase === 'go' ? [a.tx, a.tz] : [w.x, w.z], hx = gx - w.px, hz = gz - w.pz, hd = Math.hypot(hx, hz);
+        if (hd < 0.35) { if (a.phase === 'go') { a.phase = 'there'; a.t = 3 + Math.random() * 5; } else { this.restore(w); a.phase = 'wait'; a.t = 6 + Math.random() * 12; } return; }
+        const sp = 1.1, moved = this.move(w, hx / hd * sp, hz / hd * sp, dt);
+        if (moved < sp * dt * 0.3) { w.stuck += dt; if (w.stuck > 1.5) { w.stuck = 0; a.phase = a.phase === 'go' ? 'back' : 'back'; if (a.phase === 'back' && Math.hypot(w.x - w.px, w.z - w.pz) < 0.5) { this.restore(w); a.phase = 'wait'; a.t = 5; } } } else w.stuck = 0;
+        this.walking(w, f, moved, dt, 0);
+        let d = Math.atan2(hx, hz) - f.group.rotation.y; d = Math.atan2(Math.sin(d), Math.cos(d)); f.group.rotation.y += d * Math.min(1, dt * 5);
+        break;
+      }
+    }
   }
 
   // ---- what happens to them --------------------------------------------------------
@@ -88,6 +157,7 @@ export class Crowd {
   /** Back to the pose and the place the level gave him. */
   restore(w) {
     const f = w.f, S = w.saved;
+    if (Math.hypot(w.px - w.x, w.pz - w.z) > 0.5) { this.standUp(w); w.state = 'return'; w.stuck = 0; w.t = 25; if (w.act && w.act.kind === 'stroll') w.act.phase = 'wait'; return; }   // away from his place (on a stroll): he walks back first
     for (const k of JOINTS) if (S[k]) f[k].rotation.copy(S[k]);
     f.group.position.copy(S.pos); f.group.rotation.copy(S.rot);
     w.px = w.x; w.py = w.y; w.pz = w.z; w.stood = false; f.busy = false; w.state = 'idle';
@@ -139,10 +209,11 @@ export class Crowd {
         case 'idle':
           if (aimed) { this.standUp(w); w.state = 'hands'; w.away = 0; }
           else if (dist < 3.3 && this.calm > 1.5 && still && Math.abs(P.pos.y - w.py) < 1.5) { w.state = 'greet'; w.gT = 0; w.away = 0; f.busy = true; }
+          else if (dist < 90) this.activity(w, f, dt, G.time);       // near enough to be seen: at work, chatting, strolling
           break;
         case 'greet': {                     // he turns to the player and talks, waves, nods...
           if (dist > 5 || this.calm < 0.3) { this.restore(w); break; }
-          if (w.gT <= 0) { w.gest = GESTURES[Math.floor(Math.random() * GESTURES.length)]; w.gT = 2.2 + Math.random() * 1.4; if (Math.random() < 0.6) G.sound.murmur(this.far(w)); }
+          if (w.gT <= 0) { w.gest = GESTURES[Math.floor(Math.random() * GESTURES.length)]; w.gT = 2.2 + Math.random() * 1.4; if (Math.random() < 0.6) { if (G.voices) G.voices.greet(w); else G.sound.murmur(this.far(w)); } }
           const want = Math.atan2(dx, dz);
           if (w.sit && !w.stood) { let d = want - w.saved.rot.y; d = Math.atan2(Math.sin(d), Math.cos(d)); f.hips.rotation.y = damp(f.hips.rotation.y, Math.max(-0.9, Math.min(0.9, d)), 4, dt); }
           else { let d = want - f.group.rotation.y; d = Math.atan2(Math.sin(d), Math.cos(d)); f.group.rotation.y += d * Math.min(1, dt * 4); }

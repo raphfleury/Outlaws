@@ -816,6 +816,8 @@ export const WITS = {
   medium: { sight: 1, react: 1, spread: 1, share: 20, search: 12, giveUp: 25, far: 70, climb: true },
   genius: { sight: 1.15, react: 0.6, spread: 0.65, share: 60, search: 20, giveUp: 40, far: 90, climb: true },
 };
+/** The sound of each gunman's gun. */
+const ENEMY_GUN = { cowboy: 'revolver', westBoss: 'revolver', officer: 'pistol', agent: 'pistol', russiaBoss: 'pistol', bandit: 'carbine', soldier: 'rifle', pla: 'rifle', gunner: 'mg', plaGunner: 'mg', tibetBoss: 'mg', militia: 'sten', warBoss: 'sten', arcabucero: 'musket', cannoneer: 'cannon' };
 const BOMB_OF = { west: 'dynamite', japan: 'hbomb', war: 'grenade', russia: 'grenade', tibet: 'grenade' };
 const BOMBERS = { bandit: 1, cowboy: 1, ninja: 1, soldier: 1, gunner: 1, officer: 1, militia: 1, agent: 1, pla: 1, plaGunner: 1 };
 
@@ -860,7 +862,7 @@ export class Enemy {
     const G = this.game, P = this.tgt || G.player;
     this.state = 'combat'; this.mode = 'fight'; this.lostT = 0; this.react = (delay + 0.35 + G.rand() * 0.5) * this.wit.react;
     this.know = know ? { ...know } : { x: P.pos.x, y: P.pos.y, z: P.pos.z, t: G.time };
-    if (delay === 0) { if (this.cfg.dog) G.sound.bark(); else G.sound.shout(); }
+    if (delay === 0) { if (G.voices) G.voices.shout(this); else if (this.cfg.dog) G.sound.bark(); else G.sound.shout(); }
     const R = Math.min(11, this.wit.share);
     for (const e of G.enemies) if (e !== this && e.state === 'idle' && !e.puppet && !e.remote && e.pos.distanceToSquared(this.pos) < R * R) e.alert(0.3 + G.rand() * 0.6, this.know);
   }
@@ -1050,6 +1052,7 @@ export class Enemy {
       const room = (s) => W.clear(this.pos.x, y, this.pos.z, this.pos.x + fx * s * 1.9, y, this.pos.z + fz * s * 1.9);
       if (!room(this.fallDir)) { if (room(-this.fallDir)) this.fallDir = -this.fallDir; else this.slump = true; }   // against a wall: fall the other way, or sink down
       if (this.game.enemyDown) this.game.enemyDown(this);
+      if (this.game.voices && !this.remote) this.game.voices.cry(this);
       return true;
     }
     return false;
@@ -1373,7 +1376,7 @@ export class Enemy {
     G.shots.spawn(cfg.proj, mx, my, mz, ax, ay, az, cfg.pspeed, false, cfg.dmg);
     if (G.duel) G.duel.enemyShot(cfg.proj, mx, my, mz, ax, ay, az, cfg.pspeed);
     if (cfg.proj === 'bullet' || cfg.proj === 'ball') G.crowd.alarm(mx, mz, cfg.proj === 'ball' ? 45 : 24, mx, mz);
-    if (cfg.proj === 'bullet' || cfg.proj === 'ball') { G.muzzle(mx + ax * 0.3, my + ay * 0.3, mz + az * 0.3, ax, ay, az, cfg.proj === 'ball' ? 2.2 : 0.7); G.sound.gun(cfg.proj === 'ball' ? 1 : Math.max(0.15, 0.8 - dist / 90), Math.min(1, dist / 70)); }
+    if (cfg.proj === 'bullet' || cfg.proj === 'ball') { G.muzzle(mx + ax * 0.3, my + ay * 0.3, mz + az * 0.3, ax, ay, az, cfg.proj === 'ball' ? 2.2 : 0.7); G.sound.gun(cfg.proj === 'ball' ? 1 : Math.max(0.15, 0.8 - dist / 90), Math.min(1, dist / 70), ENEMY_GUN[this.type] || 'rifle'); }
     else G.sound.bow();
   }
   throwStar(dx, dy, dz, dist) {

@@ -3,6 +3,23 @@
 // (plucked strings via the Karplus-Strong algorithm + a lead voice).
 
 const midi = (n) => 440 * Math.pow(2, (n - 69) / 12);
+/**
+ * The shots of each kind of gun: the crack of the bullet, the blast (a band of noise closing down), the bark in the middle,
+ * the thump in the chest (a low sine falling away), and the echo that rolls back from the buildings.
+ */
+const GUNS = {
+  revolver: { crack: 4500, body: 2600, bark: 700, sub: 82, dur: 0.34, tail: 0.95, rev: 0.7, size: 1.0 },
+  pistol: { crack: 6200, body: 3300, bark: 1150, sub: 108, dur: 0.22, tail: 0.6, rev: 0.5, size: 0.75 },
+  carbine: { crack: 5600, body: 3000, bark: 820, sub: 76, dur: 0.36, tail: 1.15, rev: 0.75, size: 1.05 },
+  rifle: { crack: 7000, body: 3800, bark: 900, sub: 68, dur: 0.4, tail: 1.3, rev: 0.8, size: 1.15 },
+  scoped: { crack: 8000, body: 4300, bark: 860, sub: 60, dur: 0.48, tail: 1.7, rev: 0.9, size: 1.3 },
+  sten: { crack: 5000, body: 2300, bark: 1350, sub: 104, dur: 0.15, tail: 0.42, rev: 0.35, size: 0.8 },
+  mg: { crack: 6000, body: 2800, bark: 1000, sub: 82, dur: 0.2, tail: 0.6, rev: 0.5, size: 1.0 },
+  musket: { crack: 3000, body: 1800, bark: 520, sub: 58, dur: 0.65, tail: 1.7, rev: 0.9, size: 1.3 },
+  cannon: { crack: 2400, body: 1300, bark: 300, sub: 44, dur: 1.1, tail: 2.4, rev: 1.0, size: 1.8 },
+};
+/** The resonances of the mouth for a few vowels (a, e, i, o, u, and the one of 'but'), in Hz. */
+const VOWELS = [[800, 1200, 2500], [500, 1800, 2500], [300, 2250, 3000], [500, 900, 2400], [350, 800, 2300], [650, 1150, 2600]];
 
 export const SOUND_KEY = 'lonehand-sound';
 /** The player's sound settings: four volumes (0..1), music on or off (M), and the microphone of the duel voice chat. */
@@ -88,12 +105,63 @@ export class Sound {
   }
 
   // --- effects ---------------------------------------------------------------
-  gun(vol = 1, far = 0) {
+  /** A shot: deep and full near by, a dull thud with a long echo far away; each kind of gun its own (see GUNS). */
+  gun(vol = 1, far = 0, kind = 'rifle') {
     if (!this.ctx) return;
-    this.noise({ type: 'lowpass', f0: 9000 - far * 7000, f1: 500, dur: 0.32, vol: 0.9 * vol, rev: 0.6 });
-    this.noise({ type: 'bandpass', f0: 1800, f1: 600, dur: 0.12, vol: 0.5 * vol, q: 0.6 });
-    this.tone({ f0: 170, f1: 42, dur: 0.2, vol: 0.9 * vol });
+    const G = GUNS[kind] || GUNS.rifle, hf = 1 - far * 0.85, v = vol, j = 0.94 + Math.random() * 0.12;
+    this.noise({ type: 'highpass', f0: G.crack * hf + 500, dur: 0.012 + 0.012 * G.size, vol: 0.85 * v * hf, att: 0.001 });
+    this.noise({ type: 'lowpass', f0: (G.body * hf + 350) * j, f1: 170, dur: G.dur, vol: 1.0 * v, att: 0.002, rev: G.rev });
+    this.noise({ type: 'bandpass', f0: G.bark * j, f1: G.bark * 0.45, dur: G.dur * 0.6, vol: 0.55 * v * (0.4 + 0.6 * hf), q: 0.9, att: 0.002 });
+    this.tone({ type: 'sine', f0: G.sub * j, f1: G.sub * 0.38, dur: G.dur * 1.15, vol: 1.15 * v * G.size, att: 0.002 });
+    this.noise({ t: this.t + 0.08 + far * 0.12, type: 'lowpass', f0: 650, f1: 110, dur: G.tail, vol: 0.32 * v * G.size, att: 0.05, rev: 0.6 });
   }
+  /** Something that sounds from (pan): -1 left, +1 right. Returns the node to connect to. */
+  side(pan, dest) {
+    if (!pan || !this.ctx.createStereoPanner) return dest;
+    const p = this.ctx.createStereoPanner(); p.pan.value = Math.max(-1, Math.min(1, pan)) * 0.8; p.connect(dest); return p;
+  }
+  /**
+   * A voice saying something: syllables of a buzzing tone (its pitch rising and falling as speech does) shaped by three formant
+   * filters that move from vowel to vowel, with a consonant before some of them. o: { far, pan, female, loud (a shout), n (syllables) }.
+   */
+  babble(o = {}) {
+    if (!this.ctx) return;
+    const c = this.ctx, far = o.far ?? 0, v = Math.max(0.04, 1 - far) * (o.loud ? 0.42 : 0.16), base = (o.female ? 215 : 118) * (o.loud ? 1.45 : 1) * (0.9 + Math.random() * 0.2);
+    const n = o.n ?? 3 + Math.floor(Math.random() * 4), syl = o.loud ? 0.17 : 0.14, t0 = this.t + 0.02, end = t0 + n * syl;
+    const os = c.createOscillator(); os.type = 'sawtooth';
+    const g = c.createGain(); g.gain.setValueAtTime(0.0001, t0);
+    const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 3600 - far * 2400;
+    const fs = [0, 1, 2].map((i) => { const f = c.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = [5, 8, 9][i]; const fg = c.createGain(); fg.gain.value = [1.0, 0.55, 0.3][i]; os.connect(f); f.connect(fg); fg.connect(lp); return f; });
+    lp.connect(g); g.connect(this.side(o.pan, this.voice));
+    const r = c.createGain(); r.gain.value = 0.18; g.connect(r); r.connect(this.rev);
+    for (let k = 0; k < n; k++) {
+      const t = t0 + k * syl, V = VOWELS[Math.floor(Math.random() * VOWELS.length)], up = k === n - 1 && Math.random() < 0.3 ? 1.15 : 1;
+      const p = base * (1 + 0.12 * Math.sin(k * 1.7 + Math.random())) * (1 - 0.18 * k / n) * up * (o.female ? 1.08 : 1);
+      os.frequency.setTargetAtTime(p, t, 0.025);
+      fs.forEach((f, i) => f.frequency.setTargetAtTime(V[i] * (o.female ? 1.15 : 1), t, 0.02));
+      g.gain.setTargetAtTime(v, t + 0.01, 0.015); g.gain.setTargetAtTime(v * 0.15, t + syl * 0.72, 0.02);
+      if (Math.random() < 0.55) this.noise({ t, type: Math.random() < 0.5 ? 'highpass' : 'bandpass', f0: 2600 + Math.random() * 2400, dur: 0.035 + Math.random() * 0.03, vol: v * 0.45, q: 1.2, dest: this.side(o.pan, this.voice) });
+    }
+    g.gain.setTargetAtTime(0.0001, end, 0.03);
+    os.start(t0); os.stop(end + 0.25);
+  }
+  /** A man's (or woman's) cry as he falls: a short open 'ah' that breaks and falls away, with breath in it. */
+  cry(o = {}) {
+    if (!this.ctx) return;
+    const c = this.ctx, far = o.far ?? 0, v = Math.max(0.05, 1 - far) * 0.32, t = this.t, d = 0.42 + Math.random() * 0.25, b = (o.female ? 330 : 190) * (0.9 + Math.random() * 0.25);
+    const os = c.createOscillator(); os.type = 'sawtooth';
+    os.frequency.setValueAtTime(b * 1.25, t); os.frequency.linearRampToValueAtTime(b * 1.45, t + 0.07); os.frequency.exponentialRampToValueAtTime(b * 0.55, t + d);
+    const g = c.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(v, t + 0.03); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+    const out = this.side(o.pan, this.voice), A = VOWELS[0], U = VOWELS[4];
+    for (let i = 0; i < 3; i++) { const f = c.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 6; f.frequency.setValueAtTime(A[i], t); f.frequency.linearRampToValueAtTime(U[i], t + d); const fg = c.createGain(); fg.gain.value = [1, 0.5, 0.25][i]; os.connect(f); f.connect(fg); fg.connect(g); }
+    g.connect(out); const r = c.createGain(); r.gain.value = 0.3; g.connect(r); r.connect(this.rev);
+    this.noise({ t: t + d * 0.6, type: 'bandpass', f0: 1200, f1: 500, dur: 0.3, vol: v * 0.3, q: 0.8, dest: out });
+    os.start(t); os.stop(t + d + 0.05);
+  }
+  /** A car's engine going by: a low hum with a little rattle. */
+  engine(far = 0) { if (!this.ctx) return; const v = Math.max(0.03, 1 - far); this.noise({ type: 'lowpass', f0: 380, f1: 220, dur: 0.22, vol: v * 0.18 }); this.tone({ type: 'sawtooth', f0: 52 + Math.random() * 6, dur: 0.2, vol: v * 0.06, lp: 300 }); }
+  /** A dog's last whimper. */
+  whimper(far = 0, pan = 0) { if (!this.ctx) return; const v = Math.max(0.05, 1 - far) * 0.2; this.tone({ type: 'triangle', f0: 900, f1: 420, dur: 0.45, vol: v, dest: this.side(pan, this.voice) }); }
   bow() {
     this.tone({ type: 'sawtooth', f0: 210, f1: 80, dur: 0.16, vol: 0.35, lp: 1800 });
     this.noise({ type: 'bandpass', f0: 900, f1: 2600, dur: 0.22, vol: 0.28, q: 1.4 });
