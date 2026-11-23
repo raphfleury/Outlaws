@@ -16,7 +16,35 @@ Each version is a Git tag named `lone-hand-vX.Y.Z` and a
 game as one downloadable file. The number is also shown in the bottom right corner of the
 title screen.
 
-## [2.1.0] - 2026-11-24
+## [2.2.0] - 2026-11-23
+
+### Added
+
+- **Up to four players online.** The host creates the game and sends the link or the code;
+  up to three others join. The Online screen lists who is in, and the host starts when
+  everyone is there. Others may join between two games.
+- **Two against two.** In the duels and in capture the flag the players form two sides: in
+  the order they joined, the first and the third against the second and the fourth (with
+  three players, two against one). A round ends when everyone on one side has fallen; in the
+  timed game each fall scores for the other side; each side has its flag. Nothing fired on
+  your side can hurt your team-mate, every team-mate's name and health show over his head,
+  and the map, the places found and the marks are shared within a side.
+- **Together, up to four** against the chapter's enemies; each counts his own kills, and the
+  enemies go after whichever player is nearest.
+- The end screen gives each side's score and, with more than two players, each player's kills.
+
+### Changed
+
+- **Games online go through a game server.** Each player connects to it as to a website, so
+  a game now connects from any network. Before, the two browsers connected directly, and
+  between some networks the game stayed on "Connecting…" for ever. If the server cannot be
+  reached, the Online screen says so after twelve seconds at most, and it says why when a
+  game cannot be joined (no such code, full, already started).
+- **The voice chat goes through the server too**, in telephone quality, between all the
+  players of a game; nothing is sent while you are silent.
+- The *Two players online* button is now *Online*.
+
+## [2.1.0] - 2026-11-23
 
 ### Added
 

@@ -1468,18 +1468,19 @@ export class Shots {
       const sp = Math.hypot(s.vx, s.vy, s.vz), len = sp * dt;
       _o.x = s.x; _o.y = s.y; _o.z = s.z; _d.x = s.vx / sp; _d.y = s.vy / sp; _d.z = s.vz / sp;
       const wh = W.raycast(_o, _d, len);
-      let tMax = wh ? wh.t : len, hitEnemy = null, head = false, hitPlayer = false, hitRemote = false;
+      let tMax = wh ? wh.t : len, hitEnemy = null, head = false, hitPlayer = false, hitRemote = null;
       if (s.fromPlayer) {
         for (const e of G.enemies) { if (G.friend(e)) continue; const h = e.rayHit(_o, _d, tMax); if (h) { tMax = h.t; hitEnemy = e; head = h.head; } }
-      } else if (!s.ghost) {                    // a ghost only shows what the other side of a duel fired; it hits nothing here
-        const R = G.duel && G.duel.isHost && G.duel.remote;                     // in a duel the host's enemies can also hit the other player
-        if (R) { const h = R.rayHit(_o, _d, tMax); if (h) { tMax = h.t; hitRemote = true; } }
+      } else if (!s.ghost) {                    // a ghost only shows what another player (or the host's enemy) fired; it hits nothing here
+        if (G.duel && G.duel.isHost) for (const R of G.duel.remotes.values()) {     // online the host's enemies can also hit the other players
+          if (!R.alive) continue; const h = R.rayHit(_o, _d, tMax); if (h) { tMax = h.t; hitRemote = R; }
+        }
         // closest approach of this step's segment to the player's body axis
         if (!P.dead) for (const [cy, rr] of [[1.45, 0.34], [0.95, 0.42], [0.4, 0.36]]) {
           const ox = s.x - P.pos.x, oy = s.y - (P.pos.y + cy * (1 - 0.4 * P.duck)), oz = s.z - P.pos.z;
           const b = ox * _d.x + oy * _d.y + oz * _d.z, t = clamp(-b, 0, tMax);
           const qx = ox + _d.x * t, qy = oy + _d.y * t, qz = oz + _d.z * t, d2 = qx * qx + qy * qy + qz * qz;
-          if (d2 < rr * rr) { hitPlayer = true; hitRemote = false; tMax = t; break; }
+          if (d2 < rr * rr) { hitPlayer = true; hitRemote = null; tMax = t; break; }
           if (d2 < 2.2 && !s.near && s.kind === 'bullet') { s.near = true; G.sound.whiz(); }
         }
       }
@@ -1488,8 +1489,8 @@ export class Shots {
       s.mesh.position.set(s.x, s.y, s.z);
       if (s.kind === 'star') { s.mesh.rotation.y += dt * 30; } else { s.mesh.lookAt(s.x + _d.x, s.y + _d.y, s.z + _d.z); if (s.spin) s.mesh.rotateX((5 - s.life) * s.spin); }
       if (hitPlayer) { G.hurtPlayer(s.dmg, this._v.set(s.x - _d.x * 5, s.y, s.z - _d.z * 5), false); s.mesh.removeFromParent(); this.list.splice(i, 1); continue; }
-      if (hitRemote) { G.duel.send({ t: 'hit', d: s.dmg, x: s.x - _d.x * 5, z: s.z - _d.z * 5 }); s.mesh.removeFromParent(); this.list.splice(i, 1); continue; }
-      if (s.kind === 'molotov' && (hitEnemy || hitPlayer || wh || s.life <= 0)) { G.havoc.fire(s.x - _d.x * 0.2, s.y, s.z - _d.z * 0.2, { ghost: s.ghost }); s.mesh.removeFromParent(); this.list.splice(i, 1); continue; }
+      if (hitRemote) { G.duel.send({ t: 'hit', to: hitRemote.pid, ai: 1, d: s.dmg, x: s.x - _d.x * 5, z: s.z - _d.z * 5 }); s.mesh.removeFromParent(); this.list.splice(i, 1); continue; }
+      if (s.kind === 'molotov' && (hitEnemy || hitPlayer || wh || s.life <= 0)) { G.havoc.fire(s.x - _d.x * 0.2, s.y, s.z - _d.z * 0.2, { ghost: s.ghost, from: s.from }); s.mesh.removeFromParent(); this.list.splice(i, 1); continue; }
       if (hitEnemy) {
         G.hitEnemy(hitEnemy, s.dmg, head, s.x, s.y, s.z, P.pos.x, P.pos.z);
         if ((s.kind === 'dart' || s.kind === 'bdart') && hitEnemy.alive) hitEnemy.poison = s.kind === 'bdart' ? 4 : 5;     // the dart was poisoned
@@ -1527,7 +1528,7 @@ export class Shots {
   bomb(s, dt) {
     const G = this.game, W = G.world;
     s.fuse -= dt;
-    if (s.fuse <= 0) { G.havoc.explode(s.x, s.y + 0.15, s.z, { ghost: s.ghost && !s.foe }); return true; }
+    if (s.fuse <= 0) { G.havoc.explode(s.x, s.y + 0.15, s.z, { ghost: s.ghost && !s.foe, from: s.foe ? undefined : s.from }); return true; }
     if (Math.random() < dt * 40) G.gfx.glow.spawn(s.x, s.y + 0.08, s.z, (Math.random() - 0.5) * 1.5, 1 + Math.random(), (Math.random() - 0.5) * 1.5, { life: 0.25, s0: 0.03, s1: 0.005, r: 3, g: 1.8, b: 0.6, a: 1, grav: 4 });   // the burning fuse
     if (!s.rest) {
       s.vy -= s.g * dt;
