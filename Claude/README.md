@@ -1,6 +1,6 @@
 # Lone Hand — Claude version
 
-**Version 2.2.0** · [What changed (changelog)](CHANGELOG.md) · [All releases](https://github.com/iago-swi/outlaws/releases)
+**Version 2.3.0** · [What changed (changelog)](CHANGELOG.md) · [All releases](https://github.com/iago-swi/outlaws/releases)
 
 A first-person shooter in nine chapters, built with Claude (Anthropic) in the spirit of
 late-1990s Western shooters. From a frontier town to a Japanese shrine, an alpine valley,
@@ -98,8 +98,32 @@ Every chapter has ten to eighteen bystanders (more on a large map, and more in c
 about half of them women, dressed for the place and the time and busy with something. They
 breathe, shift their weight and look about; those at work keep working (hammering,
 scrubbing, churning), those talking talk with their hands, those seated take a drink now and
-then, those at prayer bow, and some of those standing about go for a stroll and come back.
-They greet you when you stand by them, and chatter among themselves.
+then, those at prayer bow, and some of those standing about go for a stroll and come back;
+nobody stands still like a statue. Those on the boats of chapter IX and of the outskirts
+paddle or pole and stay aboard. They greet you when you stand by them, and chatter among
+themselves. About one in four, hurt by you and still standing, fights back: he draws the
+weapon of the chapter's commonest enemy and becomes one of them, as strong as they are and
+no more, with his own looks (not in a game online).
+
+### Animals
+
+| Chapter | Animals |
+| --- | --- |
+| I | horses in the corral, at the livery and at the hitching rail, a mule, hens |
+| II | an ox in its shed |
+| III | cows on the pasture, two pack mules at the Sust |
+| IV | goats, pigs, and the old dog Argos lying by the villa's door |
+| V | ponies, sheep |
+| VIII | yaks, horses |
+| Large maps | a horse tied up by some of the hamlets |
+
+The animals breathe, shift and lower their heads to graze. A shot or a blast near them sends
+them running a little way. They can be hurt and killed, and fall on their side. Some of
+them, hurt and still standing, turn on you: about half the horses, oxen and yaks, a third of
+the cows, mules and goats, a quarter of the pigs, the dog almost always; sheep and hens never.
+One that turns charges and strikes like an enemy fighting hand to hand, as strong as the
+chapter's enemies and no more (a horse: 90 health, a kick of 20), and counts among the foes
+that remain.
 
 | Chapter | Who is there |
 | --- | --- |
@@ -460,10 +484,12 @@ If the server cannot be reached, the Online screen says so after twelve seconds 
 - **Things wear before they break.** Each hit dents and blackens a breakable thing where it
   struck, and it leans further over the weaker it gets.
 - **Aimed throws.** With a thrown weapon the right button aims (the view narrows a little)
-  and draws the flight as a line of dots, from the hand to a ring where it will land. For a
-  bomb the line follows the bounces and a red ring shows the reach of the blast. The line
-  is worked out with the same steps as the throw itself, so it is exact for walls, roofs
-  and the ground, and for the enemies standing where they are now.
+  and draws the flight as a fine line of small dots, from the hand to a small ring where it
+  will land. The line is pale while the throw would land on nothing in particular, and turns
+  red when it would strike an enemy or an animal (for a bomb: when one stands within its
+  blast). For a bomb the line follows the bounces and a red circle shows the reach of the
+  blast. The line is worked out with the same steps as the throw itself, so it is exact for
+  walls, roofs and the ground, and for the enemies standing where they are now.
 
 ### Voices and gunshots
 
@@ -581,13 +607,14 @@ green. The end-of-chapter screen notes that the result was reached in practice m
 | [map.js](source/src/map.js) | The chapter's map drawn from the world, the mini-map, the whole map on `Tab`, and the marked places with their pins. |
 | [loot.js](source/src/loot.js) | What each kind of enemy leaves behind, the shots that come with a weapon, and the names shown in the arsenal and the bag. |
 | [life.js](source/src/life.js) | Life around: birds, gusts and dust devils, the train of chapter I and the tank of chapter VII. |
-| [crowd.js](source/src/crowd.js) | The bystanders: fright and flight, crouching, the way back, talking to the player, hands up, wounds and death. |
+| [crowd.js](source/src/crowd.js) | The bystanders: what each does while left in peace, fright and flight, crouching, the way back, talking to the player, hands up, wounds and death, and those who fight back. |
+| [fauna.js](source/src/fauna.js) | The animals: grazing, running away, wounds, death, and those that turn on the player (they become enemies of the kinds `horseBeast`, `cowBeast`, `yakBeast`, `goatBeast`, `pigBeast` or `dog`). |
 | [places.js](source/src/places.js) | The named places of each chapter, and the names of the hamlets of a large map. |
 | [bvh.js](source/src/bvh.js) | A bounding volume hierarchy over the triangles of the merged meshes: shots and lines of sight stop at what is drawn, and roofs can be stood on. |
 | [voices.js](source/src/voices.js) | Enemies' shouts in their languages, greetings and chatter of the bystanders (speech synthesis, or a voice synthesised in the game). |
 | [skills.js](source/src/skills.js) | The heroes' special skills (`E`): what each does, how long it lasts, and which hero has which. |
 | [outskirts.js](source/src/outskirts.js) | The size of the map: the roped-off heart of a small one; the outskirts of a large one (hamlets in each chapter's style, levelled hillsides, boats, trees, people, horses, chimneys, enemies). |
-| [arc.js](source/src/arc.js) | The line of dots that shows where a thrown weapon will land. |
+| [arc.js](source/src/arc.js) | The line of dots that shows where a thrown weapon will land, red when it would strike. |
 | [voice.js](source/src/voice.js) | Voice chat online: the microphone read and coded in µ-law, sent with the game's messages; the other players' voices played as they come. |
 | [duel.js](source/src/duel.js) | Games online: the other players' figures, the sides, rounds, scores and flags, the messages between the games, the lobby. |
 | [net.js](source/src/net.js) | The connection to the game server: creating or joining a game under a short code, the messages of one moment sent together twenty times a second. |
@@ -1220,6 +1247,15 @@ host leaving. Each browser sent about 17 messages a second, 22 KB/s with the mic
 (a test tone). Not tested: the server on Cloudflare's network, players on different
 networks, real network delay, Safari.
 
+Version 2.3.0 was checked in a browser without a window: all nine chapters load without
+an error, every bystander has something to do, the animals are where they were (seven
+horses, a mule and four hens in chapter I, an ox, five cows and two mules, five goats, six
+pigs and the dog, two ponies and seven sheep, ten yaks and three horses); a horse shot once
+turns on the player, reaches him and kicks him (100 to 40 health in five seconds), and falls
+to six shots; a hen shot dies and its collider goes; a horse shot that does not fight runs
+12 metres; a bystander shot who fights back becomes a cowboy with a gun; the throw line of
+the shuriken turns red on an enemy nine metres away and stays pale two metres beside him.
+
 Version 1.5.0 enlarged all nine chapters at once. Each chapter was first checked with the
 `&check` flag in a browser without a window: every enemy that walks has a route to the
 player's start, in all nine, with 5, 15 and 30 enemies. A scripted player then climbed all
@@ -1248,8 +1284,9 @@ estimate, and frame rate on slower graphics hardware has not been measured.
 - Rooms away from a fire or a window are dim: the chapters are at their limit of lights,
   and the new interiors got none.
   The route grid does not know about other enemies, so several can crowd one doorway.
-- The longships lie at fixed moorings and cannot be sailed. The bystanders stay in their place
-  and do not react to the fight.
+- The longships lie at fixed moorings and cannot be sailed.
+- An animal running away glides on stiff legs (only those that attack move their legs), and
+  one that has run away stays where it stopped.
 - With five villains and three heroes, the fighter selection of chapter IV uses smaller
   cards than the other chapters.
 - Enemies cannot jump, crouch or climb ladders. A player on a roof or in a den can only be shot at, or

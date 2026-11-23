@@ -2,9 +2,8 @@
 import * as THREE from 'three';
 import { Heightfield, curvedRoofGeo, rockGeo } from '../build.js';
 import { makeAmbient, makeWater, windify } from '../gfx.js';
-import { instanced, room, steps, shelf, tuftGeo, blobTreeGeo, gBox, gCyl, gCone, gSph, gCap, xf, merge, paint, stand, den, ladder, boulder, fence, beast, local, table, bed, chest, pots, sacks, rug, hearth, woodpile, haystack, deck, person, idle } from '../props.js';
+import { instanced, room, steps, shelf, tuftGeo, blobTreeGeo, gBox, gCyl, gCone, gSph, gCap, xf, merge, paint, stand, den, ladder, boulder, fence, beast, local, table, bed, chest, pots, sacks, rug, hearth, woodpile, haystack, deck, person, idle, animal } from '../props.js';
 import { fbm, smooth, clamp } from '../util.js';
-import { makeHumanoid, lookFor } from '../actors.js';
 
 export const japan = {
   id: 'japan', theme: 'theme-japan', chapter: 'Chapter II', title: 'Kagemori', kanji: '影森', place: 'Kagemori shrine · Japan · 1600',
@@ -258,7 +257,7 @@ function build({ game, gfx, world, B, M, root, rand, shared }) {
     B.box(M.thatch, 6.2, 0.3, 4.8, x, y + 2.25, z, { rx: -0.13, c: 0xa08a58 });
     const ox = [gCap(0.4, 0.95, C, [0, 1.0, 0], [Math.PI / 2, 0, 0], [1, 1, 1.05]), gBox(0.34, 0.36, 0.5, C, [0, 1.12, 0.98], [0.25, 0, 0]), gBox(0.25, 0.2, 0.18, 0x4a3a34, [0, 1.0, 1.26], [0.25, 0, 0]), gCone(0.09, 0.8, C, [0, 0.85, -0.98], [-2.9, 0, 0])];
     for (const k of [-1, 1]) { ox.push(gCone(0.04, 0.32, 0xe0d8c0, [k * 0.24, 1.36, 0.9], [0, 0, k * -1.1], 1, 6), gBox(0.1, 0.07, 0.03, C, [k * 0.2, 1.26, 0.8])); for (const lz of [0.6, -0.62]) ox.push(gCap(0.085, 0.55, C, [k * 0.22, 0.38, lz])); }
-    B.geo(M.flat, merge(ox), [x + 1.3, y, z - 0.35], [0, 0, 0], 1); beast(world, x + 1.3, z - 0.35, 0, 0.8, 2.1, y, y + 1.5);
+    animal(B, M, root, 'ox', merge(ox), x + 1.3, y, z - 0.35, 0, { coat: C, box: [0.8, 2.1, 1.5, 0.1] });
     B.box(M.woodH, 1.5, 0.45, 0.4, x + 1.3, y, z + 1.25, { c: 0x5a4028, solid: true }); B.box(M.thatch, 1.3, 0.1, 0.28, x + 1.3, y + 0.4, z + 1.25, { c: 0xc8b060 });
     B.geo(M.thatch, new THREE.SphereGeometry(1, 9, 6), [x - 1.3, y + 0.1, z - 0.7], [0, 0, 0], [1.0, 0.6, 0.85], 0xc8b060); world.addBox(x - 1.3, z - 0.8, 1.8, 1.4, 0, y - 0.2, y + 0.45);
     B.cyl(M.wood, 0.02, 0.02, 1.6, x - 2.3, y, z + 0.6, { rz: -0.08, c: 0x6a4a30, seg: 5 });
@@ -508,10 +507,7 @@ function build({ game, gfx, world, B, M, root, rand, shared }) {
   }
   { // people of the valley who take no part in the fight: wandering flute monks (komuso) and geisha under their umbrellas, an old man on the tea-house veranda, a pilgrim praying toward the shrine
     let q = 0; const rq = () => (q = (q + 0.381) % 1);
-    const figure = (look, x, z, yaw, pose, over) => {
-      const f = makeHumanoid(M, { ...lookFor(look, rq), ...over }), y = world.height(x, z);
-      f.group.position.set(x, y, z); f.group.rotation.y = yaw; pose(f); root.add(f.group); world.addCyl(x, z, 0.4, y - 2, y + 1.9);
-    };
+    const figure = (look, x, z, yaw, pose, over) => { people.push(person(B, M, root, look, x, world.height(x, z), z, yaw, { pose, over, rand: rq })); };   // bystanders like the others: they stroll, take fright, can be hurt
     const flute = (f) => { f.armR.rotation.x = -0.98; f.armR.rotation.z = 0.45; f.armL.rotation.x = -1.1; f.armL.rotation.z = -0.5; };
     const stroll = (f) => { f.armR.rotation.x = -0.71; f.armR.rotation.z = 0.17; f.armL.rotation.x = -0.32; f.armL.rotation.z = -0.12; f.legL.rotation.x = 0.1; f.legR.rotation.x = -0.1; };
     figure('komuso', pathX(62.5) + 2.6, 62.5, -1.2, flute); figure('komuso', -45.6, 23.6, 1.5, flute); figure('komuso', -7.5, -37.5, 0.5, flute);

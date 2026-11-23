@@ -51,6 +51,7 @@ export class Havoc {
         if (e.alive && e.flee) e.flee(f.x, f.z);                     // nobody stays in a fire
       }
       for (const w of G.crowd.list) if (!w.dead && inside(w.px, w.py, w.pz)) G.crowd.hit(w, 6, w.px, w.py + 0.5, w.pz, !f.ghost, !f.ghost);
+      for (const a of G.fauna.list) if (!a.dead && inside(a.px, a.py, a.pz)) G.fauna.hit(a, 6, a.px, a.py + a.high * 0.5, a.pz, false, !f.ghost);   // an animal in the flames
       if (!f.ghost) for (const q of G.world.pieces) {
         if (q.broken || (q.kind !== 'wood' && q.kind !== 'straw' && q.kind !== 'cloth' && q.kind !== 'paper')) continue;
         if (Math.hypot(q.x - f.x, q.z - f.z) < f.r + q.r * 0.5 && q.y < f.y + 1.5 && q.top > f.y - 0.5) this.damage(q, q.wall ? 14 : 9);
@@ -223,7 +224,7 @@ export class Havoc {
       else if (d < 45 && e.state === 'idle' && !e.static) e.alert(0.3 + Math.random() * 0.5);
     }
     G.noise = 1.5;
-    G.crowd.blast(x, y, z, R, DMG * 0.6);
+    G.crowd.blast(x, y, z, R, DMG * 0.6); G.fauna.blast(x, y, z, R, DMG * 0.6);
     for (const q of W.pieces) { if (q.broken) continue; const d = Math.hypot(q.x - x, (q.y + q.top) / 2 - y, q.z - z); if (d < R * 0.85) this.queue.push({ t: 0.02 + d * 0.025, p: q }); }
   }
 

@@ -5,7 +5,7 @@ import { makeAmbient, makeWater, windify } from '../gfx.js';
 import { drawTexture } from '../tex.js';
 import { makeHumanoid, lookFor } from '../actors.js';
 import { instanced, fence, barrel, crate, room, steps, tuftGeo, pineGeo, gBox, gCyl, gCone, gSph, gCap, xf, merge, stand, boulder, beast, ladder, rod, horseGeo,
-  local, table, bench, bed, chest, pots, sacks, rug, hearth, woodpile, cart, deck, person, idle } from '../props.js';
+  local, table, bench, bed, chest, pots, sacks, rug, hearth, woodpile, cart, deck, person, idle, animal } from '../props.js';
 import { fbm, ridged, smooth } from '../util.js';
 
 export const swiss = {
@@ -308,7 +308,7 @@ function build({ game, gfx, world, B, M, root, rand, shared }) {
     ...[[0.24, 0.6], [-0.24, 0.6], [0.24, -0.6], [-0.24, -0.6]].flatMap(([x, z]) => [gCap(0.085, 0.6, c1, [x, 0.42, z]), gBox(0.14, 0.1, 0.16, 0x2a2018, [x, 0.05, z])]),
     gSph(0.17, 0xf0b8b8, [0, 0.72, -0.4]), gCap(0.03, 0.7, c1, [0, 0.95, -0.98], [0.15, 0, 0]), gCyl(0.07, 0.1, 0.13, 0xd9b23a, [0, 0.84, 0.9])]);
   for (const [x, z, ry, a, b] of [[-16, 46, 0.5, 0x7a4a2c, 0xf2ece0], [-11, 50, 2.6, 0xf2ece0, 0x3a2a20], [-18, 50.5, -1.2, 0x8a5a36, 0xf2ece0], [24, 22, 1.9, 0x7a4a2c, 0xf2ece0], [-28, 30, 0.2, 0x3a2a20, 0xf2ece0]]) {
-    B.geo(M.flat, cow(a, b), [x, world.height(x, z), z], [0, ry, 0]); beast(world, x, z, ry, 1.0, 2.7, -5, world.height(x, z) + 1.55, 0.15);
+    animal(B, M, root, 'cow', cow(a, b), x, world.height(x, z), z, ry, { coat: a, box: [1.0, 2.7, 1.55, 0.15] });
   }
   { const x = 1, z = 35, y = world.height(x, z); B.box(M.woodH, 3.2, 0.6, 0.9, x, y, z, { ry: 0.4, c: 0x5a4028, solid: true }); B.box(M.glow, 2.8, 0.02, 0.55, x, y + 0.6, z, { ry: 0.4, c: 0x1c4450 }); B.box(M.wood, 0.22, 1.5, 0.22, x - 1.6, y, z + 0.7, { c: 0x5a4028 }); }
   for (const [x, z] of [[-27, 44], [5, 23], [-2, 52]]) { const y = world.height(x, z); B.geo(M.thatch, new THREE.ConeGeometry(1.5, 2.6, 9), [x, y + 1.2, z], [0, 0, 0], 1, 0xd8bc68); B.box(M.wood, 0.1, 3.2, 0.1, x, y, z, { c: 0x5a4028 }); world.addCyl(x, z, 1.1, y - 1, y + 2.4); }
@@ -397,8 +397,11 @@ function build({ game, gfx, world, B, M, root, rand, shared }) {
     at(-4.2, 1.0, (px, pz) => { const top = table(B, M, px, f, pz, ry + Math.PI / 2, { w: 1.5, d: 0.75, c: 0x6a4c30 });                                       // the keeper's table with the scales
       B.box(M.metal, 0.03, 0.5, 0.03, px, top, pz, { c: 0x5a5e66 }); B.box(M.metal, 0.03, 0.03, 0.6, px, top + 0.5, pz, { ry, c: 0x5a5e66 }); for (const k of [-0.28, 0.28]) B.cyl(M.metal, 0.1, 0.07, 0.03, px, top + 0.18, pz + k, { c: 0xb8923a, seg: 10 }); });
     // the mules, packed for the road up the valley
-    for (const [mz, coat] of [[-42.9, 0x6a5e52], [-46.3, 0x7a6248]]) { const mx = -13.3, y = world.height(mx, mz); B.geo(M.flat, horseGeo(coat, 0x2a2018), [mx, y, mz], [0, -Math.PI / 2, 0], 0.85); beast(world, mx, mz, -Math.PI / 2, 0.9, 2.4, y - 1, y + 1.45);
-      for (const k of [-1, 1]) B.box(M.cloth, 0.7, 0.45, 0.3, mx + 0.05, y + 1.0, mz + k * 0.42, { c: k > 0 ? 0xb8a47c : 0xcfc6ae }); B.box(M.cloth, 0.8, 0.06, 1.0, mx + 0.05, y + 1.42, mz, { c: 0x7a3a2a }); }
+    for (const [mz, coat] of [[-42.9, 0x6a5e52], [-46.3, 0x7a6248]]) {             // the packs are part of the mule: they go where it goes
+      const mx = -13.3, y = world.height(mx, mz), k = 1 / 0.85;
+      const geo = merge([horseGeo(coat, 0x2a2018), ...[-1, 1].map((q) => gBox(0.3 * k, 0.45 * k, 0.7 * k, q > 0 ? 0xb8a47c : 0xcfc6ae, [q * 0.42 * k, (1.0 + 0.225) * k, -0.05 * k])), gBox(1.0 * k, 0.06 * k, 0.8 * k, 0x7a3a2a, [0, 1.45 * k, -0.05 * k])]);
+      animal(B, M, root, 'mule', geo, mx, y, mz, -Math.PI / 2, { s: 0.85, coat, box: [1.05, 2.8, 1.7, 0.1] });
+    }
     B.box(M.wood, 0.1, 0.1, 6.2, -14.9, world.height(-14.9, -44.6) + 1.05, -44.6, { c: 0x5a4028 }); for (const pz of [-47.5, -44.6, -41.7]) B.box(M.wood, 0.14, 1.4, 0.14, -14.9, world.height(-14.9, pz) - 0.25, pz, { c: 0x5a4028 });
     world.addBox(-14.9, -44.6, 0.2, 6.2, 0, world.height(-14.9, -44.6) - 1, world.height(-14.9, -44.6) + 1.15);
     at(-3.2, 1.2, (px, pz) => people.push(person(B, M, root, 'swissMan', px, f, pz, ry - Math.PI / 2, { pose: 'talk', over: { hat: 'felt', hatC: 0x4a3a2a, shirt: 0x6a5a40 } })));

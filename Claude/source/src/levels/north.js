@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { Heightfield, prismGeo, rockGeo } from '../build.js';
 import { makeAmbient, makeWater, windify } from '../gfx.js';
-import { instanced, room, steps, pineGeo, drakkar, crate, brazier, barrel, gBox, gCyl, gCone, gSph, xf, merge, stand, den, table, bench, bed, chest, pots, sacks, rug, hearth, woodpile, deck, boulder, ladder, rod, beast, horseGeo, person, idle } from '../props.js';
+import { instanced, room, steps, pineGeo, drakkar, crate, brazier, barrel, gBox, gCyl, gCone, gSph, xf, merge, stand, den, table, bench, bed, chest, pots, sacks, rug, hearth, woodpile, deck, boulder, ladder, rod, beast, horseGeo, person, idle, animal } from '../props.js';
 import { fbm, ridged, smooth } from '../util.js';
 
 export const north = {
@@ -387,10 +387,11 @@ function build({ game, gfx, world, B, M, root, rand, shared }) {
     B.geo(M.thatch, new THREE.SphereGeometry(1, 10, 6), [x - 1.7, y + 2.0, z + 1.5], [0, 0, 0], [0.85, 0.6, 1.4], 0xc8a850); world.addBox(x - 1.7, z + 1.5, 1.5, 2.4, 0, y + 1.9, y + 2.5); B.geo(M.thatch, new THREE.SphereGeometry(1, 8, 6), [x - 2.0, y + 1.95, z - 2.4], [0, 0, 0], [0.55, 0.4, 0.6], 0xb89a48);
     extraPicks.push([x - 1.4, z - 1.2, y + 1.95]);
     B.box(M.woodH, 0.5, 0.5, 6.0, x - 2.3, y + 0.3, z, { c: DARKT, solid: true }); B.box(M.thatch, 0.4, 0.12, 5.8, x - 2.3, y + 0.76, z, { c: 0xc8a850 }); for (const s of [-1, 1]) B.box(M.woodH, 2.0, 1.1, 0.1, x - 1.05, y, z + s * 1.05, { c: DARKT, solid: true });
-    const ponies = [[x + 1.3, z + 1.3, Math.PI + 0.1], [-88.4, 27.7, 2.2]].map(([a, b, ry]) => { const py = world.height(a, b); beast(world, a, b, ry, 0.6, 1.9, py - 1, py + 1.3); return { x: a, y: py, z: b, ry, s: 0.75 }; });
-    root.add(instanced(horseGeo(0xc8a878, 0x2a2018), M.flat, ponies));
-    const flock = [[-84.6, 31.4, 0.4], [-80.2, 31.0, 2.1], [-79.2, 27.2, 4.0], [-83.6, 26.3, 5.2], [-76.4, 30.6, 1.2], [-87.4, 29.6, 3.0], [-81.4, 28.9, 0.9]].map(([a, b, ry], i) => { const py = world.height(a, b); beast(world, a, b, ry, 0.5, 1.0, py - 1, py + 0.85, 0); return { x: a, y: py, z: b, ry, s: 0.9 + (i % 3) * 0.1, c: [0xffffff, 0xd8d0c0, 0x8a7a68][i % 3] }; });
-    root.add(instanced(merge([gSph(0.3, 0xe6e0d0, [0, 0.56, 0], [0.9, 0.85, 1.45]), gBox(0.15, 0.17, 0.24, 0x2a2420, [0, 0.7, 0.5], [0.3, 0, 0]), ...[[0.13, 0.28], [-0.13, 0.28], [0.13, -0.28], [-0.13, -0.28]].map(([a, b]) => gCyl(0.035, 0.03, 0.4, 0x2a2420, [a, 0.2, b], [0, 0, 0], 1, 5))]), M.flat, flock));
+    for (const [a, b, ry] of [[x + 1.3, z + 1.3, Math.PI + 0.1], [-88.4, 27.7, 2.2]]) animal(B, M, root, 'pony', horseGeo(0xc8a878, 0x2a2018), a, world.height(a, b), b, ry, { s: 0.75, coat: 0xc8a878, box: [0.8, 2.5, 1.75, 0.1] });
+    const sheepGeo = merge([gSph(0.3, 0xffffff, [0, 0.56, 0], [0.9, 0.85, 1.45]), gBox(0.15, 0.17, 0.24, 0x2a2420, [0, 0.7, 0.5], [0.3, 0, 0]), ...[[0.13, 0.28], [-0.13, 0.28], [0.13, -0.28], [-0.13, -0.28]].map(([a, b]) => gCyl(0.035, 0.03, 0.4, 0x2a2420, [a, 0.2, b], [0, 0, 0], 1, 5))]);
+    [[-84.6, 31.4, 0.4], [-80.2, 31.0, 2.1], [-79.2, 27.2, 4.0], [-83.6, 26.3, 5.2], [-76.4, 30.6, 1.2], [-87.4, 29.6, 3.0], [-81.4, 28.9, 0.9]].forEach(([a, b, ry], i) => {
+      const sz = 0.9 + (i % 3) * 0.1; animal(B, M, root, 'sheep', sheepGeo, a, world.height(a, b), b, ry, { s: sz, c: [0xffffff, 0xd8d0c0, 0x8a7a68][i % 3], box: [0.5 / sz, 1.0 / sz, 0.85 / sz, 0] });
+    });
     { const a = -80.4, b = 29.6, p = who('norseMan', a, world.height(a, b), b, -2.2, { pose: (g) => { g.armR.rotation.x = -0.35; g.armL.rotation.z = 0.3; }, over: { cape: 0x5a4632, extras: ['smock', 'cape'] } }); hold(p, p.armR, [gCyl(0.02, 0.022, 1.7, 0x6a4a2e, [0, -0.6, 0], [0.35, 0, 0], 1, 6)]); }   // the shepherd, leaning on his staff
     { const a = -82.8, b = 23.4, p = who('norseWoman', a, world.height(a, b), b, 1.3, { pose: (g) => { g.armL.rotation.z = 0.35; g.armR.rotation.x = -0.1; } }); hold(p, p.armR, [gCyl(0.13, 0.1, 0.22, 0x8a6a44, [0, -0.86, 0], [0, 0, 0], 1, 9), gBox(0.012, 0.2, 0.012, 0x3a2a1c, [0, -0.68, 0])]); }   // she carries a pail of milk to the house
   }

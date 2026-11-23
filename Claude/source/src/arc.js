@@ -1,11 +1,13 @@
-// While a thrown weapon is aimed (right mouse button), its flight is drawn as a line of dots from the hand to where it will land,
-// with a ring on the spot. A bomb's line follows its bounces, and its ring is as wide as its blast. The dots and the ring grow with
-// distance, so that they stay visible far away; seen from behind, a flight runs almost along the line of sight, so the dots start
-// from the hand, low and to the right, and join the true path within the first few metres.
+// While a thrown weapon is aimed (right mouse button), its flight is drawn as a fine line of small dots from the hand to where it
+// will land, with a small ring on the spot. A bomb's line follows its bounces, and its ring is as wide as its blast. The line is pale
+// while the throw would land on nothing in particular, and turns red when it would strike an enemy or an animal (a bomb: when one
+// stands within its blast). The dots and the ring grow a little with distance, so that they stay visible far away; seen from behind,
+// a flight runs almost along the line of sight, so the dots start from the hand, low and to the right, and join the true path
+// within the first few metres.
 // The flight is worked out with the same numbers and the same steps as the throw itself (see Shots and Weapon.launch).
 import * as THREE from 'three';
 
-const MAX = 260, STEP = 1 / 60, BLAST = 6.5, DOTS = 70;
+const MAX = 260, STEP = 1 / 60, BLAST = 6.5, DOTS = 120, PALE = 0xf4ead4, RED = 0xff3020;
 
 export class Arc {
   constructor(game) {
@@ -17,8 +19,8 @@ export class Arc {
     this.dots = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 8, 6), new THREE.MeshBasicMaterial({ color: 0xf4ead4, transparent: true, opacity: 0.9, fog: false, depthTest: false }), DOTS);
     this.dots.frustumCulled = false; this.dots.renderOrder = 22; this._m = new THREE.Matrix4(); this._s = new THREE.Vector3(); this._p = new THREE.Vector3(); this._qi = new THREE.Quaternion();
     const ringMat = new THREE.MeshBasicMaterial({ color: 0xf4ead4, transparent: true, opacity: 0.85, side: THREE.DoubleSide, fog: false, depthTest: false });
-    this.ring = new THREE.Mesh(new THREE.RingGeometry(0.28, 0.4, 28), ringMat); this.ring.renderOrder = 21;
-    this.dot = new THREE.Mesh(new THREE.CircleGeometry(0.08, 12), ringMat); this.dot.renderOrder = 21;
+    this.ring = new THREE.Mesh(new THREE.RingGeometry(0.2, 0.245, 32), ringMat); this.ring.renderOrder = 21;
+    this.dot = new THREE.Mesh(new THREE.CircleGeometry(0.035, 10), ringMat); this.dot.renderOrder = 21; this.ringMat = ringMat; this.on = false;
     const blastMat = new THREE.MeshBasicMaterial({ color: 0xe8502a, transparent: true, opacity: 0.35, side: THREE.DoubleSide, fog: false, depthTest: false });
     this.blast = new THREE.Mesh(new THREE.RingGeometry(BLAST - 0.12, BLAST, 64), blastMat); this.blast.renderOrder = 21;
     this.mark = new THREE.Group(); this.mark.add(this.ring, this.dot, this.blast);
@@ -36,7 +38,7 @@ export class Arc {
     const W = G.world, o = G.gfx.camera.getWorldPosition(this._o), d = P.forward(this._d), rx = Math.cos(P.yaw), rz = -Math.sin(P.yaw);
     let x = o.x + d.x * 0.5 + rx * 0.04, y = o.y + d.y * 0.5 - 0.07, z = o.z + d.z * 0.5 + rz * 0.04;      // where the throw leaves the hand
     let vx = d.x * L.speed, vy = (d.y + 0.012 + L.lift) * L.speed, vz = d.z * L.speed;
-    const pts = this.pts; let n = 0, hit = null;
+    const pts = this.pts; let n = 0, hit = null, target = false;
     const add = () => { if (n < MAX) { pts[n * 3] = x; pts[n * 3 + 1] = y; pts[n * 3 + 2] = z; n++; } };
     add();
     const tMax = L.bounce ? 2.4 : 4, ro = this.ro, rd = this.rd;
@@ -48,7 +50,9 @@ export class Arc {
       let tHit = len, nrm = null;
       const wh = W.raycast(ro, rd, len + (L.bounce ? 0.06 : 0));
       if (wh) { tHit = Math.max(0, wh.t - (L.bounce ? 0.06 : 0)); nrm = wh; }
-      if (!L.bounce) for (const e of G.enemies) { const h = e.rayHit(ro, rd, tHit); if (h) { tHit = h.t; nrm = { nx: -rd.x, ny: -rd.y, nz: -rd.z }; } }
+      let foe = !!(wh && wh.animal);
+      if (!L.bounce) for (const e of G.enemies) { if (G.friend(e)) continue; const h = e.rayHit(ro, rd, tHit); if (h) { tHit = h.t; nrm = { nx: -rd.x, ny: -rd.y, nz: -rd.z }; foe = true; } }
+      if (nrm && !L.bounce) target = foe;
       x += rd.x * tHit; y += rd.y * tHit; z += rd.z * tHit;
       if (nrm) {
         if (!L.bounce) { hit = nrm; add(); break; }
@@ -60,14 +64,20 @@ export class Arc {
       if (L.bounce && y < gy + 0.05) { y = gy + 0.05; if (vy < 0) vy = -vy * 0.3; vx *= 0.6; vz *= 0.6; if (Math.hypot(vx, vy, vz) < 1.4) { hit = { nx: 0, ny: 1, nz: 0 }; add(); break; } }
       add();
     }
-    // the dots: about every 0.08 s of flight; near the start they are drawn from the hand, low and to the right
+    if (L.bounce) {                                                       // a bomb: is anyone within its blast where it comes to rest?
+      const R2 = (BLAST * 0.8) ** 2;
+      target = G.enemies.some((e) => e.alive && !G.friend(e) && e.state !== 'hidden' && (e.pos.x - x) ** 2 + (e.pos.z - z) ** 2 < R2 && Math.abs(e.pos.y - y) < 3)
+        || G.fauna.list.some((a) => !a.dead && (a.px - x) ** 2 + (a.pz - z) ** 2 < R2 && Math.abs(a.py - y) < 3);
+    }
+    if (target !== this.on) { this.on = target; const c = target ? RED : PALE; this.dots.material.color.setHex(c); this.ringMat.color.setHex(c); }
+    // the dots: about every 0.05 s of flight; near the start they are drawn from the hand, low and to the right
     const cam = G.gfx.camera, cp = this._o.copy(cam.position), hx = rx * 0.22, hz = rz * 0.22, every = Math.max(1, Math.round(n / DOTS + 0.49));
     let k = 0, along = 0;
     for (let i = 1; i < n && k < DOTS; i++) {
       along += Math.hypot(pts[i * 3] - pts[i * 3 - 3], pts[i * 3 + 1] - pts[i * 3 - 2], pts[i * 3 + 2] - pts[i * 3 - 1]);
       if (i % every) continue;
       const blend = Math.max(0, 1 - along / 6), px = pts[i * 3] + hx * blend, py = pts[i * 3 + 1] - 0.3 * blend, pz = pts[i * 3 + 2] + hz * blend;
-      const dist = Math.hypot(px - cp.x, py - cp.y, pz - cp.z), r = Math.max(0.025, dist * 0.0055);
+      const dist = Math.hypot(px - cp.x, py - cp.y, pz - cp.z), r = Math.max(0.011, dist * 0.0024);
       this._m.compose(this._p.set(px, py, pz), this._qi, this._s.setScalar(r)); this.dots.setMatrixAt(k++, this._m);
     }
     this.dots.count = k; this.dots.instanceMatrix.needsUpdate = true;
@@ -76,7 +86,7 @@ export class Arc {
       const nn = hit ? this._n.set(hit.nx, hit.ny, hit.nz) : this._n.set(0, 1, 0), far = Math.hypot(x - cp.x, y - cp.y, z - cp.z);
       this.mark.position.set(x + nn.x * 0.03, y + nn.y * 0.03, z + nn.z * 0.03);
       this.mark.quaternion.setFromUnitVectors(this._up, nn);
-      this.ring.scale.setScalar(Math.max(1, far / 14)); this.dot.scale.setScalar(Math.max(1, far / 14));
+      this.ring.scale.setScalar(Math.max(1, far / 22)); this.dot.scale.setScalar(Math.max(1, far / 22));
       this.blast.visible = !!L.bounce;                                    // a bomb: the ring of its blast around the spot
     }
   }
