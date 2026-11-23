@@ -115,12 +115,13 @@
   @keyframes placeban { 0% { opacity:0; letter-spacing:.3em; } 15% { opacity:1; letter-spacing:.08em; } 75% { opacity:1; } 100% { opacity:0; } }
   #pins .pin.mate { background:#7ad86a; }
   /* the partner's tag, together against the enemy */
-  #mate { position:absolute; display:none; transform:translate(-50%,-100%); text-align:center; pointer-events:none; white-space:nowrap; text-shadow:0 1px 3px rgba(0,0,0,.9); }
-  #mate b { display:block; font-family:var(--display); font-weight:normal; font-size:19px; color:#9fe08a; letter-spacing:.03em; }
-  #mate span { font-size:12px; color:var(--ink); opacity:.85; letter-spacing:.08em; }
-  #mate i { display:block; width:64px; height:4px; margin:3px auto 0; background:rgba(0,0,0,.6); border:1px solid rgba(159,224,138,.5); }
-  #mate u { display:block; height:100%; background:#7ad86a; text-decoration:none; }
-  #mate.off { opacity:.8; transform:translate(-50%,-50%) scale(.85); } #mate.down b { color:#d8a050; }
+  #mate { position:absolute; inset:0; pointer-events:none; }
+  .matetag { position:absolute; transform:translate(-50%,-100%); text-align:center; pointer-events:none; white-space:nowrap; text-shadow:0 1px 3px rgba(0,0,0,.9); }
+  .matetag b { display:block; font-family:var(--display); font-weight:normal; font-size:19px; color:#9fe08a; letter-spacing:.03em; }
+  .matetag span { font-size:12px; color:var(--ink); opacity:.85; letter-spacing:.08em; }
+  .matetag i { display:block; width:64px; height:4px; margin:3px auto 0; background:rgba(0,0,0,.6); border:1px solid rgba(159,224,138,.5); }
+  .matetag u { display:block; height:100%; background:#7ad86a; text-decoration:none; }
+  .matetag.off { opacity:.8; transform:translate(-50%,-50%) scale(.85); } .matetag.down b { color:#d8a050; }
   #bars .hb.eg { width:14px; height:14px; margin-top:-2px; background:none; border:2px solid #ff5a3a; transform:translate(-50%,-100%) rotate(45deg); box-shadow:0 0 6px rgba(255,90,58,.8); }
   #bars .hb.eg i { display:none; }
   #arms { right:3.4vw; text-align:right; flex-direction:column; align-items:flex-end; gap:6px; }
@@ -221,6 +222,9 @@
   #duel.linked #djoincol, #duel.linked #dcreate { display:none; }
   #duel.linked.host #dagain { display:inline-block; } #duel.linked.guest #dguestnote { display:block; }
   #duel.linked.guest select { pointer-events:none; opacity:.55; }
+  #dplayers { width:min(26vw,270px); } #dplayers div { margin:6px 0; font-size:16px; color:var(--dim); } #dplayers b { color:var(--ink); font-weight:normal; font-size:18px; } #dplayers i { color:var(--accent); font-style:normal; font-size:13px; letter-spacing:.08em; margin-left:.4em; }
+  #dplayers.hidden { display:none; }
+  .stats p.each { flex-basis:100%; margin:1.6vh 0 0; font-size:15px; letter-spacing:.05em; color:var(--dim); } .stats { flex-wrap:wrap; justify-content:center; }
   .hero { cursor:pointer; width:min(21vw,250px); padding:14px 16px 14px; background:rgba(14,10,8,.55); border:1px solid rgba(244,234,212,.28); backdrop-filter:blur(6px); transition:transform .2s, border-color .2s, background .2s; }
   .hero.sel { border-color:var(--accent); background:rgba(14,10,8,.8); transform:translateY(-5px); }
   .hero .hk { float:right; font-size:12px; color:var(--dim); border:1px solid rgba(244,234,212,.35); border-radius:3px; padding:0 6px; }
@@ -307,14 +311,14 @@
     <div class="card az" data-level="8"><div class="n">IX</div><div class="t">Tenochtitlan</div><div class="p">Mexico, 30 June 1520.<br>Poisoned darts on the causeway at dusk.</div></div>
   </div>
   <div class="foot">Choose a chapter</div>
-  <div id="duelbtn">Two players online &nbsp;·&nbsp; duel, flags, together</div>
+  <div id="duelbtn">Online &nbsp;·&nbsp; 2 to 4 players &nbsp;·&nbsp; duel, flags, together</div>
 </div>
 
 <div id="duel" class="layer screen">
   <div class="veil"></div>
-  <div class="kicker">Two players &nbsp;·&nbsp; online</div>
-  <div class="big">Two players</div>
-  <label id="dnamebox">Your name <input id="dname" maxlength="16" autocomplete="nickname" spellcheck="false" placeholder="seen by the other player"></label>
+  <div class="kicker">Two to four players &nbsp;·&nbsp; online</div>
+  <div class="big">Online</div>
+  <label id="dnamebox">Your name <input id="dname" maxlength="16" autocomplete="nickname" spellcheck="false" placeholder="seen by the other players"></label>
   <div class="dpanel">
     <div class="dcol">
       <h3 id="dhosttitle">Create a game</h3>
@@ -324,16 +328,17 @@
       <label>Enemies' wits <select id="dwits"><option value="low">Low</option><option value="medium" selected>Medium</option><option value="genius">Genius</option></select></label>
       <label>Map <select id="dsize"><option value="small">Small</option><option value="medium" selected>Medium</option><option value="large">Large</option></select></label>
       <button id="dcreate">Create and get the invite link</button>
-      <button id="dagain">Start the next game</button>
-      <p id="dguestnote">The host chooses the next duel. You stay connected: no new code is needed.</p>
+      <button id="dagain">Start the game</button>
+      <p id="dguestnote">The host chooses the game and starts it. You stay connected from one game to the next: no new code is needed.</p>
       <div id="dlinkbox" class="hidden">Code <span id="dcodeout"></span><br>Invite link<input id="dlink" readonly><button id="dcopy">Copy the link</button></div>
     </div>
     <div class="dcol" id="djoincol">
       <h3>Join a game</h3>
-      <label>Code from your opponent <input id="dcodein" maxlength="12" autocomplete="off" spellcheck="false"></label>
+      <label>Code from the host <input id="dcodein" maxlength="12" autocomplete="off" spellcheck="false"></label>
       <button id="djoinbtn">Join</button>
-      <p style="margin:14px 0 0;font-size:14px;color:var(--dim);line-height:1.4">Or simply open the invite link your opponent sent you.<br>The two computers talk to each other directly; each player can see the other's network address.</p>
+      <p style="margin:14px 0 0;font-size:14px;color:var(--dim);line-height:1.4">Or simply open the invite link the host sent you.<br>Up to four players. Each one connects to the game server, which passes the game on between you, whatever network you are on.</p>
     </div>
+    <div class="dcol hidden" id="dplayers"></div>
   </div>
   <div id="dstatus"></div>
   <button class="soundbtn" style="margin-top:1.4vh">Sound and microphone</button>

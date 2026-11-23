@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { Heightfield, prismGeo, rockGeo } from '../build.js';
 import { makeAmbient, windify } from '../gfx.js';
 import { signTexture } from '../tex.js';
-import { instanced, fence, barrel, crate, room, bars, steps, shelf, tuftGeo, cactusGeo, horseGeo, gBox, gCyl, gCone, gSph, xf, merge, butte, ladder, den, beast, rod, rubble, table, bench, bed, chest, sacks, rug, cart, woodpile, person, idle, local } from '../props.js';
+import { instanced, fence, barrel, crate, room, bars, steps, shelf, tuftGeo, cactusGeo, horseGeo, gBox, gCyl, gCone, gSph, xf, merge, butte, ladder, den, beast, rod, rubble, table, bench, bed, chest, sacks, rug, cart, woodpile, person, idle, local, animal } from '../props.js';
 import { fbm, vnoise, smooth } from '../util.js';
 
 export const west = {
@@ -219,7 +219,7 @@ function build({ game, gfx, world, B, M, root, rand, shared }) {
     B.box(M.woodH, 1.4, 1.2, 0.12, 23.2, F + 1.0, -15.5, { c: 0x4a2c1c }); for (let i = 0; i < 3; i++) B.cyl(M.metal, 0.018, 0.018, 1.0, 22.8 + i * 0.4, F + 1.05, -15.4, { c: 0x2a2a2e, seg: 5 });
     // livery stable: stalls, hay, a horse
     for (const sz of [-11.5, -14.5, -17.5]) B.box(M.wood, 3.2, 1.35, 0.14, -43.9, F, sz, { c: 0x6a4a30, solid: true });
-    B.geo(M.flat, horseGeo(0x3a2a1c, 0x14100c), [-43.6, F, -13], [0, 1.57, 0]); beast(world, -43.6, -13, 1.57, 0.9, 2.8, F, 2.2, 0.25);
+    animal(B, M, root, 'horse', horseGeo(0x3a2a1c, 0x14100c), -43.6, F, -13, 1.57, { coat: 0x3a2a1c, box: [0.9, 2.8, 2.2 - F, 0.25] });
     for (const [hx, hz, hy] of [[-35.4, -18.6, 0], [-36.9, -18.6, 0], [-36.1, -18.6, 0.8], [-35.3, -10.2, 0]]) B.box(M.thatch, 1.5, 0.8, 0.9, hx, F + hy, hz, { c: 0xd8b860, solid: true });
     B.box(M.woodH, 0.5, 0.9, 1.6, -38.6, F, -18.8, { c: 0x5a3a24, solid: true }); B.box(M.cloth, 0.56, 0.2, 0.7, -38.6, F + 0.9, -18.8, { c: 0x6a3420 });
     // blacksmith: forge, anvil, tools
@@ -471,7 +471,7 @@ function build({ game, gfx, world, B, M, root, rand, shared }) {
   {
     fence(B, M, -80, 4, -54, 4); fence(B, M, -80, 22, -54, 22); fence(B, M, -80, 4, -80, 22); fence(B, M, -54, 4, -54, 9.5); fence(B, M, -54, 13.5, -54, 22);
     const horses = [[-70, 12, 0.6, 0x6a4428], [-63, 17, 2.4, 0x2a1c14], [-74, 18, -1.2, 0xb8a080], [-60, 8, 3.6, 0x8a5a36]];
-    for (const [hx, hz, ry, c] of horses) { B.geo(M.flat, horseGeo(c, c === 0xb8a080 ? 0xe8e0d0 : 0x14100c), [hx, 0, hz], [0, ry, 0]); beast(world, hx, hz, ry, 0.9, 2.8, 0, 2, 0.25); }
+    for (const [hx, hz, ry, c] of horses) animal(B, M, root, 'horse', horseGeo(c, c === 0xb8a080 ? 0xe8e0d0 : 0x14100c), hx, 0, hz, ry, { coat: c, box: [0.9, 2.8, 2, 0.25] });
     for (const [hx, hz, ry] of [[-77, 6, 0.2], [-76.4, 7.4, 1.2], [-77.2, 6.4, 0.4]]) B.box(M.thatch, 1.5, 0.8, 0.9, hx, hz === 6.4 ? 0.8 : 0, hz, { ry, c: 0xd8b860, solid: true });
     B.box(M.woodH, 2.6, 0.55, 0.8, -56, 0, 19, { c: 0x6a5038, solid: true }); B.box(M.glow, 2.3, 0.02, 0.5, -56, 0.54, 19, { c: 0x1a3a44 });
     // barn
@@ -578,8 +578,8 @@ function build({ game, gfx, world, B, M, root, rand, shared }) {
       { const [px, pz] = P(0.98, 0.95); B.box(M.wood, 0.75, 2.0, 0.06, px, 0, pz, { ry: ry + 0.6, c }); }
       { const [px, pz] = P(0, 0.68); B.box(M.wood, 1.3, 0.22, 0.08, px, 1.98, pz, { ry, c }); }
     };
-    const hen = (x, z, ry, c) => { B.geo(M.flat, new THREE.SphereGeometry(0.13, 8, 6), [x, 0.2, z], [0, ry, 0], [0.8, 0.9, 1.25], c); B.geo(M.flat, new THREE.SphereGeometry(0.06, 6, 5), [x + Math.sin(ry) * 0.15, 0.36, z + Math.cos(ry) * 0.15], [0, 0, 0], 1, c);
-      B.box(M.flat, 0.02, 0.05, 0.05, x + Math.sin(ry) * 0.15, 0.4, z + Math.cos(ry) * 0.15, { ry, c: 0xb01c1c }); B.geo(M.flat, new THREE.ConeGeometry(0.02, 0.06, 4), [x + Math.sin(ry) * 0.22, 0.35, z + Math.cos(ry) * 0.22], [Math.PI / 2, ry, 0], 1, 0xd8a030); };
+    const henGeo = merge([gSph(0.13, 0xffffff, [0, 0.2, 0], [0.8, 0.9, 1.25], 8), gSph(0.06, 0xffffff, [0, 0.36, 0.15], 1, 6), gBox(0.02, 0.05, 0.05, 0xb01c1c, [0, 0.4, 0.15]), gCone(0.02, 0.06, 0xd8a030, [0, 0.35, 0.22], [Math.PI / 2, 0, 0], 1, 4)]);
+    const hen = (x, z, ry, c) => animal(B, M, root, 'hen', henGeo, x, 0, z, ry, { c, box: [0.25, 0.4, 0.45, 0.05] });
     // north lot: washing on the line and the woman hanging it, a hay cart to crawl under, firewood, the saloon's privy, a hen house
     for (const px of [-33.5, -27]) { B.box(M.wood, 0.1, 2.1, 0.1, px, 0, -24.5, { c: 0x6a4a30 }); world.addCyl(px, -24.5, 0.1, 0, 2.1); }
     rod(B, M.flat, [-33.5, 2.0, -24.5], [-27, 2.0, -24.5], 0.012, 0xc8b890);
@@ -644,7 +644,7 @@ function build({ game, gfx, world, B, M, root, rand, shared }) {
     { const [px, pz] = P(0, 1.2); B.box(M.woodH, 1.3, 0.4, 0.5, px, C.top + 0.5, pz, { ry: cy, c: 0x2a1c14 }); }
     for (const [lz, w, c] of [[-0.6, 0.9, 0x6a4a2e], [0.3, 0.7, 0x4a3a2a]]) { const [px, pz] = P(0, lz); B.box(M.woodH, w, 0.4, 0.55, px, C.top + 1.53, pz, { ry: cy + 0.2, c }); }
     crate(B, M, 65.6, 0, 11.4, 0.9, 0.2); crate(B, M, 66.5, 0, 11.5, 0.7, -0.2); crate(B, M, 65.8, 0.9, 11.4, 0.6, 0.5); barrel(B, M, 61.4, 0, 11.8);
-    hitch(70, 13.6); for (const [hx, c] of [[69.3, 0x6a4428], [70.8, 0x2a1c14]]) { B.geo(M.flat, horseGeo(c, 0x14100c), [hx, 0, 12], [0, 0.1, 0]); beast(world, hx, 12, 0.1, 0.9, 2.8, 0, 2, 0.25); }
+    hitch(70, 13.6); for (const [hx, c] of [[69.3, 0x6a4428], [70.8, 0x2a1c14]]) animal(B, M, root, 'horse', horseGeo(c, 0x14100c), hx, 0, 12, 0.1, { coat: c, box: [0.9, 2.8, 2, 0.25] });
   }
   // ---- the railroad north of town: the track, a freight dock high enough to crawl under, a boxcar to walk through and climb, the station house ----
   {
@@ -714,7 +714,7 @@ function build({ game, gfx, world, B, M, root, rand, shared }) {
     tub(-72.5, 46); tub(-87.4, 46);
     crate(B, M, -91.2, 0, 48.2, 0.8, 0.2); barrel(B, M, -91.3, 0, 44); rubble(B, M, -87, 0, 48.2, 0.8, 0x8a8a92, 5); B.box(M.wood, 0.04, 0.9, 0.04, -91.75, 0, 45.3, { rz: 0.3, c: T }); B.box(M.metal, 0.05, 0.05, 0.44, -91.9, 0.84, 45.3, { c: 0x3a3e44 });
     rubble(B, M, -70.5, 0, 50.5, 1.8, 0x9a7a6a); rubble(B, M, -73, 0, 41, 1.3, 0x9a7a6a); woodpile(B, M, -74, 0, 49.4, Math.PI / 2, { w: 1.4, h: 0.8, d: 3 });
-    B.geo(M.flat, horseGeo(0x5a4a3a, 0x1c1410), [-68, 0, 46.5], [0, 2, 0], 0.85); beast(world, -68, 46.5, 2, 0.8, 2.4, 0, 1.8, 0.2);
+    animal(B, M, root, 'mule', horseGeo(0x5a4a3a, 0x1c1410), -68, 0, 46.5, 2, { s: 0.85, coat: 0x5a4a3a, box: [0.95, 2.8, 2.1, 0.25] });
     extraFoes.push(['bandit', -88.4, 47.2, { y: 0.5, patrol: false, yaw: Math.PI / 2 }], ['cowboy', -70, 43, {}]); extraPicks.push([-90.6, 47.2, 0.5]);
   }
   // ---- people about the edges of town: the preacher at his altar, the gravedigger at the open grave, the homesteader's wife sweeping her porch ----

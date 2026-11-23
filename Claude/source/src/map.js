@@ -16,17 +16,17 @@ export class MapView {
     this.game = game; this.base = document.createElement('canvas'); this.base.width = this.base.height = N;
     this.mini = document.getElementById('minimap'); this.big = document.getElementById('bigmap'); this.pins = document.getElementById('pins');
     this.range = 55;              // metres from the centre to the rim of the mini-map
-    this.marks = []; this._v = new THREE.Vector3(); this.open = false; this.places = []; this.mateX = 1e9; this.mateZ = 1e9;
+    this.marks = []; this._v = new THREE.Vector3(); this.open = false; this.places = []; this.mateAt = new Map();
     this.fog = document.createElement('canvas'); this.fog.width = this.fog.height = N;           // what is still unknown: dark, cut away where the player has been
     this.known = new Uint8Array(FOG * FOG); this.lastX = 1e9; this.lastZ = 1e9;
   }
-  /** Uncover the map around (x, z), where this player is (who = 'me') or his partner ('mate'): the named places near it get their name. */
+  /** Uncover the map around (x, z), where this player is (who = 'me') or a team-mate (his name): the named places near it get their name. */
   reveal(x, z, who = 'me') {
     for (const p of this.places) {
       if (p.found || (p.x - x) ** 2 + (p.z - z) ** 2 > (p.r + 6) ** 2) continue;
       p.found = true;
       if (who === 'me') this.game.placeBanner(p.name);
-      else { const R = this.game.duel && this.game.duel.remote; this.game.say((R ? R.name : 'Your partner') + ' has found ' + p.name); }
+      else this.game.say(who + ' has found ' + p.name);
     }
     const R = 30, k = this.k, ctx = this.fog.getContext('2d'), cx = (x - this.x0) * k, cz = (z - this.z0) * k, r = R * k;
     ctx.save(); ctx.globalCompositeOperation = 'destination-out';
@@ -71,7 +71,7 @@ export class MapView {
     this.accent = getComputedStyle(document.body).getPropertyValue('--accent').trim() || '#e0a040';
     { const f = this.fog.getContext('2d'); f.globalCompositeOperation = 'source-over'; f.clearRect(0, 0, N, N); f.fillStyle = 'rgb(14,11,9)'; f.fillRect(0, 0, N, N);
       f.fillStyle = 'rgba(244,234,212,0.05)'; for (let i = -N; i < N; i += 9) { f.save(); f.translate(i, 0); f.rotate(0.6); f.fillRect(0, -N, 1.5, N * 3); f.restore(); } }   // faint hatching: unknown land
-    this.known.fill(0); this.lastX = this.lastZ = 1e9; this.mateX = this.mateZ = 1e9;
+    this.known.fill(0); this.lastX = this.lastZ = 1e9; this.mateAt.clear();
     this.clearMarks();
     // the named places of the chapter (and the hamlets of a large map), within the edge of the map
     this.places = (PLACES[G.def.id] || []).concat((G.sized && G.sized.places) || []).filter(([, x, z]) => W.inside(x, z, -4)).map(([name, x, z, r]) => ({ name, x, z, r, found: false }));
@@ -84,7 +84,7 @@ export class MapView {
     const G = this.game, P = G.player, cam = G.gfx.camera, o = cam.getWorldPosition(new THREE.Vector3()), dir = P.forward(new THREE.Vector3());
     const hit = G.world.raycast(o, dir, 600), t = hit ? hit.t : 140;
     const x = o.x + dir.x * t, z = o.z + dir.z * t, y = hit ? o.y + dir.y * t : G.world.groundAt(x, z, o.y);
-    const m = this.marks.find((q) => q.who === 'me'), D = G.duel, share = D && D.cfg && D.cfg.rules === 'coop' && D.phase === 'play';
+    const m = this.marks.find((q) => q.who === 'me'), D = G.duel, share = D && D.cfg && D.phase === 'play' && D.mates().length > 0;
     if (m) {
       const dx = m.x - o.x, dy = m.y + 1.5 - o.y, dz = m.z - o.z, l = Math.hypot(dx, dy, dz);
       if ((dx * dir.x + dy * dir.y + dz * dir.z) / l > 0.9985 || Math.hypot(m.x - x, m.z - z) < 2.5) {        // pointing at it: it goes
@@ -92,10 +92,10 @@ export class MapView {
       }
     }
     this.setMark('me', x, y, z);
-    G.sound.mark(true); G.say(share ? 'Place marked — your partner sees it too' : 'Place marked — middle button on it again to remove it');
+    G.sound.mark(true); G.say(share ? 'Place marked — your team-mates see it too' : 'Place marked — middle button on it again to remove it');
     if (share) D.send({ t: 'mk', x: +x.toFixed(2), y: +y.toFixed(2), z: +z.toFixed(2) });
   }
-  /** Put the mark of who ('me', or 'mate': the partner's, in green) at (x, y, z), in place of the one he had. */
+  /** Put the mark of who ('me', or a team-mate's number: his, in green) at (x, y, z), in place of the one he had. */
   setMark(who, x, y, z) {
     const old = this.marks.find((q) => q.who === who); if (old) this.remove(old);
     const col = new THREE.Color(who === 'me' ? this.accent || '#e0a040' : '#7ad86a');
@@ -108,24 +108,24 @@ export class MapView {
     const el = document.createElement('div'); el.className = 'pin' + (who === 'me' ? '' : ' mate'); this.pins.appendChild(el);
     this.marks.push({ who, x, y, z, mesh, el, mat, col: '#' + col.getHexString() });
   }
-  /** The partner marked a place, or took his mark away (m.off). */
-  mateMark(m) {
-    const G = this.game, R = G.duel && G.duel.remote, name = R ? R.name : 'Your partner';
-    if (m.off) { const q = this.marks.find((k) => k.who === 'mate'); if (q) this.remove(q); return; }
-    this.setMark('mate', m.x, m.y, m.z); G.sound.mark(true, true);
+  /** Team-mate `id` marked a place, or took his mark away (m.off). */
+  mateMark(m, id) {
+    const G = this.game, name = G.duel ? G.duel.nameOf(id) : 'Your team-mate';
+    if (m.off) { const q = this.marks.find((k) => k.who === id); if (q) this.remove(q); return; }
+    this.setMark(id, m.x, m.y, m.z); G.sound.mark(true, true);
     const d = Math.round(Math.hypot(m.x - G.player.pos.x, m.z - G.player.pos.z)); G.say(name + ' marked a place, ' + d + ' m away');
   }
   remove(m) { m.mesh.removeFromParent(); m.el.remove(); this.marks.splice(this.marks.indexOf(m), 1); }
   /** The letter on a mark's dot on the maps: the initial of whoever made it. */
-  markLetter(m) { const G = this.game, R = G.duel && G.duel.remote; return ((m.who === 'me' ? G.myName || 'You' : (R && R.name) || 'P')[0] || '?').toUpperCase(); }
+  markLetter(m) { const G = this.game; return ((m.who === 'me' ? G.myName || 'You' : G.duel ? G.duel.nameOf(m.who) : 'P')[0] || '?').toUpperCase(); }
 
-  /** Who shows on the map: enemies on the move (not standing still, not creeping up unseen), and in a duel the other player likewise. */
+  /** Who shows on the map: enemies on the move (not standing still, not creeping up unseen); online, team-mates always, the other side likewise. */
   seen(e) {
     if (!e.alive || e.state === 'hidden') return false;
     const D = this.game.duel, P = this.game.player;
     if (P.skillOn && P.skillOn('eagle') && !this.game.friend(e) && Math.hypot(e.pos.x - P.pos.x, e.pos.z - P.pos.z) < 90) return true;   // the Eagle eye skill
-    if (e.remote && e.cloak && D && D.cfg.rules !== 'coop') return false;            // an opponent who has vanished
-    if (e.remote) return !!e.net && (D && (D.cfg.rules === 'coop' || D.carrying('them')) || (e.moving > 0.2 && !(e.net.f & 16)));   // a team-mate always; an opponent while he moves openly, or carries a flag
+    if (e.remote && e.cloak && !e.mate) return false;                                  // an opponent who has vanished
+    if (e.remote) return !!e.net && (e.mate || (D && D.carries(e.pid)) || (e.moving > 0.2 && !(e.net.f & 16)));   // a team-mate always; an opponent while he moves openly, or carries a flag
     if (!this.isKnown(e.pos.x, e.pos.z)) return false;                              // ground the player has not seen: nothing shows there
     return (e.moving > 0.2 && !e.sneaking) || e.state === 'combat' || this.game.time - (e.shotAt ?? -99) < 3;   // on the move, shooting, or after the player
   }
@@ -134,8 +134,10 @@ export class MapView {
   update(dt, input) {
     const G = this.game, P = G.player;
     if ((P.pos.x - this.lastX) ** 2 + (P.pos.z - this.lastZ) ** 2 > 2.5) { this.lastX = P.pos.x; this.lastZ = P.pos.z; this.reveal(P.pos.x, P.pos.z); }
-    { const D = G.duel, R = D && D.remote;                    // together: what the partner sees is uncovered for this player too
-      if (D && D.cfg && D.cfg.rules === 'coop' && R && R.net && R.alive && (R.pos.x - this.mateX) ** 2 + (R.pos.z - this.mateZ) ** 2 > 2.5) { this.mateX = R.pos.x; this.mateZ = R.pos.z; this.reveal(R.pos.x, R.pos.z, 'mate'); } }
+    if (G.duel && G.duel.cfg && G.duel.phase === 'play') for (const R of G.duel.mates()) {     // what a team-mate sees is uncovered for this player too
+      const at = this.mateAt.get(R.pid) || { x: 1e9, z: 1e9 };
+      if (R.net && R.alive && (R.pos.x - at.x) ** 2 + (R.pos.z - at.z) ** 2 > 2.5) { this.mateAt.set(R.pid, { x: R.pos.x, z: R.pos.z }); this.reveal(R.pos.x, R.pos.z, R.name); }
+    }
     this.open = G.state === 'play' && input.keys.has('Tab');
     this.big.classList.toggle('on', this.open);
     this.drawMini(P);
@@ -147,7 +149,7 @@ export class MapView {
       m.mesh.children[1].scale.setScalar(1 + Math.min(4, dist / 40));      // the pin's head stays visible from afar
       if (v.z > 1 || Math.abs(v.x) > 1.05 || Math.abs(v.y) > 1.05) { m.el.style.display = 'none'; continue; }
       m.el.style.display = 'block'; m.el.style.left = (v.x * 0.5 + 0.5) * w + 'px'; m.el.style.top = (-v.y * 0.5 + 0.5) * h + 'px';
-      const R = G.duel && G.duel.remote, txt = (m.who === 'me' ? '' : ((R && R.name) || 'Partner') + ' · ') + Math.round(dist) + ' m'; if (m.el.textContent !== txt) m.el.textContent = txt;
+      const txt = (m.who === 'me' ? '' : (G.duel ? G.duel.nameOf(m.who) : 'Team-mate') + ' · ') + Math.round(dist) + ' m'; if (m.el.textContent !== txt) m.el.textContent = txt;
     }
   }
   setPinsVisible(on) { this.pins.style.display = on ? 'block' : 'none'; }
@@ -202,13 +204,13 @@ export class MapView {
     ctx.fillText('N ↑   ·   middle mouse button: mark a place   ·   release Tab to close', 14 * dpr, 12 * dpr);
   }
 
-  /** Capture the flag: both flags always show (blue, this player's; red, the other's), on the rim of the mini-map when far. */
+  /** Capture the flag: both flags always show (blue, this player's side's; red, the other's), on the rim of the mini-map when far. */
   drawFlags(ctx, at, s, rim) {
     const D = this.game.duel; if (!D || !D.flags) return;
     for (const f of D.flags) {
       let [x, y] = at(f.x, f.z);
       if (rim) { const dx = x - rim, dy = y - rim, l = Math.hypot(dx, dy), lim = rim - 9 * s; if (l > lim) { x = rim + dx / l * lim; y = rim + dy / l * lim; } }
-      const mine = f.i === (D.isHost ? 0 : 1);
+      const mine = f.i === D.myTeam;
       ctx.fillStyle = '#f4ead4'; ctx.fillRect(x - 1 * s, y - 11 * s, 2 * s, 13 * s);
       ctx.beginPath(); ctx.moveTo(x + 1 * s, y - 11 * s); ctx.lineTo(x + 10 * s, y - 7.5 * s); ctx.lineTo(x + 1 * s, y - 4 * s); ctx.closePath();
       ctx.fillStyle = mine ? '#2a62d8' : '#d8322a'; ctx.fill(); ctx.lineWidth = s; ctx.strokeStyle = 'rgba(0,0,0,.8)'; ctx.stroke();

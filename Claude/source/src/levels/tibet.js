@@ -3,8 +3,7 @@ import * as THREE from 'three';
 import { Heightfield, prismGeo, rockGeo } from '../build.js';
 import { makeAmbient, windify } from '../gfx.js';
 import { signTexture } from '../tex.js';
-import { makeHumanoid, lookFor } from '../actors.js';
-import { instanced, room, steps, crate, tuftGeo, horseGeo, gBox, gCyl, gCone, gSph, gCap, xf, merge, stand, den, beast, ladder, boulder, shelf, barrel, rubble, table, bench, bed, chest, pots, sacks, rug, hearth, woodpile, haystack, deck, person, idle } from '../props.js';
+import { instanced, room, steps, crate, tuftGeo, horseGeo, gBox, gCyl, gCone, gSph, gCap, xf, merge, stand, den, beast, ladder, boulder, shelf, barrel, rubble, table, bench, bed, chest, pots, sacks, rug, hearth, woodpile, haystack, deck, person, idle, animal } from '../props.js';
 import { fbm, ridged, smooth, damp } from '../util.js';
 
 export const tibet = {
@@ -201,11 +200,8 @@ function build({ game, gfx, world, B, M, root, rand, shared }) {
   const yakGeo = (c) => merge([gCap(0.5, 1.2, c, [0, 1.05, 0], [PI / 2, 0, 0], [1, 1, 1.1]), gBox(0.96, 0.55, 1.6, c, [0, 0.62, 0]), gSph(0.4, c, [0, 1.52, 0.45], [1, 1, 1.3]), gCap(0.23, 0.3, c, [0, 1.0, 1.15], [1.2, 0, 0]),
     gBox(0.3, 0.22, 0.24, 0x4a3c30, [0, 0.8, 1.42]), gCone(0.05, 0.4, 0xd8d0c0, [0.3, 1.32, 1.12], [0, 0, -0.9]), gCone(0.05, 0.4, 0xd8d0c0, [-0.3, 1.32, 1.12], [0, 0, 0.9]),
     ...[[0.28, 0.55], [-0.28, 0.55], [0.28, -0.55], [-0.28, -0.55]].map(([lx, lz]) => gCap(0.1, 0.5, c, [lx, 0.3, lz])), gBox(0.16, 0.75, 0.16, c, [0, 0.78, -0.98])]);
-  const yak = (x, z, ry, c = 0x1a1410) => { B.geo(M.flat, yakGeo(c), [x, world.height(x, z), z], [0, ry, 0]); beast(world, x, z, ry, 1.1, 2.6, -5, world.height(x, z) + 1.7); };
-  const figure = (look, x, z, yaw, pose) => {
-    const f = makeHumanoid(M, lookFor(look, R));
-    f.group.position.set(x, world.height(x, z), z); f.group.rotation.y = yaw; if (pose) pose(f); root.add(f.group); world.addCyl(x, z, 0.4, -5, world.height(x, z) + 1.8);
-  };
+  const yak = (x, z, ry, c = 0x1a1410) => animal(B, M, root, 'yak', yakGeo(c), x, world.height(x, z), z, ry, { coat: c, box: [1.1, 2.6, 1.7, 0.1] });
+  const figure = (look, x, z, yaw, pose) => who(look, x, world.height(x, z), z, yaw, { pose: pose || 'stand', rand: R });   // bystanders like the others
   const tent = (x, z, ry) => { const y = world.height(x, z) - 0.2; B.geo(M.cloth, prismGeo(4.2, 2.3, 5.4, 2), [x, y, z], [0, ry, 0], 1, 0x5a6038); world.addBox(x, z, 3.6, 5.2, ry, y - 1, y + 2); };
   /** Army tent you can walk through: canvas walls, a door at each end. Returns { P, f } (its local frame and its floor). */
   const armyTent = (x, z, ry) => {
@@ -271,7 +267,7 @@ function build({ game, gfx, world, B, M, root, rand, shared }) {
     rounds.push((dt, g) => {
       const C = g.crowd, w = S.w && C.list[S.w.i] === S.w ? S.w : (S.w = C.list.find((q) => q.f === f));
       if (!w || w.dead) return;
-      w.act = null;                                                                       // her round is all she does
+      w.act = null; w.fighter = false;                                                    // her round is all she does; hurt, she runs like the others and never takes up arms
       if (w.state !== 'idle') {                                                           // spoken to or aimed at: she gets up; frightened: she is up at once
         const k = w.state === 'greet' || w.state === 'hands' ? 9 : 1e3;
         S.gone = true; S.p = damp(S.p, 0, k, dt); S.th = damp(S.th, 0, k, dt); S.sh = damp(S.sh, 0, k, dt);
@@ -312,8 +308,8 @@ function build({ game, gfx, world, B, M, root, rand, shared }) {
     return f;
   };
   for (const [x, z, ry, c, m] of [[-10, 98.5, 1.3, 0x6a4428, 0x14100c], [-8.2, 101.4, 0.9, 0xb8a080, 0xe8e0d0], [-5.2, 103.2, 0.6, 0x2a1c14, 0x14100c]]) {
-    B.geo(M.flat, horseGeo(c, m), [x, world.height(x, z), z], [0, ry, 0]); beast(world, x, z, ry, 0.9, 2.8, -5, world.height(x, z) + 2, 0.25);
-    B.box(M.cloth, 0.75, 0.08, 0.9, x, world.height(x, z) + 1.42, z, { ry, c: [0x9a2a2a, 0x2a4a8a, 0xb8862a][Math.round(ry * 10) % 3] });
+    const saddle = gBox(0.75, 0.08, 0.9, [0x9a2a2a, 0x2a4a8a, 0xb8862a][Math.round(ry * 10) % 3], [0, 1.46, 0]);      // the saddle cloth goes where the horse goes
+    animal(B, M, root, 'horse', merge([horseGeo(c, m), saddle]), x, world.height(x, z), z, ry, { coat: c, box: [0.9, 2.8, 2, 0.25] });
   }
   { const y = world.height(-12, 94); B.cyl(M.wood, 0.05, 0.07, 6, -12, y - 0.2, 94, { c: 0x6a4a30, seg: 6 }); world.addCyl(-12, 94, 0.1, y - 1, y + 6); flags(-12, y + 5.8, 94, -4, world.height(-4, 88) + 0.4, 88, 14); flags(-12, y + 5.8, 94, -16, world.height(-16, 100) + 0.4, 100, 10); }
   chorten(8, 92, 1.1); pilgrim(8, 92, 3.8, 2.2);                                             // a pilgrim goes round it, a body length at a time

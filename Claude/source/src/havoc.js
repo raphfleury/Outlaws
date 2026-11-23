@@ -22,7 +22,7 @@ export class Havoc {
    */
   fire(x, y, z, o = {}) {
     const G = this.game, W = G.world, fl = W.groundAt ? W.groundAt(x, z, y + 0.3) : W.height(x, z);
-    const f = { x, y: Math.max(fl, y - 1.5), z, r: 3, t: 7, tick: 0, ghost: !!o.ghost };
+    const f = { x, y: Math.max(fl, y - 1.5), z, r: 3, t: 7, tick: 0, ghost: !!o.ghost, from: o.from };
     this.fires.push(f);
     G.flashLight.position.set(x, f.y + 1, z); G.flashLight.intensity = 260;
     for (let i = 0; i < 30; i++) { const a = Math.random() * 6.283, v = 2 + Math.random() * 5; G.gfx.glow.spawn(x, f.y + 0.3, z, Math.cos(a) * v, 1 + Math.random() * 3, Math.sin(a) * v, { life: 0.4 + Math.random() * 0.4, s0: 0.7, s1: 0.2, r: 4, g: 1.8 + Math.random(), b: 0.4, a: 1, drag: 2.5 }); }
@@ -30,7 +30,7 @@ export class Havoc {
     if (!o.ghost) { G.makeNoise(x, z, 15, true); G.crowd.alarm(x, z, 14, x, z); }
   }
   updateFires(dt) {
-    const G = this.game, P = G.player, S = G.gfx.soft, Gl = G.gfx.glow, coop = G.duel && G.duel.cfg.rules === 'coop';
+    const G = this.game, P = G.player, S = G.gfx.soft, Gl = G.gfx.glow, D = G.duel && G.duel.cfg ? G.duel : null;
     for (let i = this.fires.length - 1; i >= 0; i--) {
       const f = this.fires[i]; f.t -= dt;
       if (f.t <= 0) { this.fires.splice(i, 1); continue; }
@@ -44,13 +44,14 @@ export class Havoc {
       f.tick -= dt; if (f.tick > 0) continue;
       f.tick = 0.3;
       const inside = (x, y, z, h = 2) => Math.hypot(x - f.x, z - f.z) < f.r && y > f.y - 1 && y < f.y + h;
-      if (!P.dead && inside(P.pos.x, P.pos.y, P.pos.z) && !(f.ghost && coop)) G.hurtPlayer(7, { x: f.x, z: f.z }, false);
+      if (!P.dead && inside(P.pos.x, P.pos.y, P.pos.z) && !(f.ghost && D && D.mateOf(f.from))) { if (f.ghost && D) D.blame(f.from); G.hurtPlayer(7, { x: f.x, z: f.z }, false); }   // a team-mate's fire does not burn
       for (const e of G.enemies) {
         if (!e.alive || e.remote || e.puppet || e.state === 'hidden' || !inside(e.pos.x, e.pos.y, e.pos.z)) continue;
         G.hitEnemy(e, 9, false, e.pos.x, e.pos.y + 0.5, e.pos.z, f.x, f.z, true);
         if (e.alive && e.flee) e.flee(f.x, f.z);                     // nobody stays in a fire
       }
       for (const w of G.crowd.list) if (!w.dead && inside(w.px, w.py, w.pz)) G.crowd.hit(w, 6, w.px, w.py + 0.5, w.pz, !f.ghost, !f.ghost);
+      for (const a of G.fauna.list) if (!a.dead && inside(a.px, a.py, a.pz)) G.fauna.hit(a, 6, a.px, a.py + a.high * 0.5, a.pz, false, !f.ghost);   // an animal in the flames
       if (!f.ghost) for (const q of G.world.pieces) {
         if (q.broken || (q.kind !== 'wood' && q.kind !== 'straw' && q.kind !== 'cloth' && q.kind !== 'paper')) continue;
         if (Math.hypot(q.x - f.x, q.z - f.z) < f.r + q.r * 0.5 && q.y < f.y + 1.5 && q.top > f.y - 0.5) this.damage(q, q.wall ? 14 : 9);
@@ -215,7 +216,7 @@ export class Havoc {
     if (dp < 30 && !P.dead) P.recoil((Math.random() - 0.5) * 3 * (1 - dp / 30));
     // the blast
     const shield = (bx, by, bz) => (W.clear(x, y, z, bx, by, bz) ? 1 : 0.35);
-    if (dp < R && !(o.ghost && G.duel && G.duel.cfg.rules === 'coop')) G.hurtPlayer(DMG * 0.6 * (1 - dp / R) * shield(P.pos.x, P.pos.y + 1, P.pos.z), { x, z }, false);
+    if (dp < R && !(o.ghost && G.duel && G.duel.mateOf(o.from))) { if (o.ghost && G.duel) G.duel.blame(o.from); G.hurtPlayer(DMG * 0.6 * (1 - dp / R) * shield(P.pos.x, P.pos.y + 1, P.pos.z), { x, z }, false); }   // a team-mate's bomb does not hurt
     for (const e of G.enemies) {
       if (!e.alive || e.remote || e.puppet || e.state === 'hidden') continue;      // the other player and the host's enemies are worked out in their own browser
       const d = Math.hypot(e.pos.x - x, e.pos.y + 1 - y, e.pos.z - z);
@@ -223,7 +224,7 @@ export class Havoc {
       else if (d < 45 && e.state === 'idle' && !e.static) e.alert(0.3 + Math.random() * 0.5);
     }
     G.noise = 1.5;
-    G.crowd.blast(x, y, z, R, DMG * 0.6);
+    G.crowd.blast(x, y, z, R, DMG * 0.6); G.fauna.blast(x, y, z, R, DMG * 0.6);
     for (const q of W.pieces) { if (q.broken) continue; const d = Math.hypot(q.x - x, (q.y + q.top) / 2 - y, q.z - z); if (d < R * 0.85) this.queue.push({ t: 0.02 + d * 0.025, p: q }); }
   }
 

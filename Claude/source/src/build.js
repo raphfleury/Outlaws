@@ -509,7 +509,7 @@ export class World {
         if (tt >= best) break;
       }
     }
-    return hit ? { t: best, nx, ny, nz, piece: obj && obj.piece && !obj.piece.broken ? obj.piece : null, person: obj && obj.person && !obj.person.dead ? obj.person : null } : null;
+    return hit ? { t: best, nx, ny, nz, piece: obj && obj.piece && !obj.piece.broken ? obj.piece : null, person: obj && obj.person && !obj.person.dead ? obj.person : null, animal: obj && obj.animal && !obj.animal.dead ? obj.animal : null } : null;
   }
 
   /** True if nothing solid lies between two points. */

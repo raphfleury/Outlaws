@@ -23,6 +23,7 @@ import { dropsOf, lootOf, weaponName, weaponAlt, itemName, itemAlt, THROWN, NOIS
 import { SKILLS, skillOf } from './skills.js';
 import { resize } from './outskirts.js';
 import { Voices } from './voices.js';
+import { Fauna } from './fauna.js';
 import { rng, clamp, damp } from './util.js';
 import { west } from './levels/west.js';
 import { japan } from './levels/japan.js';
@@ -31,7 +32,7 @@ import { greece } from './levels/greece.js';
 import { north } from './levels/north.js';
 import { war } from './levels/war.js';
 import { russia } from './levels/russia.js';
-import { Duel, bindDuelUI, RULES } from './duel.js';
+import { Duel, bindDuelUI, RULES, MAX_PLAYERS } from './duel.js';
 import { VILLAINS } from './villains.js';
 import { tibet } from './levels/tibet.js';
 import { aztec } from './levels/aztec.js';
@@ -107,13 +108,21 @@ class Game {
     this._v = new THREE.Vector3(); this._v2 = new THREE.Vector3(); this._o = { x: 0, y: 0, z: 0 }; this._d = { x: 0, y: 0, z: 0 };
     this.duel = null;
     this.havoc = new Havoc(this); this.map = new MapView(this); this.voice = new Voice(this); this.bagShown = 0;
-    this.crowd = new Crowd(this); this.arc = new Arc(this); this.bars = []; this.life = new Life(this);
+    this.crowd = new Crowd(this); this.fauna = new Fauna(this); this.arc = new Arc(this); this.bars = []; this.life = new Life(this);
     this.sound.onchange = () => { this.voice.settings(); this.soundLabel(); };
     this.bindUI();
   }
 
-  /** In the game together, the other player is a team-mate: nothing this player fires or swings can hurt him. */
-  friend(e) { return !!(e.remote && this.duel && this.duel.cfg && this.duel.cfg.rules === 'coop'); }
+  /** Online, another player on this player's side: nothing this player fires or swings can hurt him. */
+  friend(e) { return !!(e.remote && this.duel && this.duel.cfg && this.duel.mateOf(e.pid)); }
+  /** The chapter's commonest kind of enemy on foot (no boss, dog, rider or gunner at a fixed post): what a bystander who fights back becomes. */
+  footType() {
+    if (this._foot && this._foot.level === this.level) return this._foot.type;
+    const n = {};
+    for (const [t, , , o] of this.level.enemies) { const c = TYPES[t]; if (!c || c.boss || c.dog || c.rider || (o && o.static) || /gunner|cannoneer/i.test(t)) continue; n[t] = (n[t] || 0) + 1; }
+    const type = Object.keys(n).sort((a, b) => n[b] - n[a])[0] || null;
+    this._foot = { level: this.level, type }; return type;
+  }
   /** The characters on offer: three heroes, and in a duel the chapter's villains as well. */
   roster() { const d = this.def; return this.duel && this.duel.active ? d.heroes.concat(VILLAINS[d.id] || []) : d.heroes; }
 
@@ -278,7 +287,7 @@ class Game {
     else { const t0 = performance.now(); this.world.roofsOn = false; this.nav = new Nav(this.world); this.world.roofsOn = true; this.navMs = performance.now() - t0; }   // walkable-area grid for enemy route finding (on the ground and floors, not on roofs)
     this.gfx.setEnvironment(L.env); this.gfx.applyDetail();
     this.spawnEnemies();
-    this.crowd.setup(this.world.people);
+    this.crowd.setup(this.world.people); this.fauna.setup(this.world.animals); this._foot = null;
     this.placeHeals(L);
     this.player.spawn(L.spawn.x, L.spawn.z, L.spawn.yaw, def.weapon);
     this.hero = null;
@@ -447,14 +456,16 @@ class Game {
     const duel = this.duel && this.duel.active, n = d.heroes.length;
     if (duel) {
       const c = this.duel.cfg;
-      $('#intro .chap').textContent = (c.rules === 'coop' ? 'Two players' : 'Duel') + ' · ' + RULES[c.rules];
+      const D = this.duel, n = D.count, words = ['', 'One', 'Two', 'Three', 'Four'][n] || n, uneven = n % 2 === 1;
+      $('#intro .chap').textContent = words + ' players · ' + RULES[c.rules];
       const many = c.foes ? (c.foes === 1 ? 'One of the chapter’s enemies' : c.foes + ' of the chapter’s enemies') : '';
       $('#intro .story').textContent = c.rules === 'coop'
-        ? `Two players together against ${c.foes} of the chapter’s enemies. Nothing either of you fires can hurt the other; each counts his own kills. One who falls is back in a moment. The mission is over when the last enemy falls.`
-        : 'Two players, one world. ' + (c.rules === 'rounds' ? 'Each kill ends a round; the first to win five rounds wins.'
-          : c.rules === 'ctf' ? 'Capture the flag: your flag, blue, stands at your end of the map, the other one, red, at the other end. Take the red flag and bring it to yours while yours is there. A carrier who falls drops it; touch your own lying out there to send it home. First to three captures, or the most after seven minutes.'
-          : 'Seven minutes: whoever has more kills at the end wins.')
-        + (many ? ` ${many} ${c.foes === 1 ? 'is' : 'are'} still about, and attack you both.` : '') + ' Your opponent shows on the map while moving, unless sneaking.';
+        ? `${words} players together against ${c.foes} of the chapter’s enemies. Nothing any of you fires can hurt the others; each counts his own kills. One who falls is back in a moment. The mission is over when the last enemy falls.`
+        : (n > 2 ? `${words} players, two sides${uneven ? ' (one of them a player short)' : ''}: the players in the order they joined, the host first, take turns — 1 and 3 against 2 and 4. Nothing fired on your side can hurt your team-mate. ` : 'Two players, one world. ')
+        + (c.rules === 'rounds' ? (n > 2 ? 'A round ends when everyone on one side has fallen; the first side to win five rounds wins.' : 'Each kill ends a round; the first to win five rounds wins.')
+          : c.rules === 'ctf' ? 'Capture the flag: your side’s flag, blue, stands at your end of the map, the other one, red, at the other end. Take the red flag and bring it to yours while yours is there. A carrier who falls drops it; touch your own lying out there to send it home. First to three captures, or the most after seven minutes.'
+          : 'Seven minutes: each fall scores for the other side; the side with more at the end wins.')
+        + (many ? ` ${many} ${c.foes === 1 ? 'is' : 'are'} still about, and attack you all.` : '') + (n > 2 ? ' Your team-mate always shows on the map; the other side shows while moving, unless sneaking.' : ' Your opponent shows on the map while moving, unless sneaking.');
     }
     $('#intro .pick').textContent = duel ? 'Choose your fighter' : 'Choose your hero';
     $('#witsel').value = this.wits; $('#sizesel').value = this.mapSize;
@@ -471,47 +482,65 @@ class Game {
       + `<div class="hn">${h.name}</div><div class="hw">${h.who}</div><div class="ht"><b>${h.trait}</b> — ${h.effect}</div><div class="hs"><kbd>E</kbd> <b>${SKILLS[skillOf(h)].name}</b> — ${SKILLS[skillOf(h)].line}</div></div>`).join('');
   }
 
-  // ---- duel: lobby, choice of fighter, end ---------------------------------------
+  // ---- online: lobby, choice of fighter, end ---------------------------------------
   openDuel() { this.duelLobbyMode(null); this.setState('duel'); this.duelStatus(''); }
   closeDuel() { if (this.duel) { this.duel.leave(); this.duel = null; } this.duelLobbyMode(null); this.setState('title'); }
-  /** The Duel screen has two faces: looking for an opponent, or still connected to one between two duels. */
+  /** The Online screen has two faces: creating or joining a game, or connected to one (waiting for its start, or between two games). */
   duelLobbyMode(d) {
     const el = $('#duel'), linked = !!d;
     el.classList.toggle('linked', linked); el.classList.toggle('host', linked && d.isHost); el.classList.toggle('guest', linked && !d.isHost);
-    $('#dlinkbox').classList.add('hidden');
-    $('#dhosttitle').textContent = linked ? 'The next game' : 'Create a game';
+    $('#dlinkbox').classList.toggle('hidden', !(linked && d.isHost));
+    if (linked && d.isHost) { $('#dlink').value = location.origin + location.pathname + '?duel=' + d.code; $('#dcodeout').textContent = d.code; }
+    $('#dhosttitle').textContent = linked ? (d.isHost ? 'The game' : 'The game, as the host sets it') : 'Create a game';
     $('#dback').textContent = linked ? 'Leave' : 'Back to the chapters';
-    if (linked) { $('#dlevel').value = d.cfg.level; $('#drules').value = RULES[d.cfg.rules] ? d.cfg.rules : 'rounds'; $('#dfoes').value = String(Math.round((d.cfg.foes || 0) / 3) * 3); $('#dwits').value = d.cfg.wits || 'medium'; $('#dsize').value = d.cfg.size || 'medium'; }
-    else { $('#dwits').value = this.wits; $('#dsize').value = this.mapSize; }
+    if (linked && d.cfg) { $('#dlevel').value = d.cfg.level; $('#drules').value = RULES[d.cfg.rules] ? d.cfg.rules : 'rounds'; $('#dfoes').value = String(Math.round((d.cfg.foes || 0) / 3) * 3); $('#dwits').value = d.cfg.wits || 'medium'; $('#dsize').value = d.cfg.size || 'medium'; }
+    else if (!linked) { $('#dwits').value = this.wits; $('#dsize').value = this.mapSize; }
     if (this.duelFoesLabel) this.duelFoesLabel();
+    this.duelPlayers(d);
   }
-  duelLounge() {
-    const d = this.duel;
-    this.duelLobbyMode(d); this.setState('duel');
-    this.duelStatus(d.isHost ? 'Still connected to your opponent. Choose the next duel and start it.' : 'Still connected. Waiting for the host to start the next duel…');
+  /** Who is in the game, on the Online screen. */
+  duelPlayers(d) {
+    const el = $('#dplayers');
+    if (!d) { el.innerHTML = ''; el.classList.add('hidden'); return; }
+    const ids = d.ids(), r = d.cfg && d.cfg.rules, side = (i) => (r && r !== 'coop' && ids.length > 2 ? ` <i>side ${i % 2 ? 'B' : 'A'}</i>` : '');
+    el.classList.remove('hidden');
+    el.innerHTML = `<h3>Players · ${ids.length} of ${MAX_PLAYERS}</h3>` + ids.map((id, i) => `<div><b>${esc(d.nameOf(id))}</b>${id === 0 ? ' · host' : ''}${id === d.me ? ' · you' : ''}${side(i)}</div>`).join('');
   }
-  /** The line under the cards while the two players choose. */
+  /** Connected, waiting on the Online screen: for others to join and the host to start, or for the next game. */
+  duelLounge(note) {
+    const d = this.duel; if (!d) return;
+    this.duelLobbyMode(d); if (this.state !== 'duel') this.setState('duel');
+    const n = d.count;
+    this.duelStatus((note ? note + ' ' : '') + (d.isHost
+      ? (n < 2 ? 'Send the link or the code to the other players (up to three), then wait here.' : n < MAX_PLAYERS ? `${n} players. Start when everyone is in, or wait for more (up to ${MAX_PLAYERS}).` : 'Four players: the game is full. Start it.')
+      : 'Connected. Waiting for the host to start the game…'));
+  }
+  /** The line under the cards while the players choose. */
   duelPickInfo() {
-    const D = this.duel, r = this.roster(), mine = D.myPick >= 0, theirs = D.theirPick >= 0;
-    const n = this.def.heroes.length, as = (k) => r[k].name + (k >= n ? ', a villain' : ', a hero');
-    const who = D.theirName || (D.cfg && D.cfg.rules === 'coop' ? 'Your partner' : 'Your opponent');
-    $('#intro .pick').textContent = (mine ? 'You are ' + as(D.myPick) + '. ' : 'Choose your fighter. ') + (theirs ? who + ' is ' + as(D.theirPick) + '.' : mine ? 'Waiting for ' + who + '…' : who + ' is still choosing.');
+    const D = this.duel, r = this.roster(), n = this.def.heroes.length, as = (k) => r[k] ? r[k].name + (k >= n ? ', a villain' : ', a hero') : '?';
+    const others = D.ids().filter((id) => id !== D.me), mine = D.myPick >= 0;
+    const said = others.map((id) => D.picks.has(id) ? esc(D.nameOf(id)) + ' is ' + as(D.picks.get(id)) : esc(D.nameOf(id)) + ' is still choosing').join('; ');
+    $('#intro .pick').innerHTML = (mine ? 'You are ' + as(D.myPick) + '. ' : 'Choose your fighter. ') + said + '.' + (mine && others.some((id) => !D.picks.has(id)) ? ' Waiting…' : '');
   }
-  duelAborted() { this.duel = null; this.duelLobbyMode(null); this.setState('duel'); this.duelStatus('Your opponent left, or the connection was lost. You can create a new duel.'); }
-  duelOver(title, a, b) {
+  duelAborted(why) {
+    this.duel = null; this.duelLobbyMode(null); this.setState('duel');
+    this.duelStatus(why === 'host' ? 'The host left the game. You can create a new one, or join another.' : why === 'left' ? 'The other players left. You can create a new game.' : 'The connection to the game server was lost. You can create a new game, or join again.');
+  }
+  /** The end of a game online: rows [who, number, unit], and a line below (each player's kills). */
+  duelOver(title, rows, line) {
     this.setState('clear');
     if (document.pointerLockElement) document.exitPointerLock();
     this.sound.stopMusic(); this.sound.fanfare(this.def.id);
-    const r = this.duel.cfg.rules, unit = r === 'coop' || r === 'timed' ? ' · kills' : r === 'ctf' ? ' · flags' : ' · rounds';
-    $('#clear .kicker').textContent = (r === 'coop' ? 'Two players' : 'Duel') + ' · ' + RULES[r];
+    const D = this.duel, r = D.cfg.rules;
+    $('#clear .kicker').textContent = D.count + ' players · ' + RULES[r];
     $('#clear .big').textContent = title;
-    $('#clear .stats').innerHTML = `<div><b>${a}</b>You${unit}</div><div><b>${b}</b>${this.duel.remote ? this.duel.remote.name : 'Opponent'}${unit}</div>`;
-    $('#clearnext').textContent = this.duel.link.open ? 'Play again' : 'Back to the chapters'; $('#clear [data-act="again"]').style.display = 'none';
+    $('#clear .stats').innerHTML = rows.map(([who, v, unit]) => `<div><b>${v}</b>${esc(who)} · ${unit}</div>`).join('') + (line ? `<p class="each">${line}</p>` : '');
+    $('#clearnext').textContent = D.link.open ? 'Play again' : 'Back to the chapters'; $('#clear [data-act="again"]').style.display = 'none';
   }
-  /** Damage dealt by a computer enemy: to this player, or in a duel to the other one. */
+  /** Damage dealt by a computer enemy: to this player, or online to another one (in his browser). */
   hurtTarget(P, dmg, from, melee) {
     if (P === this.player) this.hurtPlayer(dmg, from, melee);
-    else if (this.duel) this.duel.send({ t: 'hit', d: dmg, x: from.x, z: from.z, m: melee ? 1 : 0 });
+    else if (this.duel && P.pid !== undefined) this.duel.send({ t: 'hit', to: P.pid, ai: 1, d: dmg, x: from.x, z: from.z, m: melee ? 1 : 0 });
   }
 
   begin() {
@@ -649,6 +678,7 @@ class Game {
     this.muzzle(m.x + d.x * 0.25, m.y + d.y * 0.25, m.z + d.z * 0.25, d.x, d.y, d.z, 1);
     if (target) this.hitEnemy(target, dmg, head, hx, hy, hz, o.x, o.z);
     else if (wh && wh.person) this.crowd.hit(wh.person, dmg * (hy > wh.person.py + 1.45 ? 2.5 : 1), hx, hy, hz, true);
+    else if (wh && wh.animal) this.fauna.hit(wh.animal, dmg, hx, hy, hz, true);
     else if (wh) { this.impact(hx, hy, hz, wh.nx, wh.ny, wh.nz, 'bullet'); if (wh.piece) this.havoc.damage(wh.piece, dmg, hx, hy, hz); }
     this.crowd.alarm(P.pos.x, P.pos.z, P.sneaking ? 14 : 26, P.pos.x, P.pos.z); this.crowd.alarm(hx, hz, 7, P.pos.x, P.pos.z);   // a shot frightens the people around, and more those near where it struck
     this.makeNoise(P.pos.x, P.pos.z, 34, true); this.makeNoise(hx, hz, 8, false);                  // a gunshot gives the shooter away; where it struck, they look
@@ -703,6 +733,11 @@ class Game {
       if (w.dead || reach(w.px, w.py + 1.1, w.pz, 0.36) < 0) continue;
       const dx = w.px - ex, dz = w.pz - ez, dl = Math.hypot(dx, dz) || 1;
       this.crowd.hit(w, dmg, w.px - dx / dl * 0.3, w.py + 1.2, w.pz - dz / dl * 0.3, true); any = true;
+    }
+    for (const a of this.fauna.list) {                          // an animal within reach
+      if (a.dead || reach(a.px, a.py + a.high * 0.6, a.pz, Math.min(0.6, a.wide * 0.5)) < 0) continue;
+      const dx = a.px - ex, dz = a.pz - ez, dl = Math.hypot(dx, dz) || 1;
+      this.fauna.hit(a, dmg, a.px - dx / dl * 0.3, a.py + a.high * 0.6, a.pz - dz / dl * 0.3, true); any = true;
     }
     for (const e of this.enemies) {
       if (!e.alive || e.state === 'hidden' || this.friend(e)) continue;
@@ -838,7 +873,7 @@ class Game {
     if (this.stepT <= 0 && this.state === 'play') { this.stepT = 0.5; const v = Math.hypot(P.vel.x, P.vel.z); if (P.onGround && !P.dead && v > 1 && !P.sneaking && !P.crouch) this.makeNoise(P.pos.x, P.pos.z, P.sprinting && v > 6 ? 11 : 4, true); }
     if (this.state === 'play' && this.input.mark && !P.dead) this.map.toggleMark();
     for (const e of this.enemies) e.update(dt);
-    this.crowd.update(dt);
+    this.crowd.update(dt); this.fauna.update(dt);
     this.life.update(dt, this.time);
     this.shots.update(dt);
     this.havoc.update(dt);
@@ -915,21 +950,25 @@ class Game {
     this.healthBars(alive); this.mateTag();
   }
   /** A small health bar over each enemy who was hit in the last few seconds (and over the other player of a duel while hurt), if in sight. */
-  /** Together: the partner's name, distance and health over his head, seen through walls; at the edge of the screen when he is out of view. */
+  /** Online: each team-mate's name, distance and health over his head, seen through walls; at the edge of the screen when he is out of view. */
   mateTag() {
-    const D = this.duel, el = this.ui.mate, R = D && D.remote;
-    const on = this.state === 'play' && D && D.cfg && D.cfg.rules === 'coop' && R && R.net;
-    if (!on) { if (el.style.display !== 'none') el.style.display = 'none'; return; }
-    const P = this.player, d = Math.hypot(R.pos.x - P.pos.x, R.pos.z - P.pos.z);
-    const v = this._v.set(R.pos.x, R.pos.y + 2.2 - 0.5 * (R.duck || 0), R.pos.z).project(this.gfx.camera);
-    let x = v.x, y = v.y, off = false;
-    if (v.z > 1) { x = -x; y = -y; off = true; if (Math.abs(x) + Math.abs(y) < 1e-3) y = -1; }   // behind: to the edge, on his side
-    const m = Math.max(Math.abs(x) / 0.93, Math.abs(y) / 0.86);
-    if (off || m > 1) { x /= Math.max(m, 1e-6); y /= Math.max(m, 1e-6); off = true; }
-    el.style.display = 'block'; el.style.left = (x * 0.5 + 0.5) * innerWidth + 'px'; el.style.top = (-y * 0.5 + 0.5) * innerHeight + 'px';
-    el.classList.toggle('off', off); el.classList.toggle('down', !R.alive);
-    const key = R.name + '|' + Math.round(d) + '|' + Math.round(R.hp) + R.alive;
-    if (el.dataset.k !== key) { el.dataset.k = key; el.innerHTML = `<b>${esc(R.name)}</b><span>${R.alive ? Math.round(d) + ' m' : 'down'}</span><i><u style="width:${Math.max(0, Math.min(100, R.hp / (R.maxHp || 100) * 100))}%"></u></i>`; }
+    const D = this.duel, box = this.ui.mate, tags = (this._tags ||= new Map());
+    const mates = this.state === 'play' && D && D.cfg && D.phase === 'play' ? D.mates().filter((R) => R.net) : [];
+    for (const [id, el] of tags) if (!mates.some((R) => R.pid === id)) { el.remove(); tags.delete(id); }
+    const P = this.player;
+    for (const R of mates) {
+      let el = tags.get(R.pid); if (!el) { el = document.createElement('div'); el.className = 'matetag'; box.appendChild(el); tags.set(R.pid, el); }
+      const d = Math.hypot(R.pos.x - P.pos.x, R.pos.z - P.pos.z);
+      const v = this._v.set(R.pos.x, R.pos.y + 2.2 - 0.5 * (R.duck || 0), R.pos.z).project(this.gfx.camera);
+      let x = v.x, y = v.y, off = false;
+      if (v.z > 1) { x = -x; y = -y; off = true; if (Math.abs(x) + Math.abs(y) < 1e-3) y = -1; }   // behind: to the edge, on his side
+      const m = Math.max(Math.abs(x) / 0.93, Math.abs(y) / 0.86);
+      if (off || m > 1) { x /= Math.max(m, 1e-6); y /= Math.max(m, 1e-6); off = true; }
+      el.style.left = (x * 0.5 + 0.5) * innerWidth + 'px'; el.style.top = (-y * 0.5 + 0.5) * innerHeight + 'px';
+      el.classList.toggle('off', off); el.classList.toggle('down', !R.alive);
+      const key = R.name + '|' + Math.round(d) + '|' + Math.round(R.hp) + R.alive;
+      if (el.dataset.k !== key) { el.dataset.k = key; el.innerHTML = `<b>${esc(R.name)}</b><span>${R.alive ? Math.round(d) + ' m' : 'down'}</span><i><u style="width:${Math.max(0, Math.min(100, R.hp / (R.maxHp || 100) * 100))}%"></u></i>`; }
+    }
   }
   healthBars(alive) {
     const cam = this.gfx.camera, P = this.player, W = this.world, box = this.ui.bars, w = innerWidth, h = innerHeight;

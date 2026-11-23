@@ -140,7 +140,7 @@ function grow(ctx) {
   for (const b of boats) {
     const y = W.waterY + 0.25; K.ship(B, M, b.x, y, b.z, b.ry, st.boats);
     const crew = st.boats.len > 10 ? 2 : 1, c = Math.cos(b.ry), sn = Math.sin(b.ry);
-    for (let k = 0; k < crew; k++) { const lz = (k ? -1 : 1) * st.boats.len * 0.22; K.person(B, M, root, st.folk[k % st.folk.length].replace('Woman', 'Man'), b.x + lz * sn, y + (st.boats.len > 10 ? 1.09 : 0.4), b.z + lz * c, R() * 6.283, { pose: k ? 'work' : 'stand', rand: R, solid: false }); }
+    for (let k = 0; k < crew; k++) { const lz = (k ? -1 : 1) * st.boats.len * 0.22; K.person(B, M, root, st.folk[k % st.folk.length].replace('Woman', 'Man'), b.x + lz * sn, y + (st.boats.len > 10 ? 1.09 : 0.4), b.z + lz * c, R() * 6.283, { pose: k ? 'work' : 'stand', rand: R, solid: false, stay: true }); }
   }
   out.boats = boats.length;
   // trees and stones over the new ground
@@ -151,7 +151,6 @@ function grow(ctx) {
     if (R() < 0.45) trees.push({ x, y, z, ry: R() * 6.28, s: 0.8 + R() * 0.5 });
   }
   plant(W, root, M, st, trees, index);
-  if (horses.length) root.add(K.instanced(K.horseGeo(st.horse, 0x1c120c), M.flat, horses));
   return out;
 }
 
@@ -216,7 +215,7 @@ function hamlet(ctx, st, s, R, out, trees, horses, kinds) {
   }
   if (st.horse && R() < 0.7) {                                      // a horse tied up by the yard
     const a = R() * 6.283, x = s.x + Math.cos(a) * 6, z = s.z + Math.sin(a) * 6, ry = R() * 6.283;
-    if (!crowded(W, x, z, 1.5)) { const y = W.height(x, z); horses.push({ x, y, z, ry }); K.beast(W, x, z, ry, 0.7, 2.2, y, y + 1.7); }
+    if (!crowded(W, x, z, 1.5)) K.animal(B, M, root, 'horse', K.horseGeo(st.horse, 0x1c120c), x, W.height(x, z), z, ry, { s: 0.8, coat: st.horse, box: [0.9, 2.8, 2.1, 0.2] });
   }
   // a fence along one side, and trees about
   { const a = R() * 6.283, x0 = s.x + Math.cos(a) * 13, z0 = s.z + Math.sin(a) * 13, b = a + 1.57, l = 6 + R() * 5;

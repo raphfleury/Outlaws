@@ -34,6 +34,33 @@ export function instanced(geo, mat, items, o = {}) {
 
 /** Post-and-rail fence from (x0,z0) to (x1,z1) on terrain. */
 /** The collider of a standing animal: a box as long and as wide as its body, turned the way it faces (not a cylinder, which stands out far beyond its flanks). */
+/** A copy of a geometry with its vertex colours multiplied by c (the geometries of a flock are white, each animal tinted). */
+function tinted(geo, c) {
+  if (c === undefined) return geo;
+  const g = geo.clone(); if (!g.attributes.color) paint(g, 0xffffff);
+  const col = g.attributes.color, t = new THREE.Color(c);
+  for (let i = 0; i < col.count; i++) col.setXYZ(i, col.getX(i) * t.r, col.getY(i) * t.g, col.getZ(i) * t.b);
+  return g;
+}
+/**
+ * An animal: a figure of its own (not part of the merged world), with the collider of its body, known to the world (World.animals)
+ * so that it can be shot, take fright, run, fall, or turn on the player (see fauna.js). Faces local +Z.
+ * kind: 'horse' | 'pony' | 'mule' | 'cow' | 'ox' | 'yak' | 'goat' | 'pig' | 'sheep' | 'hen' | 'dog';
+ * o: { s: size, c: tint (for the white geometries of a flock), coat: its colour for the figure it becomes when it attacks,
+ *      box: [wide, long, high, fwd] its collider, lying: lying down }
+ */
+export function animal(B, M, root, kind, geo, x, y, z, ry, o = {}) {
+  const mesh = new THREE.Mesh(tinted(geo, o.c), M.flat); mesh.castShadow = true; mesh.receiveShadow = true;
+  if (!mesh.geometry.attributes.color) paint(mesh.geometry, 0xffffff);
+  const s = o.s ?? 1; mesh.rotation.order = 'YXZ'; mesh.position.set(x, y, z); mesh.rotation.y = ry; mesh.scale.setScalar(s);
+  root.add(mesh);
+  const [wide, long, high, fwd = 0.1] = o.box || [0.8, 2.2, 1.6];
+  const b = B.world.addBox(x + Math.sin(ry) * fwd * s, z + Math.cos(ry) * fwd * s, wide * s, long * s, ry, y - 1, y + high * s);
+  const a = { kind, mesh, x, y, z, ry, s, box: b, fwd: fwd * s, wide: wide * s, long: long * s, high: high * s, coat: o.coat ?? o.c, lying: !!o.lying };
+  b.animal = a;
+  (B.world.animals || (B.world.animals = [])).push(a);
+  return a;
+}
 export function beast(W, x, z, ry, wide, long, y0, y1, fwd = 0.1) { W.addBox(x + Math.sin(ry) * fwd, z + Math.cos(ry) * fwd, wide, long, ry, y0, y1); }
 
 export function fence(B, M, x0, z0, x1, z1, o = {}) {
@@ -714,7 +741,8 @@ const POSES = {
  *      (f.hips, f.armL, f.armR, f.legL, f.legR; negative rotation.x lifts a limb forward, positive hips.rotation.x bows),
  *      seat: height of what the figure sits or lies on (pose 'sit': 0 = on the ground, 0.45 = a bench; pose 'lie': the top of the bed),
  *      over: { ... } changes to the look (colours, hat: null, weapon: null ...), rand: a random function (default: the same sequence every time),
- *      solid: false = no collider, arms: [xR, xL] quick override of the two arm angles }
+ *      solid: false = no collider, stay: stays where he is (on a boat: no stroll, no running away; he can be hit),
+ *      arms: [xR, xL] quick override of the two arm angles; pose 'lie' makes nothing (still figures were only scenery) }
  * Returns the figure (f.group is the THREE.Group). Pass the figures of a level to `idle` in its update() so that they breathe and look about.
  */
 let _pq = 0.17;
@@ -732,14 +760,14 @@ export function person(B, M, root, look, x, y, z, yaw = 0, o = {}) {
   else if (typeof pose === 'function') pose(f); else (POSES[pose] || POSES.stand)(f);
   if (o.arms) { f.armR.rotation.x = o.arms[0]; f.armL.rotation.x = o.arms[1]; }
   if ((spec.extras || []).some((e) => e === 'dress' || e === 'robe' || e === 'kosode' || e === 'chuba' || e === 'hakama') && f.hips.rotation.x > 0.24) f.hips.rotation.x = 0.24;   // a long skirt is one piece with the body: bowing deeply would swing it up
+  if (pose === 'lie') { f.base = { still: true }; return f; }   // one lying still in a bed or on the ground was only scenery: there is none any more
   root.add(f.group);
-  const cyl = o.solid !== false && pose !== 'lie' ? B.world.addCyl(x, z, 0.36, y - 1, y + (pose === 'sit' ? seat + 1.0 : 1.8)) : null;
-  f.base = { hy: f.hips.rotation.y, hz: f.hips.rotation.z, ar: f.armR.rotation.x, al: f.armL.rotation.x, ph: rq() * 20, still: pose === 'lie' };
-  if (pose !== 'lie') {                     // every bystander is known to the world: they take fright, look at the player, can be hurt (see crowd.js)
-    const who = { f, x, y, z, yaw, sit: pose === 'sit', cyl, look, pose: typeof pose === 'string' ? pose : 'custom' };
-    if (cyl) cyl.person = who;
-    (B.world.people || (B.world.people = [])).push(who);
-  }
+  const cyl = o.solid !== false || o.stay ? B.world.addCyl(x, z, 0.36, y - 1, y + (pose === 'sit' ? seat + 1.0 : 1.8)) : null;   // one who stays on a boat can be hit too
+  f.base = { hy: f.hips.rotation.y, hz: f.hips.rotation.z, ar: f.armR.rotation.x, al: f.armL.rotation.x, ph: rq() * 20, still: false };
+  // every bystander is known to the world: they take fright, look at the player, can be hurt, and some fight back (see crowd.js)
+  const who = { f, x, y, z, yaw, sit: pose === 'sit', cyl, look, spec, pose: typeof pose === 'string' ? pose : 'custom', stay: !!o.stay };
+  if (cyl) cyl.person = who;
+  (B.world.people || (B.world.people = [])).push(who);
   return f;
 }
 
