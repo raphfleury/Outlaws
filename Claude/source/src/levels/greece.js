@@ -315,6 +315,14 @@ function build({ game, gfx, world, B, M, root, rand, shared }) {
     loom(x - 1.6, f, z + 5.9, 0); basket(x - 3.2, f, z + 5.6, 0x7a3a8a); basket(x - 0.25, f, z + 5.7, 0xf0ece0);
     folk('greekWoman', x - 1.6, z + 5.05, 0, { y: f, arms: [-1.45, -1.2], over: { dress: 0x6a3a8a, shirt: 0x6a3a8a, hem: 0xd9b23a, accent: 0xd9b23a, belt: 0xd9b23a, extras: ['dress', 'brooches'] } });
     pithos(x + 0.9, f, z + 5.5); pithos(x + 2.0, f, z + 5.5);
+    // the contest of the bow (Odyssey, book XXI): twelve axes set up in a row in the floor, a ring at the top of each, and on a stand at the end
+    // of the row Odysseus' great bow, unstrung, with its quiver; whoever strings it and shoots through all twelve rings wins Penelope's hand
+    { const axe = merge([gCyl(0.035, 0.04, 0.78, 0x6a4a2e, [0, 0.39, 0]), gBox(0.2, 0.17, 0.03, 0x6a6e72, [0.14, 0.7, 0]), gBox(0.2, 0.17, 0.03, 0x6a6e72, [-0.14, 0.7, 0]),
+        gBox(0.06, 0.24, 0.05, 0x5a5e62, [0, 0.7, 0]), xf(new THREE.TorusGeometry(0.05, 0.014, 6, 14), [0, 0.86, 0], [0, Math.PI / 2, 0], 1, 0x6a6e72)]);
+      for (let i = 0; i < 12; i++) B.geo(M.metal, axe.clone(), [x - 5.7 + i * 0.5, f, z + 2.05], [0, Math.PI / 2, 0], 1, 0xffffff);   // (a copy each: placing moves the geometry itself)
+      table(B, M, x + 0.95, f, z + 2.05, 0, { w: 0.6, d: 1.9, h: 0.75, c: 0x5a3e26 });
+      B.geo(M.wood, merge([xf(new THREE.TorusGeometry(0.85, 0.03, 6, 22, 2.3), [0, 0, 0], [0, 0, 0], 1, 0x4a2e1a), gBox(0.05, 0.05, 0.12, 0xd9b23a, [0, 0.85, 0])]), [x + 0.95, f + 0.8, z + 2.05 - 0.37], [Math.PI / 2, Math.PI / 2 + 0.05, 0], 1, 0xffffff);   // the bow, laid on its side
+      B.geo(M.flat, merge([gCyl(0.07, 0.06, 0.6, 0x6a3a1c, [0, 0.3, 0]), ...[-0.03, 0, 0.03].map((dx) => gCyl(0.006, 0.006, 0.3, 0xc8b890, [dx, 0.72, 0]))]), [x + 1.05, f + 0.75, z + 2.7], [0.0, 0, -1.3], 1, 0xffffff); }   // the quiver
     // Argos, Odysseus' old grey dog, lies by the door and still listens for his master
     animal(B, M, root, 'dog', dogGeo, x - 7.7, world.height(x - 7.7, z + 2.4), z + 2.4, -2.4, { lying: true, coat: 0x8a8780, box: [0.5, 1.2, 0.35, 0.05] });
     extraFoes.push(['hoplite', x - 4.6, z + 1.2, { up: 1.8, patrol: false, yaw: -1.57 }], ['peltast', x + 4.8, z + 3.6, { up: 1.8, patrol: false, yaw: -1.57 }]); extraPicks.push([x + 4.6, z - 3.4, 0, 1.8]);

@@ -6,28 +6,28 @@ export const PLACES = {
   west: [
     ['Main Street', 0, 0, 26], ['The Railroad Depot', 0, -50, 22], ['The Church', 62, -27, 13], ['The Water Tower', -52, -17, 9],
     ['The Corral', -67, 13, 14], ['The Homestead', -38, 38, 11], ['Boot Hill', 58, 41, 15], ['Lookout Butte', 6, 48, 11],
-    ['The Stage Station', 64, 15, 10], ['The Silver Queen Mine', -86, 47, 13],
+    ['The Stage Station', 64, 15, 10], ['The Silver Queen Mine', -86, 47, 13], ['The Mission', -40, -46, 14],
   ],
   japan: [
     ['The Torii Path', 0, 60, 14], ['The Pond', -1, 24, 14], ['The Hamlet Green', -4.5, -9, 13], ['The Shrine Steps', 0, -28, 8],
     ['Kagemori Shrine', 0, -44, 15], ['The Pagoda', -20.7, -48.7, 8], ['The Dojo', 50, -2, 14], ['The Hermitage', -50, 24, 10],
-    ['The Rice Paddies', 51, 59, 18], ['The Charcoal Burners’ Camp', -64, 59, 12],
+    ['The Rice Paddies', 51, 59, 18], ['The Charcoal Burners’ Camp', -64, 59, 12], ['Kagemori Castle', 70, -58, 14],
   ],
   swiss: [
     ['The Alp', -86, 22, 14], ['The Chapel', -44, 14, 10], ['The Watchtower', 74, 34, 10], ['The Great Hay Barn', 26, 52, 10],
     ['The Mill', 48.6, 13.2, 10], ['The Lake Landing', -16, -65, 12], ['The Sust', -22, -44.5, 8], ['The Rütli', -70, -44, 14],
-    ['The Bailiff’s Camp', 54, -36, 16], ['The Keep', 62, -47, 10], ['The Quarry', 84, -44, 10], ['The Waterfall', 101, 22.5, 10],
+    ['The Bailiff’s Camp', 54, -36, 16], ['The Keep', 62, -47, 10], ['The Quarry', 84, -44, 10], ['The Waterfall', 101, 22.5, 10], ['The Devil’s Bridge', 83, 19, 8],
     ['The Great Boulder', -52, -17, 10],
   ],
   greece: [
-    ['The Temple of Athena', 0, -57, 16], ['The Village Well', -6, 30, 12], ['The Agora', 20, 12, 12], ['The Villa', 50, 24, 12],
+    ['The Temple of Athena', 0, -57, 16], ['The Village Well', -6, 30, 12], ['The Agora', 20, 12, 12], ['The House of Odysseus', 50, 24, 12],
     ['The Theatre', 42, -24, 12], ['The Fishermen’s Cape', 87, 60, 15], ['The Harbour', -3, 104, 16], ['The Cave of the Nymphs', -58, -50, 10],
     ['The Swineherd’s Farm', -51, 61, 12], ['The Marble Quarry', 8, -94.5, 12], ['The Shipwright’s Beach', 24, 91, 10],
   ],
   north: [
     ['The Jarl’s Hall', 0, -52, 16], ['The Bonfire', 0, 22, 13], ['The Hof', 76, -24, 9], ['The Boat Shed', -20, 49, 8],
     ['The Smithy', 31, 22, 7], ['The Burial Mound', 56, 6, 10], ['The Shipyard', 80, 49, 12], ['The Beacon Crag', -62, -26, 8],
-    ['The Farm', -87.5, 21, 14], ['The Charcoal Clearing', -28, -86, 10], ['The Jetty', -40, 72, 14],
+    ['The Farm', -87.5, 21, 14], ['The Thing Field', -58, -47, 10], ['The Charcoal Clearing', -28, -86, 10], ['The Jetty', -40, 72, 14],
   ],
   war: [
     ['The Glider', 11, 98, 14], ['Le Clos Farm', -30, 47, 14], ['Sainte-Aubine', 0, 15, 18], ['The Church', 24, 2, 10],

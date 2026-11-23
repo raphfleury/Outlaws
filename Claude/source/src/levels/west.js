@@ -722,6 +722,54 @@ function build({ game, gfx, world, B, M, root, rand, shared }) {
   who('westMan', 64, 0, 39.1, Math.PI, { pose: 'hips', over: { hat: 'fedora', hatC: 0x3a342c } });
   who('westWoman', -36.8, 0.14, 34, Math.PI, { pose: 'work' }); B.cyl(M.wood, 0.015, 0.015, 1.3, -36.8, 0.14, 33.52, { rx: -0.25, c: 0x8a6a44, seg: 5 }); B.box(M.thatch, 0.3, 0.2, 0.08, -36.8, 0.14, 33.35, { c: 0xc8a850 });
 
+  // ---- the mission south-west of town: a white church in the Spanish manner of the missions of the Sonoran desert, two bell towers,
+  //      a carved portal of red-brown plaster between them, a dome over the sanctuary. The door stands open: a nave with pews, a gilded
+  //      altarpiece, candles; a priest and a woman at prayer ------------------------------------------------------------------------
+  {
+    const x = -40, z = -46, ry = 0.716, y = world.height(x, z), P = local(x, z, ry), WH = 0xf2ece0, PORT = 0x9a5a3a, GOLD = 0xc8962a;
+    const at = (lx, ly, lz) => { const [a, b] = P(lx, lz); return [a, y + ly, b]; };
+    const box = (mat, w, h, d, lx, ly, lz, c, solid = true) => { const [a, , b] = at(lx, 0, lz); B.box(mat, w, h, d, a, y + ly, b, { ry, c, solid }); };
+    room(B, M, x, y, z, { w: 9, d: 20, h: 7.5, t: 0.5, ry, mat: M.plaster, c: WH, base: 0.4, doors: [{ side: 's', at: 0, w: 2.4, h: 3.6 }],
+      wins: [{ side: 'e', at: -4, w: 0.9, y: 4.2, h: 1.6 }, { side: 'e', at: 3, w: 0.9, y: 4.2, h: 1.6 }, { side: 'w', at: -4, w: 0.9, y: 4.2, h: 1.6 }, { side: 'w', at: 3, w: 0.9, y: 4.2, h: 1.6 }],
+      floor: { mat: M.stone, c: 0xc8a888 }, ceil: { mat: M.plaster, c: 0xe8dcc4 } });
+    // the front: a wide wall with the door, the two towers, a stepped crest with a cross
+    const FZ = 10.5;
+    box(M.plaster, 7.8, 10.5, 1.0, -5.1, 0, FZ, WH); box(M.plaster, 7.8, 10.5, 1.0, 5.1, 0, FZ, WH); box(M.plaster, 2.4, 6.9, 1.0, 0, 3.6, FZ, WH);
+    box(M.plaster, 5.2, 1.0, 1.0, 0, 10.5, FZ, WH); box(M.plaster, 3.0, 1.0, 1.0, 0, 11.5, FZ, WH); box(M.plaster, 1.2, 0.9, 0.9, 0, 12.5, FZ, WH);
+    box(M.flat, 0.16, 1.4, 0.16, 0, 13.4, FZ, 0x3a2a1c, false); box(M.flat, 0.8, 0.16, 0.16, 0, 14.2, FZ, 0x3a2a1c, false);
+    for (const s of [-1, 1]) {
+      box(M.plaster, 3.8, 12.2, 3.8, s * 7.4, 0, FZ - 0.9, WH);                                                   // a tower: its base
+      box(M.plaster, 4.2, 0.35, 4.2, s * 7.4, 12.2, FZ - 0.9, WH, false);                                       // the cornice
+      for (const ox of [-1.2, 1.2]) for (const oz of [-1.2, 1.2]) box(M.plaster, 0.7, 2.6, 0.7, s * 7.4 + ox, 12.55, FZ - 0.9 + oz, WH);   // the belfry: four piers, open between them
+      box(M.flat, 1.7, 2.6, 1.7, s * 7.4, 12.55, FZ - 0.9, 0x2a2218, false);                                     // and the dark within, where the bell hangs
+      box(M.plaster, 3.4, 0.3, 3.4, s * 7.4, 15.15, FZ - 0.9, WH, false);
+      B.geo(M.plaster, new THREE.SphereGeometry(1.45, 14, 7, 0, Math.PI * 2, 0, Math.PI / 2), at(s * 7.4, 15.45, FZ - 0.9), [0, 0, 0], 1, WH);   // the dome on the tower
+      box(M.plaster, 0.5, 0.7, 0.5, s * 7.4, 16.85, FZ - 0.9, WH, false); box(M.flat, 0.09, 0.9, 0.09, s * 7.4, 17.55, FZ - 0.9, 0x3a2a1c, false); box(M.flat, 0.5, 0.09, 0.09, s * 7.4, 18.0, FZ - 0.9, 0x3a2a1c, false);
+      for (const [ox, oz] of [[0, 0.86], [0, -0.86], [0.86, 0], [-0.86, 0]]) B.cyl(M.metal, 0.26, 0.4, 0.6, ...at(s * 7.4 + ox, 13.2, FZ - 0.9 + oz), { c: 0x8a6a3a, seg: 10 });   // the bell, seen in each opening
+    }
+    // the carved portal: red-brown plaster round the door, pilasters in two storeys, niches with saints, a window for the choir
+    const PZ = FZ + 0.62;
+    box(M.plaster, 1.9, 9.2, 0.24, -2.15, 0, PZ, PORT, false); box(M.plaster, 1.9, 9.2, 0.24, 2.15, 0, PZ, PORT, false); box(M.plaster, 2.4, 5.6, 0.24, 0, 3.6, PZ, PORT, false);
+    for (const lx of [-2.8, -1.5, 1.5, 2.8]) for (const [ly, h] of [[0, 4.2], [4.6, 3.6]]) box(M.plaster, 0.3, h, 0.2, lx, ly, PZ + 0.2, 0xb87a52, false);
+    for (const ly of [4.2, 8.2]) box(M.plaster, 6.2, 0.4, 0.34, 0, ly, PZ + 0.1, 0xb87a52, false);
+    for (const s of [-1, 1]) { box(M.flat, 0.7, 1.3, 0.1, s * 2.15, 5.2, PZ + 0.13, 0x3a2418, false); box(M.flat, 0.34, 0.9, 0.1, s * 2.15, 5.3, PZ + 0.2, 0xd8c8b0, false); }   // the niches and their saints
+    box(M.flat, 1.0, 1.4, 0.1, 0, 5.6, PZ + 0.13, 0x2a1c14, false); box(M.plaster, 3.2, 0.9, 0.24, 0, 8.6, PZ, PORT, false); box(M.plaster, 1.4, 0.7, 0.24, 0, 9.5, PZ, PORT, false);
+    for (const s of [-1, 1]) { const [a, , b] = at(s * 1.75, 0, FZ + 0.9); B.box(M.woodH, 1.2, 3.5, 0.12, a, y, b, { ry: ry + s * 1.25, c: 0x5a3a22 }); }   // the doors, standing open
+    // the dome over the sanctuary, on a drum
+    B.cyl(M.plaster, 3.3, 3.3, 1.8, ...at(0, 7.6, -5.5), { c: WH, seg: 18 });
+    B.geo(M.plaster, new THREE.SphereGeometry(3.3, 18, 9, 0, Math.PI * 2, 0, Math.PI / 2), at(0, 9.4, -5.5), [0, 0, 0], 1, WH);
+    B.cyl(M.plaster, 0.55, 0.55, 0.9, ...at(0, 12.6, -5.5), { c: WH, seg: 8 }); box(M.flat, 0.1, 1.0, 0.1, 0, 13.5, -5.5, 0x3a2a1c, false); box(M.flat, 0.55, 0.1, 0.1, 0, 14.0, -5.5, 0x3a2a1c, false);
+    for (const s of [-1, 1]) for (const lz of [-9, -2, 5]) box(M.plaster, 0.7, 6.0, 1.1, s * 4.9, 0, lz, WH);       // buttresses along the sides
+    // inside: the altarpiece, the altar and its candles, pews on both sides of the aisle
+    box(M.flat, 6.6, 6.4, 0.4, 0, 0, -9.45, GOLD); box(M.flat, 5.2, 5.4, 0.12, 0, 0.6, -9.2, 0x9a2a1c, false);
+    for (const lx of [-1.8, 0, 1.8]) for (const ly of [1.3, 3.6]) { box(M.flat, 1.1, 1.6, 0.1, lx, ly, -9.12, 0x6a4a1a, false); box(M.flat, 0.4, 1.1, 0.1, lx, ly + 0.2, -9.05, 0xe8d8c0, false); }
+    box(M.stone, 2.6, 1.0, 1.0, 0, 0, -7.9, 0xe8e0d0); box(M.cloth, 2.7, 0.04, 1.1, 0, 1.0, -7.9, 0xf4f0e6, false);
+    for (const lx of [-1.0, 1.0]) { const [a, b, c2] = at(lx, 1.04, -7.9); B.cyl(M.flat, 0.03, 0.03, 0.34, a, b, c2, { c: 0xe8e0c8, seg: 5 }); B.geo(M.glow, new THREE.SphereGeometry(0.045, 5, 4), [a, b + 0.4, c2], [0, 0, 0], [1, 1.6, 1], 0xffb040); }
+    for (const s of [-1, 1]) for (let i = 0; i < 5; i++) { const [a, , b] = at(s * 2.3, 0, -4.5 + i * 2.2); bench(B, M, a, y, b, ry, { w: 2.8, c: 0x6a4a2e }); }
+    { const [a, b] = P(0.6, -7.0); who('cure', a, y, b, ry + Math.PI, { pose: 'pray', over: { shirt: 0x5a3a24, sleeve: 0x5a3a24, pants: 0x5a3a24 } }); }   // a friar in his brown habit
+    { const [a, b] = P(-2.3, -4.0); who('westWoman', a, y, b, ry + Math.PI, { pose: 'pray' }); }
+  }
+
   // ---- far mesas ----------------------------------------------------------------------
   const mesa = (x, z, rx, rz, h, ry) => {
     const y0 = world.height(x, z) - 4, bands = [0x9a4a2e, 0xb8623a, 0xc98a5a, 0xa85436, 0xd09a6a];
@@ -738,7 +786,7 @@ function build({ game, gfx, world, B, M, root, rand, shared }) {
   mesa(-170, -60, 22, 18, 38, 0.6); mesa(190, 30, 20, 26, 34, 1.4); mesa(-140, 120, 18, 22, 30, 0.2);
 
   // ---- vegetation and rocks ----------------------------------------------------------
-  const built = (x, z) => (x > -99 && x < -64 && z > 35 && z < 58) || (x > -9 && x < 35 && z > -53 && z < -40) || (x > 58 && x < 73 && z > 5 && z < 19) || (z > -52 && z < -48);      // the mine, the depot, the stage station, the track
+  const built = (x, z) => Math.hypot(x + 40, z + 46) < 17 || (x > -99 && x < -64 && z > 35 && z < 58) || (x > -9 && x < 35 && z > -53 && z < -40) || (x > 58 && x < 73 && z > 5 && z < 19) || (z > -52 && z < -48);      // the mine, the depot, the stage station, the track
   const openLand = (x, z) => (Math.abs(z) > 27 || Math.abs(x) > 92) && !built(x, z) && !(x > 54 && x < 86 && z < -14 && z > -40) && !(x < -60 && x > -80 && z < -8 && z > -32)
     && !(x > 42 && x < 74 && z > 23 && z < 54) && !(x > -49 && x < -27 && z > 27 && z < 47);
   const cacti = [], rocks = [], sage = [], tufts = [];

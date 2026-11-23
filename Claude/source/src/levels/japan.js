@@ -1,6 +1,6 @@
 // Chapter II - a shrine path through a bamboo forest at dusk.
 import * as THREE from 'three';
-import { Heightfield, curvedRoofGeo, rockGeo } from '../build.js';
+import { Heightfield, curvedRoofGeo, rockGeo, prismGeo } from '../build.js';
 import { makeAmbient, makeWater, windify } from '../gfx.js';
 import { instanced, room, steps, shelf, tuftGeo, blobTreeGeo, gBox, gCyl, gCone, gSph, gCap, xf, merge, paint, stand, den, ladder, boulder, fence, beast, local, table, bed, chest, pots, sacks, rug, hearth, woodpile, haystack, deck, person, idle, animal } from '../props.js';
 import { fbm, smooth, clamp } from '../util.js';
@@ -544,9 +544,46 @@ function build({ game, gfx, world, B, M, root, rand, shared }) {
     { const x = 6.8, z = -19.6, y = world.height(x, z), white = 0xe8e4d8; people.push(person(B, M, root, 'japanMan', x, y, z, Math.PI, { pose: 'pray', over: { hat: 'kasa', shirt: white, sleeve: white, pants: white, accent: white } })); B.cyl(M.wood, 0.022, 0.022, 1.6, x + 0.55, y - 0.1, z - 0.1, { rz: -0.05, c: 0x6a4a30, seg: 5 }); }
   }
 
+  // ---- the castle on the eastern hillside: a keep of three storeys, white plaster and black wood under curved roofs of grey tile, gilded
+  //      fish on the ridge, on a base of battered stone that the hill runs into at the back; a low white wall round the top, open towards the
+  //      hill. From the valley it is out of reach; from the hillside one walks onto its base, up to the keep ---------------------------------
+  {
+    const x = 70, z = -58, ry = -Math.PI / 2, P = local(x, z, ry), STONE = 0x9a968a, WHITE = 0xf2efe6, BLACK = 0x2a2622, TILE = 0x48585e, GOLD = 0xd9b23a;
+    const at = (lx, ly, lz) => { const [a, b] = P(lx, lz); return [a, ly, b]; };
+    const box = (mat, w, h, d, lx, ly, lz, c, solid = true) => { const [a, , b] = at(lx, 0, lz); B.box(mat, w, h, d, a, ly, b, { ry, c, solid }); };
+    const Y0 = 1.5, TOP = 13;
+    { const g = new THREE.CylinderGeometry(6.5 * Math.SQRT2, 8.4 * Math.SQRT2, TOP - Y0, 4, 1), uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 9, uv.getY(i) * 3.5);   // stones of a man's size
+      B.geo(M.stone, g, [x, (TOP + Y0) / 2, z], [0, Math.PI / 4 + ry, 0], 1, STONE); }   // the battered stone base
+    world.addBox(x, z, 16.4, 16.4, ry, Y0 - 1, (TOP + Y0) / 2); world.addBox(x, z, 13.6, 13.6, ry, (TOP + Y0) / 2, TOP);
+    for (const [lx, lz, w, d] of [[0, 6.1, 12.6, 0.4], [-6.1, 0, 0.4, 12.6], [6.1, 0, 0.4, 12.6], [-4.0, -6.1, 4.6, 0.4], [4.0, -6.1, 4.6, 0.4]]) {   // a low wall round the top, open at the back
+      box(M.plaster, w, 1.15, d, lx, TOP, lz, WHITE); box(M.kawara, w + 0.3, 0.14, d + 0.5, lx, TOP + 1.15, lz, TILE, false);
+    }
+    // the keep: each storey smaller than the one below, its roof over the walls; windows dark, the lower walls in black boards
+    let y = TOP, w = 9.4, d = 8.0;
+    const storeys = [[3.6, 1.7], [3.1, 1.45], [2.8, 1.35]];
+    storeys.forEach(([h, rh], i) => {
+      box(M.plaster, w, h, d, 0, y, 0, WHITE);
+      box(M.woodH, w + 0.06, h * 0.38, d + 0.06, 0, y, 0, BLACK, false);
+      const nw = Math.max(2, Math.round(w / 2.2)), nd = Math.max(2, Math.round(d / 2.2));
+      for (let k = 0; k < nw; k++) for (const s of [-1, 1]) box(M.flat, 0.7, 0.8, 0.08, -w / 2 + (k + 0.5) * w / nw, y + h * 0.5, s * (d / 2 + 0.03), 0x1a1612, false);
+      for (let k = 0; k < nd; k++) for (const s of [-1, 1]) box(M.flat, 0.08, 0.8, 0.7, s * (w / 2 + 0.03), y + h * 0.5, -d / 2 + (k + 0.5) * d / nd, 0x1a1612, false);
+      const last = i === storeys.length - 1, roof = curvedRoofGeo(w + 3.2, d + 3.2, rh, { up: 0.7, tile: 1.6, ridge: last ? 0.4 : 0.02, curve: 1.9, nt: 7 });
+      B.geo(M.kawara, roof, at(0, y + h, 0), [0, ry, 0], 1, TILE);
+      if (i === 0) for (const s of [-1, 1]) { const g = prismGeo(3.6, 1.5, 2.2, 1.6); B.geo(M.kawara, g, at(0, y + h + 0.15, s * (d / 2 + 1.0)), [0, ry, 0], 1, TILE); box(M.plaster, 3.0, 1.2, 0.1, 0, y + h + 0.2, s * (d / 2 + 2.0), WHITE, false); }   // a gable on the roof, front and back
+      if (last) for (const s of [-1, 1]) {                                                    // the gilded fish at the two ends of the ridge
+        B.geo(M.metal, new THREE.ConeGeometry(0.28, 1.0, 6), at(s * (w + 3.2) * 0.2, y + h + rh + 0.35, 0), [0, ry, s * 0.5], 1, GOLD);
+        B.geo(M.metal, new THREE.SphereGeometry(0.22, 8, 6), at(s * (w + 3.2) * 0.2, y + h + rh + 0.1, 0), [0, 0, 0], [1, 1, 1.4], GOLD);
+      }
+      y += h + rh * 0.55; w *= 0.8; d *= 0.8;
+    });
+    // the way in from the hillside: a gate in the low wall at the back, and the door of the keep
+    box(M.woodH, 1.6, 2.2, 0.12, 0, TOP, -4.02, 0x3a2a1c, false);
+  }
+
   // ---- vegetation ------------------------------------------------------------------------------
   const clearing = (x, z) => {
     if (x > 34 && x < 62 && z > -25 && z < 14) return true;                                            // dojo compound
+    if (x > 44 && x < 83 && z > -74 && z < -42) return true;                                            // the castle, and the open ground before it
     if (x < -36 && x > -59 && z > 16 && z < 33) return true;                                           // hermitage
     if (Math.abs(x - pathX(z)) < 2.7) return true;
     if (z < -29 && Math.abs(x) < 33 && z > -72) return true;                                           // shrine precinct
