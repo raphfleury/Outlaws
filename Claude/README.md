@@ -1244,8 +1244,11 @@ the lobby), the timed game, capture the flag (taken, dropped, brought home), fou
 together (a guest's kill counted for him, an enemy of the host going after a guest and
 hurting him, a mark seen by the team-mates, the end of the mission), a duel of two, and the
 host leaving. Each browser sent about 17 messages a second, 22 KB/s with the microphone on
-(a test tone). Not tested: the server on Cloudflare's network, players on different
-networks, real network delay, Safari.
+(a test tone). The same test of four players in rounds was then run through the server on
+Cloudflare's network, with the same results; from the cloud computer that ran the browsers,
+behind its proxy, a message took about a quarter of a second from one browser to another
+through the server, and forty messages sent at twenty a second all arrived. Not tested:
+players on different networks, the delay between players in Switzerland, Safari.
 
 Version 2.3.0 was checked in a browser without a window: all nine chapters load without
 an error, every bystander has something to do, the animals are where they were (seven

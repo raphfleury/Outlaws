@@ -6,7 +6,7 @@
 //
 // The server's address: SERVER below, or ?server=host[:port] in the game's address (for a test server: ws:// on this computer).
 
-const SERVER = 'lonehand.raphfleury.workers.dev';
+const SERVER = 'lonehand.cool-bird-201f.workers.dev';
 const SERVER_AT = (() => {
   const s = new URLSearchParams(location.search).get('server') || SERVER;
   if (/^wss?:\/\//.test(s)) return s.replace(/\/+$/, '');
