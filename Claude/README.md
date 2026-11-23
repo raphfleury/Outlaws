@@ -1,6 +1,6 @@
 # Lone Hand — Claude version
 
-**Version 2.0.0** · [What changed (changelog)](CHANGELOG.md) · [All releases](https://github.com/iago-swi/outlaws/releases)
+**Version 2.1.0** · [What changed (changelog)](CHANGELOG.md) · [All releases](https://github.com/iago-swi/outlaws/releases)
 
 A first-person shooter in nine chapters, built with Claude (Anthropic) in the spirit of
 late-1990s Western shooters. From a frontier town to a Japanese shrine, an alpine valley,
@@ -78,7 +78,7 @@ and some enemies wait indoors, on deck or behind the waterfall.
 | IV | every house, each with its trade (potter, smith, baker, weaver, fishermen), the temple's inner room with a golden Athena, a treasury on the hill, the round temple, the beacon tower on the fishermen's cape up to its fire platform; a villa with a colonnaded court and a pool, the market under the colonnade, the theatre with its stage house, the olive grove with its press; two tents in the harbour, the Cave of the Nymphs, a swineherd's farm |
 | V | every longhouse, each with its trade (weaver, cook, mead store, fisherman), two of them with a second door and window openings, the jarl's great hall with a back door, a small temple of the old gods; a boat shed, an open smithy, a byre with a hay loft, a shipyard with a hull on the stocks; four longships to board by gangplank: two at the jetty, your own on the beach and the jarl's great ship with a tent on deck |
 | VI | the ground floor of every house (a café, a bakery, a school and a forge among them) and the upper room of the café, the command bunker, both gun casemates, the manor, the windmill with its milling floor; the church, now a roofless ruin after the bombing, and its tower up to the belfry; a farm barn with a hayloft, a cider farm, a railway station |
-| VII | the food shop with its store room, two garages, the Palace of Culture with its stage, the works with a gallery, and the Committee building: lobby, cells, archive, records room and the colonel's office; a block of flats with a stairwell to walk through and a furnished flat, a tram, a goods wagon, a boiler house, a church closed and used as a store; a metro pavilion with turnstiles, the district library, a building site with a concrete slab to climb and the builders' hut |
+| VII | the food shop with its store room, two garages, the Palace of Culture with its stage, the works with a gallery, and the Committee building: lobby, cells, archive, records room and the colonel's office; a block of flats with a stairwell to walk through and a furnished flat, a tram, a goods wagon, a boiler house, a church closed and used as a store; the metro pavilion with its turnstiles and the escalator hall down to Revolution Square Station, 10 m below ground (a platform between two tracks, marble columns, chandeliers, a train standing with its doors open); Entrance 2 of the long block on the courtyard, a stairwell up five floors with a furnished flat on every landing (hall, kitchen, living room); the church of St Nicholas, still open (refectory, bell tower, the screen of icons); the district library, a building site with a concrete slab to climb and the builders' hut |
 | VIII | the village houses, each furnished differently, the old fort, the monks' houses and the monastery's assembly hall with its gallery, side doors and kitchen; the village temple, the chapel of the great prayer wheel, a nomad tent of black yak hair; two army tents, the bed of a lorry, a field barn with a hay loft |
 | IX | the two shrines on top of the Great Temple, each with an altar heaped with gold; the palace of Axayacatl with its rooms round a patio, the market, the temple of the wind god, the House of the Eagles, the ball court; the white houses of the city and of the landing village; a steam bath |
 
@@ -88,9 +88,12 @@ Buddha in each of the three temples of Che La; bomb craters in Sainte-Aubine.
 
 ### People who take no part in the fight
 
-Every chapter has ten to eighteen bystanders, about half of them women, dressed for the
-place and the time and busy with something. They breathe, shift their weight and look
-about; they are solid, they do not move from their place, and they are not targets.
+Every chapter has ten to eighteen bystanders (more on a large map, and more in chapter VII),
+about half of them women, dressed for the place and the time and busy with something. They
+breathe, shift their weight and look about; those at work keep working (hammering,
+scrubbing, churning), those talking talk with their hands, those seated take a drink now and
+then, those at prayer bow, and some of those standing about go for a stroll and come back.
+They greet you when you stand by them, and chatter among themselves.
 
 | Chapter | Who is there |
 | --- | --- |
@@ -100,7 +103,7 @@ about; they are solid, they do not move from their place, and they are not targe
 | IV | three women at the well, Penelope at her upright loom, the swineherd Eumaeus, the old dog Argos by the villa's door, a baker at her oven, a market woman, a priestess, a potter, an old fisherman, a bard with a lyre, a shepherd with goats |
 | V | Norse women at the loom, the cauldron, the mead casks and the cod racks, one in a doorway looking out to sea; a skald, a priest of the old gods, a boat builder, a shepherd, two of your crew aboard your ship; two captives at a post in the raiders' yard |
 | VI | the baker and his wife, a woman at the café window, the schoolmistress, an old woman in the churchyard, a farm woman, the curé, a farmer, a railwayman, a man of the Resistance, a wounded glider pilot by the wreck |
-| VII | a saleswoman and the people waiting outside the food shop, two men at chess, a yard-keeper, a librarian, two stallholders, an ice fisherman, a lathe worker, two prisoners in the Committee's cells |
+| VII | a saleswoman and the people waiting outside the food shop, two men at chess, a yard-keeper, a librarian, two stallholders, an ice fisherman, a lathe worker, two prisoners in the Committee's cells; passengers and a cleaner in the metro; people at home in the flats; an Orthodox priest and old women at prayer in the church of St Nicholas |
 | VIII | the Dalai Lama with two monks and three Khampa riders at the start; nuns at the prayer wheels, women in striped aprons at the loom, the tea churn and on the terraces, two Nepalese traders with their bales, a Khampa herder with his yaks, an old hermit in his cell |
 | IX | a drummer at the great drum on the Great Temple, market women, a woman at the grinding stone, a weaver, an old man in a doorway, a conch-blower on the palace roof, men and women in canoes on the lake |
 
@@ -390,10 +393,16 @@ network.
   west, stops short of the depot with its bell ringing and backs out again; in chapter
   VII a tank crosses the town along the street over the prospekt. Both push aside
   whoever is in their way, and a knock hurts.
-- **Marked places.** The middle button marks the place under the cross-hair (up to nine,
-  numbered); pressed again on a mark, it takes it away. A mark is a pin in the world, a
-  label with its distance seen through walls, and a dot on both maps; a mark beyond the
-  rim of the mini-map sits on the rim, in its direction.
+- **Marked places.** The middle button marks the place under the cross-hair; a new mark
+  replaces the one before, and pressed again on a mark, it takes it away. A mark is a pin in
+  the world, a label with its distance seen through walls, and a dot on both maps with your
+  initial; a mark beyond the rim of the mini-map sits on the rim, in its direction. Together,
+  your partner sees your mark in his game, with your name, and hears a ping when you set it;
+  his mark shows in green in yours.
+- **Named places.** Each chapter's landmarks get their name on both maps once you (or,
+  together, your partner) have been near them, and the first time it is announced on the
+  screen; the hamlets of a large map have names of their own. Together, the ground either of
+  you passes near is uncovered on both maps.
 - **Things that break.** Everything breaks under shots, blows, thrown weapons, fire and
   blasts except stone, plaster, rock and trees. Small things (bottles, lamps, pots, bowls,
   ornaments) go at one shot or blow, and a bullet goes on through them; furniture, crates,
@@ -436,6 +445,20 @@ network.
   is worked out with the same steps as the throw itself, so it is exact for walls, roofs
   and the ground, and for the enemies standing where they are now.
 
+### Voices and gunshots
+
+Every gun has its own report (six-shooter, pistol, lever rifle, rifle, scoped rifle,
+submachine gun, machine gun, arquebus, cannon), deep near by and a dull thud with a rolling
+echo far away. Enemies who see you shout at you in their own language: English in Dry
+Gulch, Japanese at Kagemori, German in Uri and in Normandy, Greek on Ithaca, Norwegian at
+Jarnvik, Russian in Stalnogorsk, Chinese at Che La, Spanish in Tenochtitlan. The words are
+spoken by the speech synthesis of your browser and computer, when it has a voice for that
+language (most computers have English; others can be added in the system's language
+settings); otherwise, and for every cry and every bit of chatter, a voice is synthesised in
+the game from a buzzing tone shaped like the vowels of speech. Fallen enemies cry out;
+bystanders greet you in their language (French in Normandy, Swiss German in Uri) and
+chatter. All of this is on the *Voices* volume.
+
 ### Sound settings and voice chat
 
 The *Sound* button on the title screen, *Sound settings* on the pause screen (or `O`) and
@@ -473,6 +496,7 @@ and the other player (green while they speak).
 | `M` | Music on/off |
 | `O` | Sound settings (on the title screen, the duel screen and while paused) |
 | `G` (while paused) | Graphics: steps through Automatic, High, Medium and Low |
+| `Esc` on the hero, death or end screen | Back to the main menu (every menu also has a *Main menu* button) |
 
 **Sneaking is on `X`, not on `Ctrl`.** Browsers keep the `Ctrl` combinations for
 themselves, and a page cannot stop them: `Ctrl`+`W` closes the tab and `Ctrl`+`Q` can close
@@ -536,6 +560,9 @@ green. The end-of-chapter screen notes that the result was reached in practice m
 | [loot.js](source/src/loot.js) | What each kind of enemy leaves behind, the shots that come with a weapon, and the names shown in the arsenal and the bag. |
 | [life.js](source/src/life.js) | Life around: birds, gusts and dust devils, the train of chapter I and the tank of chapter VII. |
 | [crowd.js](source/src/crowd.js) | The bystanders: fright and flight, crouching, the way back, talking to the player, hands up, wounds and death. |
+| [places.js](source/src/places.js) | The named places of each chapter, and the names of the hamlets of a large map. |
+| [bvh.js](source/src/bvh.js) | A bounding volume hierarchy over the triangles of the merged meshes: shots and lines of sight stop at what is drawn, and roofs can be stood on. |
+| [voices.js](source/src/voices.js) | Enemies' shouts in their languages, greetings and chatter of the bystanders (speech synthesis, or a voice synthesised in the game). |
 | [skills.js](source/src/skills.js) | The heroes' special skills (`E`): what each does, how long it lasts, and which hero has which. |
 | [outskirts.js](source/src/outskirts.js) | The size of the map: the roped-off heart of a small one; the outskirts of a large one (hamlets in each chapter's style, levelled hillsides, boats, trees, people, horses, chimneys, enemies). |
 | [arc.js](source/src/arc.js) | The line of dots that shows where a thrown weapon will land. |
@@ -1035,6 +1062,18 @@ The game was checked with scripted runs in an automated browser: loading each ch
 firing each weapon with simulated clicks, selecting heroes and measuring their
 strengths, enemy attacks, practice mode, death and retry, and the end-of-chapter screen
 (reached by removing the enemies in a script, not by playing through).
+
+Version 2.1.0 was checked the same way: with all enemies alerted at *Genius* wits on large
+maps, all nine chapters ran thirty seconds of game time with no script error (0.6 to 1.7 ms
+of simulation per frame); the triangle tree is built in 45 to 120 ms per chapter (33,000 to
+70,000 triangles) and a line of sight costs about 25 microseconds. A player dropped onto
+roofs in chapters I, II and V stays on them. A script that follows every enemy for sixty
+seconds and reports any step through something solid found open door leaves and screens
+being walked through; they are solid now, and the area enemies can reach from the start
+changed by less than one part in a thousand. In Stalnogorsk an enemy sent after a player on
+the third floor climbed the stairwell to him, and one sent after a player on the metro
+platform went down the escalator hall. Two tabs played together: the partner's way uncovered
+the map and named Boot Hill, and a mark set in one tab appeared, with its ping, in the other.
 
 Version 2.0.0 was checked the same way. The enemies' wits: a gunshot out of sight brings
 *Medium* and *Genius* enemies to where it was fired and leaves *Low* ones idle; a player who

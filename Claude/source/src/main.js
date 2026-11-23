@@ -136,6 +136,17 @@ class Game {
     addEventListener('beforeunload', (e) => { if (this.state === 'play' || this.state === 'pause' || this.state === 'dead' || (this.duel && this.duel.link.open)) { e.preventDefault(); e.returnValue = ''; } });
     this.bindSound();
     addEventListener('resize', () => this.map.resize()); this.map.resize();
+    // the menu buttons of the pause, death and end screens, and the way back from the hero screen
+    const act = (a) => {
+      if (a === 'title') { this.toTitle(); return true; }
+      if (a === 'resume' && this.state === 'pause') { this.setState('play'); this.input.lock(); return true; }
+      if (a === 'gfx') { const all = ['auto', ...GFX_ORDER]; this.setGraphics(all[(all.indexOf(this.gfxWant) + 1) % all.length]); return true; }
+      if (a === 'retry' && this.state === 'dead') { this.openLevel(this.index, true); return true; }
+      if (a === 'heroes' && this.state === 'dead') { this.openLevel(this.index); return true; }
+      if (a === 'again' && this.state === 'clear' && !this.duel) { this.openLevel(this.index); return true; }
+      return false;
+    };
+    for (const id of ['#pause', '#dead', '#clear', '#intro']) $(id).addEventListener('click', (e) => { const b = e.target.closest('.menubtn'); if (b && b.dataset.act && b.dataset.act !== 'sound' && b.dataset.act !== 'next') { e.stopPropagation(); b.blur(); act(b.dataset.act); } }, true);
     $('#pause').addEventListener('click', (e) => { if (e.target.closest('.soundbtn')) return; if (this.state === 'pause') { this.setState('play'); this.input.lock(); } });
     $('#dead').addEventListener('click', () => { if (this.state === 'dead' && this.player.deadT > 1) this.openLevel(this.index, true); });
     $('#clear').addEventListener('click', () => { if (this.state !== 'clear') return; if (this.duel) { if (this.duel.link.open) this.duel.again(); else this.toTitle(); return; } if (this.index + 1 < LEVELS.length) this.openLevel(this.index + 1); else this.toTitle(); });
@@ -160,6 +171,8 @@ class Game {
         }
       }
       if (e.code === 'KeyQ' && this.state === 'pause' && !this.soundOpen) this.toTitle();
+      if (e.code === 'Escape' && !this.soundOpen && (this.state === 'intro' || this.state === 'dead' || this.state === 'clear')) { this.toTitle(); return; }   // Esc: back to the main menu
+      if (e.code === 'Escape' && this.state === 'pause' && !this.soundOpen) { this.setState('play'); this.input.lock(); return; }
       if (e.code === 'Escape' && this.soundOpen) this.soundPanel(false);
       if (this.state === 'intro') {
         const k = ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'Digit7'].indexOf(e.code);  // hero keys
@@ -181,7 +194,7 @@ class Game {
   gfxLabel() {
     const sel = $('#gfxsel'), now = GFX_NAMES[this.gfx.quality];
     sel.value = this.gfxWant; sel.options[0].textContent = this.gfxWant === 'auto' ? 'Automatic (now ' + now + ')' : 'Automatic';
-    $('#gfxnow').textContent = 'Graphics: ' + (this.gfxWant === 'auto' ? 'Automatic, now ' + now : now);
+    $('#gfxnow').textContent = 'Graphics: ' + (this.gfxWant === 'auto' ? 'Automatic, now ' + now : now); $('#gfxbtn').textContent = 'Graphics: ' + (this.gfxWant === 'auto' ? 'Automatic' : now);
   }
   // ---- the sound settings: four volumes, the music on or off, the microphone of the duel ----
   bindSound() {
@@ -493,7 +506,7 @@ class Game {
     $('#clear .kicker').textContent = (r === 'coop' ? 'Two players' : 'Duel') + ' · ' + RULES[r];
     $('#clear .big').textContent = title;
     $('#clear .stats').innerHTML = `<div><b>${a}</b>You${unit}</div><div><b>${b}</b>${this.duel.remote ? this.duel.remote.name : 'Opponent'}${unit}</div>`;
-    $('#clear .go').textContent = this.duel.link.open ? 'Click to play again' : 'Click to return to the chapters';
+    $('#clearnext').textContent = this.duel.link.open ? 'Play again' : 'Back to the chapters'; $('#clear [data-act="again"]').style.display = 'none';
   }
   /** Damage dealt by a computer enemy: to this player, or in a duel to the other one. */
   hurtTarget(P, dmg, from, melee) {
@@ -793,7 +806,7 @@ class Game {
     $('#clear .big').textContent = d.clearTitle;
     const acc = s.shots ? Math.min(100, Math.round((s.hits / s.shots) * 100)) : 0, mm = Math.floor(s.t / 60), ss = String(Math.floor(s.t % 60)).padStart(2, '0');
     $('#clear .stats').innerHTML = `<div><b>${mm}:${ss}</b>Time</div><div><b>${acc}%</b>Accuracy</div><div><b>${s.heads}</b>Headshots</div><div><b>${Math.round(this.player.hp)}</b>Health</div>` + (s.innocents ? `<div><b>${s.innocents}</b>Bystanders killed</div>` : '');
-    $('#clear .go').textContent = last ? 'Click to return to the chapters' : 'Click for the next chapter';
+    $('#clearnext').textContent = last ? 'Back to the chapters' : 'Next chapter'; $('#clear [data-act="again"]').style.display = '';
   }
 
   // ---- per-frame ------------------------------------------------------------

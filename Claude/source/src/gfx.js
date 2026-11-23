@@ -12,6 +12,7 @@ float hash21(vec2 p){ p = fract(p*vec2(123.34, 456.21)); p += dot(p, p+45.32); r
 float vnoise(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.-2.*f);
   return mix(mix(hash21(i),hash21(i+vec2(1,0)),f.x), mix(hash21(i+vec2(0,1)),hash21(i+vec2(1,1)),f.x), f.y); }
 float fbm(vec2 p){ float a=.5, s=0.; for(int i=0;i<5;i++){ s+=a*vnoise(p); p=p*2.03+vec2(17.1,3.7); a*=.5; } return s; }
+float fbm3(vec2 p){ float a=.5, s=0.; for(int i=0;i<3;i++){ s+=a*vnoise(p); p=p*2.03+vec2(17.1,3.7); a*=.5; } return s/0.875; }
 `;
 
 // ---- sky dome -------------------------------------------------------------
@@ -21,7 +22,7 @@ void main(){ vDir = position; vec4 p = projectionMatrix * modelViewMatrix * vec4
 const SKY_FRAG = /* glsl */ `
 varying vec3 vDir;
 uniform vec3 uTop, uHorizon, uGround, uSunDir, uSunColor, uCloudLit, uCloudShade, uMoonDir;
-uniform float uTime, uCover, uCloudScale, uStars, uSunSize, uHaze, uAurora;
+uniform float uTime, uCover, uCloudScale, uStars, uSunSize, uHaze, uAurora, uDetail;
 ${NOISE_GLSL}
 void main(){
   vec3 d = normalize(vDir);
@@ -29,6 +30,12 @@ void main(){
   vec3 col = mix(uHorizon, uTop, pow(clamp(h,0.,1.), uHaze));
   col = mix(col, uGround, smoothstep(0.0, -0.25, h));
   float sd = max(dot(d, uSunDir), 0.);
+  // a band of bright haze just over the horizon, warmer on the side of the sun when it is low
+  vec2 hz = normalize(d.xz + 1e-5), sz = normalize(uSunDir.xz + 1e-5);
+  float side = pow(max(dot(hz, sz), 0.), 3.), low = smoothstep(0.55, 0.0, uSunDir.y);
+  col += mix(uHorizon, uSunColor, 0.35 * low * side) * exp(-abs(h) * 14.) * 0.22;
+  col += uSunColor * side * low * exp(-max(h, 0.) * 6.) * 0.18;
+  col = mix(col, col * 0.82, smoothstep(0.35, 1.0, h) * 0.5);           // the zenith a little deeper
   // glow around the sun, then the disc itself (far brighter than 1 => blooms)
   col += uSunColor * (pow(sd, 6.)*0.22 + pow(sd, 40.)*0.5 + pow(sd, 400.)*2.2);
   col += uSunColor * smoothstep(1.-uSunSize, 1.-uSunSize*0.5, sd) * 28.;
@@ -48,13 +55,25 @@ void main(){
   }
   if (h > 0.0 && uCover > 0.) {
     vec2 p = d.xz/(h+0.1) * uCloudScale + vec2(uTime*0.006, uTime*0.002);
-    float n = fbm(p);
-    float c = smoothstep(1.-uCover, 1.-uCover+0.32, n);
-    float n2 = fbm(p + uSunDir.xz*0.12);
-    float shade = clamp((n - n2)*3. + 0.55, 0., 1.);
-    vec3 cc = mix(uCloudShade, uCloudLit, shade);
-    cc += uSunColor * pow(sd, 5.) * 0.55 * (1.-c*0.6);
-    col = mix(col, cc, c * smoothstep(0.0, 0.12, h));
+    // the shapes are warped by a slower noise, so that they billow and tear instead of lying in blobs
+    vec2 q = uDetail > 0.5 ? vec2(fbm3(p*0.55 + vec2(1.7, 9.2) + uTime*0.003), fbm3(p*0.55 + vec2(8.3, 2.8) - uTime*0.002)) - 0.5 : vec2(0.);
+    vec2 pw = p + q * 1.3;
+    float n = fbm(pw);
+    float c = smoothstep(1.-uCover, 1.-uCover+0.3, n);
+    // light: how much cloud lies between here and the sun (two short steps toward it)
+    vec2 sdir = sz * 0.1;
+    float dn = fbm3(pw + sdir) + (uDetail > 0.5 ? fbm3(pw + sdir * 2.4) : fbm3(pw + sdir));
+    float lit = exp(-max(0., dn * 0.5 - (1. - uCover)) * 5.);
+    vec3 cc = mix(uCloudShade, uCloudLit, clamp(lit * 1.15, 0., 1.));
+    cc += uSunColor * (pow(sd, 7.) * (1. - c) * 1.4 + pow(sd, 2.) * 0.1 * lit);   // thin edges toward the sun shine through
+    float fade = smoothstep(0.0, 0.16, h);
+    cc = mix(uHorizon * 1.05, cc, smoothstep(0.0, 0.25, h));                       // far clouds melt into the haze
+    if (uDetail > 0.5) {                     // high thin cirrus, combed by the wind
+      vec2 pc = d.xz/(h+0.06) * uCloudScale * 0.32 + vec2(uTime*0.01, 0.);
+      float ci = smoothstep(0.52, 0.86, fbm3(vec2(pc.x*0.5 + pc.y*0.2, pc.y*2.4))) * 0.3 * smoothstep(0.06, 0.4, h) * (1. - c);
+      col = mix(col, mix(uCloudLit, uSunColor, 0.15 * pow(sd, 3.)), ci);
+    }
+    col = mix(col, cc, c * fade);
   }
   gl_FragColor = vec4(col, 1.);
 }`;
@@ -324,7 +343,7 @@ export class Gfx {
           uSunDir: this.shared.uSunDir, uSunColor: this.shared.uSunColor, uTime: this.shared.uTime,
           uCloudLit: { value: new THREE.Color() }, uCloudShade: { value: new THREE.Color() },
           uCover: { value: 0.5 }, uCloudScale: { value: 0.6 }, uStars: { value: 0 }, uSunSize: { value: 0.0006 },
-          uHaze: { value: 0.5 }, uMoonDir: { value: new THREE.Vector3(0, 1, 0) }, uAurora: { value: 0 },
+          uHaze: { value: 0.5 }, uMoonDir: { value: new THREE.Vector3(0, 1, 0) }, uAurora: { value: 0 }, uDetail: { value: 1 },
         },
         vertexShader: SKY_VERT, fragmentShader: SKY_FRAG, side: THREE.BackSide, depthWrite: false, fog: false,
       }),
@@ -387,6 +406,7 @@ export class Gfx {
     this.fitShadow();
     for (const rt of [this.composer.renderTarget1, this.composer.renderTarget2]) if (rt.samples !== q.msaa) { rt.samples = q.msaa; rt.dispose(); }
     this.bloom.enabled = q.bloom;
+    if (this.sky) this.sky.material.uniforms.uDetail.value = name === 'low' ? 0 : 1;      // the low setting draws simpler clouds
     this.applyDetail();
     this.resize();
   }

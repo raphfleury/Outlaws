@@ -16,6 +16,59 @@ Each version is a Git tag named `lone-hand-vX.Y.Z` and a
 game as one downloadable file. The number is also shown in the bottom right corner of the
 title screen.
 
+## [2.1.0] - 2026-11-24
+
+### Added
+
+- **Named places.** Every chapter's landmarks get their name on the map and the mini-map once
+  you have been near them (Boot Hill, Kagemori Shrine, the Rütli, the Cave of the Nymphs,
+  Revolution Square Station...), and the first time a name is announced on the screen. The
+  hamlets of a large map have names of their own, in the chapter's language.
+- **Together, the map is shared**: the ground your partner passes near is uncovered on your
+  map too, and the places he finds are named for you as well.
+- **Stalnogorsk (chapter VII) goes below ground and upstairs**: a metro station 10 m down,
+  reached by the escalator hall of the pavilion, with marble columns, chandeliers, a train
+  standing at the platform with its doors open, passengers and the Committee's men; a block
+  with a stairwell up five floors and a furnished flat on every landing; and the church of
+  St Nicholas, still open, with five onion domes, a bell tower, a screen of icons, an Orthodox
+  priest and old women at prayer.
+- **Voices.** Enemies shout when they see you, in their own language (English, Japanese,
+  German, Greek, Norwegian, Russian, Chinese or Spanish) when your computer has a voice for it,
+  and cry out when they fall; bystanders greet you, and chatter among themselves.
+- **Bystanders at their work**: the smith hammers, the women at work scrub and churn, those who
+  talk talk with their hands, those who sit take a drink now and then, some go for a stroll
+  and come back.
+- **A car** drives up the prospekt of Stalnogorsk to the checkpoint, turns and drives off again.
+- **Buttons in every menu**: Resume, Sound settings, Graphics and Main menu in the pause; Try
+  again, Another hero and Main menu after a death; Next chapter, Play this chapter again and
+  Main menu at the end of a chapter; Main menu on the hero screen. `Esc` goes back to the main
+  menu from the hero, death and end screens.
+
+### Changed
+
+- **One mark at a time**: a new mark replaces the one you had. Together, your partner sees
+  your mark (in his game, in your colour, with your name) and hears a ping when you set it;
+  his marks show in green in yours.
+- **Shots and lines of sight stop at what is drawn**: roofs, rocks, carts, stalls, the sides of
+  things, not only at walls; windows, paper screens, cloth and leaves still let them through.
+  Enemies no longer see you through a roof.
+- **Gunshots** are deeper and fuller, and every gun has its own: six-shooter, pistol, lever
+  rifle, rifle, scoped rifle, submachine gun, machine gun, arquebus, cannon.
+- **The sky**: clouds that billow and tear, lit from the sun's side, high thin cirrus, a haze
+  over the horizon and a warm glow on the side of a low sun.
+- **Textures**: finer wood, stone, plaster, roofs and ground, with stains, rain streaks, cracks
+  and wear.
+
+### Fixed
+
+- **Jumping onto a roof** lands you on the roof, not in the loft under it.
+- **Enemies walked through open or closed wooden doors and screens, and into rocks**: doors and
+  wooden panels are now solid (and break like wooden walls), and rocks have something to bump
+  into.
+- The covered wagon of Dry Gulch has a canvas bonnet over its bows, as the wagons of the time
+  had, instead of a sail.
+- Hidden menu buttons no longer catch clicks meant for the screen in front.
+
 ## [2.0.0] - 2026-11-23
 
 ### Added
