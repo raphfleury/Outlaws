@@ -17,7 +17,7 @@ export const PLACES = {
     ['The Alp', -86, 22, 14], ['The Chapel', -44, 14, 10], ['The Watchtower', 74, 34, 10], ['The Great Hay Barn', 26, 52, 10],
     ['The Mill', 48.6, 13.2, 10], ['The Lake Landing', -16, -65, 12], ['The Sust', -22, -44.5, 8], ['The Rütli', -70, -44, 14],
     ['The Bailiff’s Camp', 54, -36, 16], ['The Keep', 62, -47, 10], ['The Quarry', 84, -44, 10], ['The Waterfall', 101, 22.5, 10],
-    ['The Great Boulder', -52, -17, 10],
+    ['The Great Boulder', -52, -17, 10], ['The Suone', 54, 66.3, 10],
   ],
   greece: [
     ['The Temple of Athena', 0, -57, 16], ['The Village Well', -6, 30, 12], ['The Agora', 20, 12, 12], ['The Villa', 50, 24, 12],

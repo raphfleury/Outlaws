@@ -61,6 +61,8 @@ function build({ game, gfx, world, B, M, root, rand, shared }) {
   const STREAM = [[96, 22], [62, 15], [36, 4], [14, -14], [0, -36], [-4, -60]];
   const PATH = [[-32, 60], [-22, 48], [-6, 34], [10, 18], [21, 1], [29, -11], [38, -20], [44, -30]];
   const LANE = [[70, 8], [72, -6], [69, -18], [68, -30]];        // the sunken lane east of the camp
+  const SUONE = [[100.35, 23.9], [97.35, 30.6], [97.35, 50.3], [92, 64.5], [88, 67.4], [84, 68], [80, 66.8], [76, 66.5], [70, 67], [64, 67.5], [58, 67], [52, 66], [48, 65.5], [44, 63.3], [40, 59.8], [36, 57.5]];   // the line of the Suone, from the fall to the last plot
+  const DELL = [[97, 60], [92.5, 53]];                           // a hollow in the meadow north of the fall: the Suone crosses it on trestles
   // ---- terrain: valley, lake basin, ring of mountains -------------------------------
   const hf = new Heightfield(1200, 400, (x, z) => {
     let base = 4.2 + (z + 50) * 0.07 + (fbm(x * 0.02, z * 0.02, 4, 2) - 0.5) * 4.5;
@@ -68,6 +70,7 @@ function build({ game, gfx, world, B, M, root, rand, shared }) {
     base = base * (1 - lake) - 8 * lake;
     base -= (1 - smooth(1.5, 5.5, dPoly(STREAM, x, z))) * 1.4 * (1 - lake);
     base -= (1 - smooth(1.5, 6.5, dPoly(LANE, x, z))) * 1.3;
+    base -= (1 - smooth(1.5, 6.5, dPoly(DELL, x, z))) * 1.9;
     base -= (1 - smooth(2.5, 6.5, Math.hypot(x - 101, z - 22.5))) * 0.8;                   // the basin the waterfall drops into
     const r = Math.hypot(x * 0.95, z < 0 ? z * 0.4 : z * 0.92);
     const m = smooth(124, 340, r);
@@ -578,8 +581,164 @@ function build({ game, gfx, world, B, M, root, rand, shared }) {
   }
 
   // ---- forest, meadow, boulders ----------------------------------------------------------------
+  // ---- the Suone: a bisse, the irrigation channel of the Valais. It takes its water beside the waterfall and leads it about a hundred
+  //      metres to the meadows east of the great hay barn: caught in a wooden launder, cut into the rock, hung on the rock face beside the
+  //      keeper's plank, carried over a hollow on trestles, then dug in the earth with its bank and footpath on the downhill side. A small
+  //      wheel in the ditch lifts a mallet and lets it knock on a board: as long as it knocks, the water runs. Every length of wood breaks
+  //      on its own; below a break the channel is dry and the hammer falls silent (see `update`). -------------------------------------
+  const suone = { flow: [], tail: [], t: 0, cut: -1, hit: false };
+  {
+    const K = suone, PI = Math.PI, WOOD = 0x6a4c30, LARCH = 0x7a5632, DARK = 0x4a3420, GREY = [0x7c7a76, 0x8c8880, 0x6e6c6a], EARTH = 0x6e5a3c, TROD = 0x8a6f4c, MUD = 0x3a3226;
+    const gy = (x, z) => world.height(x, z), water = (fx, fz) => makeWater(shared, { deep: 0x2a6a72, scale: 5, flow: [fx, fz], alpha: 0.78 });
+    /** A band of water along points [x, y, z], hw to each side. */
+    const ribbon = (pts, hw, mat) => {
+      const P = [], N = pts.map((p, i) => { const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)], l = Math.hypot(b[0] - a[0], b[2] - a[2]) || 1; return [-(b[2] - a[2]) / l * hw, (b[0] - a[0]) / l * hw]; });
+      for (let i = 0; i < pts.length - 1; i++) { const [ax, ay, az] = pts[i], [bx, by, bz] = pts[i + 1], [nx, nz] = N[i], [mx, mz] = N[i + 1];
+        P.push(ax - nx, ay, az - nz, ax + nx, ay, az + nz, bx + mx, by, bz + mz, ax - nx, ay, az - nz, bx + mx, by, bz + mz, bx - mx, by, bz - mz); }
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); const m = new THREE.Mesh(g, mat); root.add(m); return m;
+    };
+    /** Water spreading over the grass from (x0, z0) down the slope (dx, dz): a sheet that lies on the ground. */
+    const sheet = (x0, z0, dx, dz, len, spread) => {
+      const P = [], nu = 6, nv = 7, pt = (u, v) => { const w = (0.22 + v / nv * spread) * (1 + 0.22 * Math.sin(v * 2.1 + x0)), a = (u / nu - 0.5) * 2 * w, d = v / nv * len * (1 - 0.7 * (u / nu - 0.5) ** 2), x = x0 + dx * d - dz * a, z = z0 + dz * d + dx * a; return [x, gy(x, z) + 0.06, z]; };
+      for (let v = 0; v < nv; v++) for (let u = 0; u < nu; u++) P.push(...pt(u, v), ...pt(u + 1, v), ...pt(u + 1, v + 1), ...pt(u, v), ...pt(u + 1, v + 1), ...pt(u, v + 1));
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3));
+      const mat = makeWater(shared, { deep: 0x5a9a86, scale: 6, flow: [dx * 0.25, dz * 0.25], alpha: 0.3 }); mat.side = THREE.DoubleSide; const m = new THREE.Mesh(g, mat); root.add(m); return m;
+    };
+
+    // -- the ditch in the earth (E) and the stretch with the openings (G): the water lies just above the ground and never rises on its way
+    const LINE = SUONE.slice(3), D = [];
+    { let s = 0; for (let i = 0; i < LINE.length - 1; i++) { const [ax, az] = LINE[i], [bx, bz] = LINE[i + 1], l = Math.hypot(bx - ax, bz - az), n = Math.max(1, Math.round(l / (i < 8 ? 1.85 : 1.5)));
+        for (let k = 0; k < n; k++) D.push({ x: ax + (bx - ax) * k / n, z: az + (bz - az) * k / n, s: s + l * k / n, field: i >= 8 }); s += l; }
+      D.push({ x: LINE[LINE.length - 1][0], z: LINE[LINE.length - 1][1], s, field: true }); }
+    for (let i = 0; i < D.length; i++) { const a = D[Math.max(0, i - 1)], b = D[Math.min(D.length - 1, i + 1)], l = Math.hypot(b.x - a.x, b.z - a.z), p = D[i]; p.tx = (b.x - a.x) / l; p.tz = (b.z - a.z) / l; p.nx = -p.tz; p.nz = p.tx; }
+    const sd = D.reduce((q, p) => q + gy(p.x - p.nx * 2, p.z - p.nz * 2) - gy(p.x + p.nx * 2, p.z + p.nz * 2), 0) > 0 ? 1 : -1;           // the downhill side: that of (nx, nz) * sd
+    for (let i = D.length - 1; i >= 0; i--) { const p = D[i], g = Math.max(gy(p.x, p.z), gy(p.x + p.nx * 0.3, p.z + p.nz * 0.3), gy(p.x - p.nx * 0.3, p.z - p.nz * 0.3)) + 0.09;
+      p.y = i === D.length - 1 ? g : Math.max(g, D[i + 1].y + (D[i + 1].s - p.s) * 0.01); p.nx *= sd; p.nz *= sd; }
+    const iF = D.findIndex((p) => p.field), gate = new Map([2, 4, 6, 8, 10].map((k, j) => [iF + k, j === 1 || j === 3]));                    // five openings in the downhill bank; two are in use
+    for (let i = 0; i < D.length - 1; i++) {
+      const a = D[i], b = D[i + 1], dx = b.x - a.x, dz = b.z - a.z, l = Math.hypot(dx, dz), ux = dx / l, uz = dz / l, nx = -uz * sd, nz = ux * sd, ry = Math.atan2(-dz, dx), mx = (a.x + b.x) / 2, mz = (a.z + b.z) / 2;
+      const base = Math.min(gy(a.x, a.z), gy(b.x, b.z), gy(mx + nx * 1.1, mz + nz * 1.1)) - 0.6, top = Math.max(a.y, b.y);
+      B.box(M.flat, l + 0.06, (a.y + b.y) / 2 - 0.035 - base, 0.66, mx, base, mz, { ry, c: MUD });                                               // the bed
+      const c0 = gate.has(i) ? 0.3 : -0.05, c1 = gate.has(i + 1) ? 0.3 : -0.05, bo = (c0 - c1) / 2;
+      B.box(M.flat, l - c0 - c1, top + 0.14 - base, 0.8, mx + ux * bo + nx * 0.72, base, mz + uz * bo + nz * 0.72, { ry, c: TROD, solid: true });  // the bank on the downhill side: the keeper's path runs on it
+      B.box(M.flat, l + 0.06, top + 0.08 - base, 0.32, mx - nx * 0.48, base, mz - nz * 0.48, { ry, c: EARTH });                                 // the low bank on the uphill side
+    }
+    K.tail.push(ribbon(D.slice(0, iF + 1).map((p) => [p.x, p.y, p.z]), 0.3, water(-0.9, 0.05)), ribbon(D.slice(iF).map((p) => [p.x, p.y, p.z]), 0.3, water(-0.75, -0.5)));
+    B.noTrinkets++;
+    for (const [j, used] of gate) {                                                                                                             // each opening: two posts and its board
+      const p = D[j], ry = Math.atan2(-p.tz, p.tx), gx = p.x + p.nx * 0.72, gz = p.z + p.nz * 0.72;
+      for (const k of [-1, 1]) B.box(M.wood, 0.09, 0.66, 0.09, gx + p.tx * k * 0.33, p.y - 0.2, gz + p.tz * k * 0.33, { ry, c: 0x7a5a3a });
+      B.box(M.flat, 0.58, 0.5, 0.86, gx, p.y - 0.52, gz, { ry, c: MUD });
+      if (!used) B.box(M.woodH, 0.58, 0.38, 0.045, p.x + p.nx * 0.4, p.y - 0.1, p.z + p.nz * 0.4, { ry, c: 0xa8845a });                              // shut
+      else {                                                                                                                                    // in use: the board stands across the Suone, the water turns through the opening
+        B.box(M.woodH, 0.045, 0.3, 0.7, p.x + p.tx * 0.45, p.y - 0.14, p.z + p.tz * 0.45, { ry, c: 0xa8845a });
+        B.box(M.woodH, 0.58, 0.38, 0.045, gx + p.tx * 0.75 + p.nx * 0.3, p.y + 0.13, gz + p.tz * 0.75 + p.nz * 0.3, { ry, rx: 0.3, c: 0xa8845a });  // (the board of the opening, laid aside on the bank)
+        const side = []; for (let k = 0; k <= 6; k++) { const d = 0.2 + k * 0.5, x = p.x + p.nx * d, z = p.z + p.nz * d; side.push([x, Math.min(p.y - 0.01, gy(x, z) + 0.07), z]); }
+        const e = side[side.length - 1]; K.tail.push(ribbon(side, 0.2, water(p.nx * 0.8, p.nz * 0.8)), sheet(e[0], e[2], p.nx, p.nz, 7.5, 2.8));
+      }
+    }
+    B.noTrinkets--;
+    { const p = D[D.length - 1]; K.tail.push(sheet(p.x, p.z, p.nx, p.nz, 5, 2)); }   // the end: what is left runs out over the last plot
+
+    // -- levels of the water upstream of the ditch, each stretch a little higher than the next
+    const yAq1 = D[0].y + 0.03, yAq0 = yAq1 + 0.42, yHu0 = yAq0 + 0.14, yNo0 = yHu0 + 0.09, yLa1 = yNo0 + 0.02, yLa0 = yLa1 + 0.07;
+    const CX = 97.35, Z0 = 30.6, Z1 = 38.5, Z2 = 50.3, FACE = 97.75, wN = water(0, 0.9);                         // the line along the rock: x; start of the cut, of the hung stretch, of the aqueduct; the rock face
+    /** A length of wooden channel from a to b (water levels ay, by): bottom and two sides; returns its water. */
+    const trough = (ax, az, ay, bx, bz, by, mat, c = WOOD) => {
+      const dx = bx - ax, dz = bz - az, l = Math.hypot(dx, dz), ry = Math.atan2(-dz, dx), mx = (ax + bx) / 2, mz = (az + bz) / 2, y = (ay + by) / 2 - 0.25, nx = -dz / l, nz = dx / l;
+      B.box(M.woodH, l + 0.08, 0.07, 0.56, mx, y, mz, { ry, c, solid: true });
+      for (const k of [-1, 1]) B.box(M.woodH, l + 0.08, 0.36, 0.06, mx + nx * k * 0.27, y, mz + nz * k * 0.27, { ry, c });
+      return ribbon([[ax, ay, az], [bx, by, bz]], 0.22, mat);
+    };
+    /** n lengths of channel from a to b, each a piece that breaks on its own; they go into the list of the flow, in order. */
+    const run = (ax, az, ay, bx, bz, by, n, mat, c) => {
+      for (let k = 0; k < n; k++) { const u0 = k / n, u1 = (k + 1) / n, x0 = ax + (bx - ax) * u0, z0 = az + (bz - az) * u0, y0 = ay + (by - ay) * u0, x1 = ax + (bx - ax) * u1, z1 = az + (bz - az) * u1, y1 = ay + (by - ay) * u1;
+        const p = B.piece({ hp: 70, kind: 'wood', color: c ?? WOOD, x: (x0 + x1) / 2, y: (y0 + y1) / 2 - 0.25, z: (z0 + z1) / 2, r: Math.hypot(x1 - x0, z1 - z0) / 2 + 0.1, top: (y0 + y1) / 2 + 0.11 });
+        const w = trough(x0, z0, y0, x1, z1, y1, mat, c); B.endPiece(); K.flow.push({ p, w, x: x0, y: y0, z: z0 }); }
+    };
+    /** A trestle astride the line (tx, tz) at (x, z), its cap beam up to yTop; what rests on it comes down with it. */
+    const trestle = (x, z, tx, tz, yTop) => {
+      const nx = -tz, nz = tx, g = Math.min(gy(x + nx * 0.62, z + nz * 0.62), gy(x - nx * 0.62, z - nz * 0.62)) - 0.3;
+      B.piece({ hp: 110, kind: 'wood', color: DARK, x, y: g + 0.3, z, r: 0.75, top: yTop });
+      B.box(M.wood, 0.14, 0.14, 1.0, x, yTop - 0.14, z, { ry: Math.atan2(-tz, tx), c: DARK });
+      for (const k of [-1, 1]) { rod(B, M.wood, [x + nx * k * 0.62, g, z + nz * k * 0.62], [x + nx * k * 0.3, yTop - 0.1, z + nz * k * 0.3], 0.06, DARK); world.addCyl(x + nx * k * 0.46, z + nz * k * 0.46, 0.1, g, yTop - 0.1); }
+      rod(B, M.wood, [x + nx * 0.5, g + (yTop - g) * 0.4, z + nz * 0.5], [x - nx * 0.42, g + (yTop - g) * 0.75, z - nz * 0.42], 0.035, DARK);
+      B.endPiece();
+    };
+
+    // -- the rock: a wall that carries the cut and the hung stretch, in front of the buttress north of the waterfall and on beyond it
+    { const zs = [30.4, 34.6, 39.2, 43.6, 47.6, 50.7], tops = [6.2, 7.2, 6.0, 6.9, 5.2];
+      for (let i = 0; i < 5; i++) { const z = (zs[i] + zs[i + 1]) / 2, g = Math.min(gy(FACE, zs[i]), gy(FACE, zs[i + 1])) - 1.5; B.box(M.rock, 3.9 + (i % 2) * 0.5, yNo0 + tops[i] - 2.3 - g, zs[i + 1] - zs[i] + 0.05, FACE + 1.95 + (i % 2) * 0.25, g, z, { c: GREY[i % 3], solid: true }); }
+      for (const [x, y, z, sx, sy, sz, r] of [[99.3, 4.6, 31.6, 3.0, 2.6, 2.6, 0.4], [99.6, 5.6, 36.6, 3.3, 2.8, 3.1, 1.9], [99.2, 4.5, 41.4, 2.9, 2.5, 2.8, 3.1], [99.6, 5.3, 45.6, 3.2, 2.7, 2.7, 4.4], [99.3, 3.9, 49.6, 2.8, 2.4, 2.4, 5.2],   // natural rock above the hewn face,
+        [100.6, 3.0, 30.2, 2.0, 2.6, 1.2, 2.7], [100.2, 0.6, 51.6, 2.4, 3.2, 2.0, 3.6], [102.6, 1.2, 43.4, 3.2, 4.6, 3.4, 0.9], [103, 0.8, 48.2, 3.4, 4.2, 3.2, 2.2],                                                                    // at its ends and behind it,
+        [96.9, -2.6, 36.8, 1.2, 0.9, 1.6, 1.3], [97.6, -2.5, 41.5, 1.3, 0.9, 1.5, 4.0], [97.7, -2.4, 46.5, 1.5, 1.0, 1.3, 5.6]])                                                                                                          // and boulders at its foot
+        B.geo(M.rock, rockGeo(Math.round(sx * 5 + z), 1), [x, yNo0 + y, z], [0, r, 0], [sx, sy, sz], GREY[Math.round(r * 2) % 3]);
+      world.addBox(102.6, 46.6, 5.4, 9.4, 0, gy(102, 46) - 1, yNo0 + 3); world.addCyl(100.6, 52.4, 1.7, gy(100.6, 52.4) - 1, yNo0 + 0.6); }
+
+    // -- A: the intake. A launder catches water at the side of the fall and carries it over to the rock; a sluice board at its end
+    run(100.35, 23.9, yLa0, CX, Z0, yLa1, 2, water(-0.37, 0.83));
+    { const dx = CX - 100.35, dz = Z0 - 23.9, l = Math.hypot(dx, dz); trestle(100.35 + dx / 2, 23.9 + dz / 2, dx / l, dz / l, (yLa0 + yLa1) / 2 - 0.25);
+      rod(B, M.wood, [101.6, yLa0 - 1.5, 24.9], [100.35, yLa0 - 0.3, 24.2], 0.07, DARK); rod(B, M.wood, [101.6, yLa0 - 1.5, 23.2], [100.35, yLa0 - 0.3, 23.7], 0.07, DARK);            // two struts from the rock hold its end in the fall
+      B.noTrinkets++; for (const k of [-1, 1]) B.box(M.wood, 0.1, 1.0, 0.1, CX + k * 0.38, yLa1 - 0.3, Z0 + 0.25, { c: DARK }); B.box(M.wood, 0.9, 0.09, 0.1, CX, yLa1 + 0.7, Z0 + 0.25, { c: DARK });
+      B.box(M.woodH, 0.62, 0.5, 0.05, CX, yLa1 + 0.12, Z0 + 0.25, { c: WOOD }); B.noTrinkets--; }                                                                                  // the sluice board, drawn half up
+
+    // -- B: cut into the rock. A shelf hewn along the face, the water running in it behind a lip of rock; steps cut in the rock lead up to it
+    B.box(M.rock, FACE - 96.7 + 0.1, yNo0 - 0.22 - (gy(97, 34) - 1.5), Z1 - 30.3, (FACE + 96.7) / 2 + 0.05, gy(97, 34) - 1.5, (Z1 + 30.3) / 2, { c: GREY[1], solid: true });
+    B.box(M.rock, 0.3, 0.36, Z1 - 32.1, 96.85, yNo0 - 0.24, (Z1 + 32.1) / 2, { c: GREY[0], solid: true });                                   // (the lip begins beyond the head of the steps)
+    K.flow.push({ p: null, w: ribbon([[CX, yLa1, Z0 - 0.1], [CX, yNo0, Z0 + 0.6], [CX, yHu0 + 0.01, Z1]], 0.33, wN), x: CX, y: yNo0, z: Z0 });
+    steps(B, M, 96.7, 31.25, -PI / 2, yNo0 - 0.22, Math.ceil((yNo0 - 0.22 - gy(91.6, 31.25)) / 0.3), { w: 1.3, rise: 0.3, run: 0.65, mat: M.rock, c: GREY[0] });
+
+    // -- C: hung on the rock face. Beams wedged into the rock carry channels of larch and, outside them, the keeper's plank
+    { const n = 4, L = (Z2 - Z1) / n, walk = (yHu0 + yAq0) / 2 - 0.26;
+      for (let k = 0; k <= n; k++) { const z = Z1 + k * L - (k === n ? 0.12 : 0) + (k === 0 ? 0.12 : 0);
+        B.piece({ hp: 90, kind: 'wood', color: DARK, x: 96.9, y: walk - 0.2, z, r: 0.9, top: walk - 0.06 });
+        B.box(M.wood, 1.9, 0.14, 0.15, 96.9, walk - 0.2, z, { c: DARK }); rod(B, M.wood, [FACE, walk - 1.15, z], [96.25, walk - 0.2, z], 0.05, DARK); B.endPiece(); }
+      run(CX, Z1, yHu0, CX, Z2, yAq0, n, wN, LARCH);
+      for (let k = 0; k < n; k++) { const z = Z1 + (k + 0.5) * L; B.piece({ hp: 60, kind: 'wood', color: 0x8a6a48, x: 96.6, y: walk - 0.06, z, r: L / 2 + 0.1, top: walk });
+        B.box(M.woodH, 0.72, 0.06, L + 0.04, 96.6, walk - 0.06, z, { c: k % 2 ? 0x8a6a48 : 0x7e6040, solid: true }); B.endPiece(); }
+      steps(B, M, 96.24, Z2 - 0.75, -PI / 2, walk, Math.ceil((walk - gy(93.2, Z2 - 0.75)) / 0.3), { w: 1.2, rise: 0.3, run: 0.65, mat: M.rock, c: GREY[2] }); }
+
+    // -- D: the aqueduct. Six lengths of channel on trestles, across the hollow to where the ditch begins
+    { const bx = D[0].x, bz = D[0].z, dx = bx - CX, dz = bz - Z2, l = Math.hypot(dx, dz), n = 6;
+      run(CX, Z2, yAq0, bx, bz, yAq1, n, water(dx / l * 0.95, dz / l * 0.95));
+      for (let k = 1; k < n; k++) trestle(CX + dx * k / n, Z2 + dz * k / n, dx / l, dz / l, yAq0 + (yAq1 - yAq0) * k / n - 0.25); }
+    K.flow.push({ p: null, w: K.tail[0], x: D[0].x, y: D[0].y, z: D[0].z });
+
+    // -- F: the hammer and the keeper's hut
+    { let iH = 0; for (let i = 0; i < iF - 1; i++) if (Math.hypot(D[i].x - 54, D[i].z - 66.3) < Math.hypot(D[iH].x - 54, D[iH].z - 66.3)) iH = i;
+      const p = D[iH], y = p.y, ax = (d, a) => [p.x + p.tx * d + p.nx * a, p.z + p.tz * d + p.nz * a];                                            // (along the flow, across towards the downhill side)
+      K.hp = B.piece({ hp: 60, kind: 'wood', color: WOOD, x: p.x + p.nx * 0.5, y, z: p.z + p.nz * 0.5, r: 1.3, top: y + 0.8 });
+      for (const a of [-0.5, 0.5, 1.25]) { const [x, z] = ax(0, a); B.box(M.wood, 0.1, a > 1 ? 0.78 : 0.86, 0.1, x, y - 0.2, z, { c: 0x7a5a3a }); }                // the posts of the axle
+      { const [x, z] = ax(-0.85, 0.95); B.box(M.wood, 0.12, 0.72, 0.12, x, y - 0.2, z, { c: 0x7a5a3a }); }                                                           // the post the mallet turns on
+      { const [x, z] = ax(0.1, 0.95); B.box(M.woodH, 0.34, 0.05, 0.6, x, y + 0.2, z, { ry: Math.atan2(-p.tz, p.tx), c: 0x9a7a52 });                             // the board it knocks on, on two blocks
+        for (const k of [-0.24, 0.24]) { const [qx, qz] = ax(0.1, 0.95 + k); B.box(M.wood, 0.3, 0.42, 0.08, qx, y - 0.2, qz, { ry: Math.atan2(-p.tz, p.tx), c: DARK }); } }
+      B.endPiece();
+      const mesh = (parts) => { const m = new THREE.Mesh(merge(parts), M.flat); m.castShadow = true; m.rotation.order = 'YXZ'; root.add(m); return m; };
+      K.wheel = mesh([gCyl(0.035, 0.035, 2.0, DARK, [0, 0, 0.42], [PI / 2, 0, 0], 1, 6), gBox(0.06, 0.2, 0.06, DARK, [0, 0.1, 0.95]),                             // the axle and the peg that lifts the mallet,
+        ...[0, 1, 2, 3, 4, 5].map((i) => gBox(0.03, 0.34, 0.4, 0x8a6a48, [-Math.sin(i * PI / 3) * 0.23, Math.cos(i * PI / 3) * 0.23, 0], [0, 0, i * PI / 3])),     // six floats,
+        ...[-0.21, 0.21].map((lz) => gCyl(0.16, 0.16, 0.03, WOOD, [0, 0, lz], [PI / 2, 0, 0], 1, 10))]);                                                           // between two discs
+      K.wheel.position.set(p.x, y + 0.42, p.z); K.wheel.rotation.y = Math.atan2(p.nx, p.nz); K.spin = sd;
+      K.arm = mesh([gBox(0.05, 0.05, 1.0, WOOD, [0, 0, 0.45]), gBox(0.16, 0.2, 0.16, 0x5a4028, [0, -0.05, 0.95])]);
+      { const [x, z] = ax(-0.85, 0.95); K.arm.position.set(x, y + 0.42, z); K.arm.rotation.y = Math.atan2(p.tx, p.tz); }
+      K.x = p.x; K.z = p.z;
+      // the hut: one room of planks under a shingle roof, its door towards the Suone
+      const hx = p.x - p.nx * 3.7 + p.tx * 1.2, hz = p.z - p.nz * 3.7 + p.tz * 1.2, hr = Math.atan2(p.nx, p.nz), hw = 2.8, hd = 2.4, HP = frame(hx, hz, hr), hy = Math.max(...[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([a, b]) => gy(...HP(a * hw / 2, b * hd / 2)))) + 0.05;
+      room(B, M, hx, hy, hz, { w: hw, d: hd, h: 2.0, t: 0.14, ry: hr, mat: M.woodH, c: 0x7a5a3a, doors: [{ side: 's', at: -0.5, w: 0.85, h: 1.75 }], wins: [{ side: 'e', at: 0, w: 0.5, y: 1.0, h: 0.45 }], floor: { mat: M.woodH, c: 0x8a6a48 }, ceil: false });
+      B.geo(M.shingle, prismGeo(hd + 0.9, 1.0, hw + 0.8, 3), [hx, hy + 2.0, hz], [0, hr + PI / 2, 0], 1, 0x6e6a64);
+      { const [bx, bz] = HP(0.75, -0.55); bench(B, M, bx, hy + 0.06, bz, hr); const [sx, sz] = HP(1.05, 1.32); rod(B, M.wood, [sx, hy, sz + 0.25], [sx, hy + 1.7, sz], 0.022, 0x8a6a44); }
+    }
+
+    // -- the keeper clears the ditch with his long hoe; a woman has set her board and waters her plot
+    { let iK = 0; for (let i = 0; i < iF; i++) if (Math.abs(D[i].x - 72) < Math.abs(D[iK].x - 72)) iK = i;
+      const p = D[iK], f = person(B, M, root, 'swissMan', p.x + p.nx * 0.78, p.y + 0.14, p.z + p.nz * 0.78, Math.atan2(-p.nx, -p.nz), { pose: 'work', over: { hat: null } });
+      const hoe = new THREE.Mesh(merge([gCyl(0.018, 0.018, 1.7, 0x9a7a52, [0, -0.75, 0.04]), gBox(0.15, 0.035, 0.11, 0x3a3a40, [0, -1.6, 0.09])]), M.flat); hoe.castShadow = true; f.armR.add(hoe); people.push(f);
+      const q = D[iF + 4]; people.push(person(B, M, root, 'swissWoman', q.x + q.nx * 0.8 - q.tx * 0.75, q.y + 0.14, q.z + q.nz * 0.8 - q.tz * 0.75, Math.atan2(-q.nx + q.tx * 0.6, -q.nz + q.tz * 0.6), { pose: 'work' })); }
+    K.spill = new THREE.Mesh(new THREE.BoxGeometry(0.34, 1, 0.1).translate(0, -0.5, 0), new THREE.MeshBasicMaterial({ color: 0xb8d8e2, transparent: true, opacity: 0.6, depthWrite: false })); K.spill.visible = false; root.add(K.spill);
+  }
+
   const nearBuilt = (x, z) => dPoly(PATH, x, z) < 4 || dPoly(STREAM, x, z) < 5 || (x > 26 && x < 72 && z < -12 && z > -56) || (Math.hypot(x + 10, z - 44) < 34) || Math.hypot(x + 44, z - 14) < 8 || Math.hypot(x - fallX, z - fallZ) < 14 || Math.hypot(x + 34, z - 58) < 17 || Math.hypot(x + 84, z - 27) < 16 || Math.hypot(x - 26, z - 52) < 10 || Math.hypot(x + 52, z + 17) < 16 || Math.hypot(x - 74, z - 34) < 13
-    || dPoly(LANE, x, z) < 5.5 || Math.hypot(x + 20, z + 50) < 18 || Math.hypot(x + 34, z + 58) < 9 || Math.hypot(x + 70, z + 43) < 11 || Math.hypot(x - 49, z - 14) < 11 || (x > 51 && x < 62 && z > -4 && z < 9) || Math.hypot(x - 80, z + 42) < 14;
+    || dPoly(LANE, x, z) < 5.5 || Math.hypot(x + 20, z + 50) < 18 || Math.hypot(x + 34, z + 58) < 9 || Math.hypot(x + 70, z + 43) < 11 || Math.hypot(x - 49, z - 14) < 11 || (x > 51 && x < 62 && z > -4 && z < 9) || Math.hypot(x - 80, z + 42) < 14
+    || dPoly(SUONE, x, z) < 4.5 || (x > 95 && x < 107 && z > 29 && z < 55) || (x > 34 && x < 52 && z > 47 && z < 66);
   const bare = [[52, -34, 3.6], [67, -47, 3.4], [36, -24, 2.7], [-25, -44.5, 3.7], [-19, -44.5, 3.7], [48.6, 13.2, 3.9]];   // floors that lie on the ground: no grass grows through them
   const pines = [];
   for (let i = 0; i < 60000 && pines.length < 2100; i++) {
@@ -610,7 +769,7 @@ function build({ game, gfx, world, B, M, root, rand, shared }) {
   const tufts = [], flowers = [], rocks = [];
   for (let i = 0; i < 120000 && tufts.length < 42000; i++) {
     const a = R() * 6.283, r = Math.sqrt(R()) * 131, x = 6 + Math.cos(a) * r, z = 2 + Math.sin(a) * r, h = world.height(x, z);
-    if (h < 0.7 || dPoly(PATH, x, z) < 1.3 || dPoly(STREAM, x, z) < 2.6 || bare.some(([bx, bz, br]) => Math.hypot(x - bx, z - bz) < br)) continue;
+    if (h < 0.7 || dPoly(PATH, x, z) < 1.3 || dPoly(STREAM, x, z) < 2.6 || dPoly(SUONE, x, z) < 1.35 || bare.some(([bx, bz, br]) => Math.hypot(x - bx, z - bz) < br)) continue;
     tufts.push({ x, y: h, z, ry: R() * 6.28, s: [0.35 + R() * 0.4, 0.2 + R() * 0.4, 0.35 + R() * 0.4], c: R.pick([0x86a84e, 0x74983e, 0x94b058, 0x688c3a]) });
     if (i % 5 === 0) flowers.push({ x: x + 0.3, y: h, z: z + 0.2, ry: R() * 6, s: 0.7 + R() * 0.7, c: R.pick([0xffffff, 0xffe04a, 0xffffff, 0x6a8cf0, 0xf07aa8, 0xffe04a]) });
   }
@@ -666,6 +825,22 @@ function build({ game, gfx, world, B, M, root, rand, shared }) {
       eagle.position.set(20 + Math.cos(t * 0.12) * 70, 85 + Math.sin(t * 0.3) * 4, -10 + Math.sin(t * 0.12) * 70); eagle.rotation.set(0, -t * 0.12, 0.25);
       fl.intensity = 34 + Math.sin(t * 17) * 6 + Math.sin(t * 7.3) * 5;
       idle(people, t); wheel.rotation.x = t * 0.8;
+      { // the Suone: the water runs as far as the first broken length of wood; while it reaches the wheel, the hammer knocks every second and a half
+        const K = suone, cut = K.flow.findIndex((f) => f.p && f.p.broken);
+        if (cut !== K.cut) { K.cut = cut; K.flow.forEach((f, i) => { f.w.visible = cut < 0 || i < cut; }); for (const m of K.tail) m.visible = cut < 0; K.spill.visible = cut >= 0;
+          if (cut >= 0) { const f = K.flow[cut]; K.spill.position.set(f.x, f.y, f.z); K.spill.scale.y = Math.max(0.3, f.y - world.height(f.x, f.z)); } }
+        K.wheel.visible = K.arm.visible = !K.hp.broken;
+        if (cut < 0 && !K.hp.broken) {
+          K.t += dt; const ph = K.t / 1.5 % 1, hit = ph >= 0.86;
+          K.wheel.rotation.z = K.t / 1.5 * 6.2832 * K.spin; K.arm.rotation.x = ph < 0.8 ? -0.36 * ph / 0.8 : hit ? 0 : -0.36 * (1 - ((ph - 0.8) / 0.06) ** 2);
+          if (hit && !K.hit && g.state === 'play' && g.sound.ctx) {
+            const P = g.player.pos, d = Math.hypot(K.x - P.x, K.z - P.z);
+            if (d < 42) { const S = g.sound, v = (1 - d / 42) ** 1.5, dest = S.side(Math.max(-1, Math.min(1, ((K.x - P.x) * Math.cos(g.player.yaw) - (K.z - P.z) * Math.sin(g.player.yaw)) / (d || 1))), S.sfx);
+              S.noise({ type: 'bandpass', f0: 950, f1: 520, dur: 0.07, vol: 0.55 * v, q: 1.4, att: 0.002, dest }); S.tone({ type: 'triangle', f0: 250, f1: 175, dur: 0.11, vol: 0.5 * v, att: 0.002, rev: 0.3, dest }); }
+          }
+          K.hit = hit;
+        } else K.arm.rotation.x = Math.min(0, K.arm.rotation.x + dt * 3);
+      }
       ft -= dt;
       if (ft <= 0) {
         ft = 0.05;
