@@ -748,7 +748,7 @@ function build({ game, gfx, world, B, M, root, rand, shared }) {
     for (const L of [cacti, rocks, sage, tufts]) for (const it of L) if (inB(it.x, it.z)) it.s = 0;
     world.cyls = world.cyls.filter((c) => !inB(c.x, c.z)); }
   root.add(instanced(cactusGeo(), M.flat, cacti));
-  root.add(instanced(rockGeo(3, 1), M.rock, rocks));
+  root.add(instanced(rockGeo(3, 1), M.rock, rocks, { solid: true }));
   root.add(instanced(new THREE.IcosahedronGeometry(1, 1), M.rock, sage, { cast: true }));
   const grassMat = windify(M.flat2.clone(), shared, 0.22, 1, 2.2);
   root.add(instanced(tuftGeo(7, 0xb89a60, 0xffffff), grassMat, tufts, { cast: false, thin: true }));

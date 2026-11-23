@@ -547,7 +547,7 @@ function build({ game, gfx, world, B, M, root, rand, shared }) {
   }
   root.add(instanced(tuftGeo(5, 0x6a7a4a, 0xffffff), windify(M.flat2.clone(), shared, 0.22, 1, 1.8), tufts, { cast: false, thin: true }));
   for (let i = 0; i < 40; i++) { const x = (R() - 0.5) * 200, z = -100 - R() * 6, s = 1 + R() * 3; rocks.push({ x, y: world.height(x, z) + s * 0.2, z, ry: R() * 6, s: [s, s * 0.8, s], c: 0xd0ccbc }); }
-  root.add(instanced(rockGeo(3, 1), M.rock, rocks));
+  root.add(instanced(rockGeo(3, 1), M.rock, rocks, { solid: true }));
 
   // ---- atmosphere ---------------------------------------------------------------------------------
   root.add(makeAmbient(shared, { count: 380, box: 36, boxY: 12, size: 0.045, colorA: 0xffe0b0, colorB: 0xffffff, additive: true, alpha: 0.35, bright: 1.2, fall: -0.03, wind: [0.4, 0, 0.3], flutter: 0.6 }));

@@ -538,7 +538,7 @@ function build({ game, gfx, world, B, M, root, rand, shared }) {
   root.add(instanced(merge([gCyl(0.14, 0.2, 1.4, 0x4a3a2c, [0, 0.7, 0], [0, 0, 0], 1, 6), gCone(0.95, 8.6, 0x2f4d30, [0, 5.4, 0], [0, 0, 0], 1, 8), gCone(0.7, 4, 0x3a5a38, [0, 4.2, 0], [0, 1, 0], 1, 7)]), windify(M.rock.clone(), shared, 0.12, 9, 1.0), cypress));
   for (let i = 0; i < 300; i++) { const a = R() * 6.283, d = 80 + R() * 26, x = Math.cos(a) * d, z = Math.sin(a) * d * 1.25, h = world.height(x, z); if (h < -2.5 || h > 3) continue; const s = 0.4 + R() * R() * 2.6; rocks.push({ x, y: h + s * 0.2, z, ry: R() * 6, s: [s, s * 0.8, s], c: R.pick([0xd8cfb8, 0xc8bea6, 0xb8ae98]) }); if (s > 1 && h > -0.5) world.addCyl(x, z, s * 0.8, h - 2, h + s * 0.7); }
   for (const [ix, iz, r] of ISLETS) for (let k = 0; k < 6; k++) { const a = R() * 6.28, x = ix + Math.cos(a) * r * 0.9, z = iz + Math.sin(a) * r * 0.9, s = 2 + R() * 5; rocks.push({ x, y: world.height(x, z) + s * 0.3, z, ry: R() * 6, s: [s, s * 1.3, s], c: 0xc8bea6 }); }
-  root.add(instanced(rockGeo(6, 1), M.rock, rocks));
+  root.add(instanced(rockGeo(6, 1), M.rock, rocks, { solid: true }));
   for (let i = 0; i < 60000 && tufts.length < 16000; i++) {
     const x = (R() - 0.5) * 200, z = -88 + R() * 200, h = world.height(x, z);
     if (h < 3.2 || dPoly(PATH, x, z) < 1.4 || Math.hypot(x - HILL.x, z - HILL.z) < 25 || (Math.abs(x) < 8.5 && z < 32 && z > 16) || dPoly(GOAT, x, z) < 3.4 || (x > 20.3 && x < 27.7 && z > -0.7 && z < 24.7) || indoors.some(([hx, hz, r = 4]) => Math.hypot(x - hx, z - hz) < r)) continue;

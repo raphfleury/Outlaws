@@ -395,6 +395,7 @@ export function makeMaterials() {
   M.flat = std({});
   M.flat2 = std({ side: THREE.DoubleSide });
   M.rock = std({ flatShading: true, roughness: 0.95 });
+  M.rock.userData.rocky = true;
   M.metal = std({ roughness: 0.38, metalness: 0.75 });
   M.cloth = std({ side: THREE.DoubleSide, roughness: 1 });
   const sj = shoji();

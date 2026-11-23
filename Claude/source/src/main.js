@@ -98,7 +98,7 @@ class Game {
     this.gfx.scene.add(this.heroLight);
     this.stats = { shots: 0, hits: 0, heads: 0, t: 0 };
     this.ui = {
-      hp: $('#vital .num'), hpbar: $('#hpbar i'), mate: $('#mate'), skill: $('#skill'), skillName: $('#skill .sn'), skillBar: $('#skill i'), skillFx: $('#skillfx'), pips: $('#pips'), wname: $('#arms .name'), alt: $('#arms .alt'), foes: $('#foes'),
+      hp: $('#vital .num'), hpbar: $('#hpbar i'), mate: $('#mate'), placeBan: $('#placeban'), skill: $('#skill'), skillName: $('#skill .sn'), skillBar: $('#skill i'), skillFx: $('#skillfx'), pips: $('#pips'), wname: $('#arms .name'), alt: $('#arms .alt'), foes: $('#foes'),
       boss: $('#boss'), bossName: $('#boss span'), bossBar: $('#boss i'), msg: $('#msg'), hit: $('#hit'),
       dmg: $('#dmg b'), place: $('#place'), cross: [...document.querySelectorAll('#cross i[data-s]')], bag: $('#bag'), bars: $('#bars'),
     };
@@ -255,11 +255,13 @@ class Game {
     this.world = new World(); this.world.chapter = def.id; this.rand = rng(4242 + i * 977);
     const B = new Builder(this.world);
     const L = (this.level = def.build({ game: this, gfx: this.gfx, world: this.world, B, M: this.M, root: this.gfx.root, rand: this.rand, shared: this.gfx.shared }));
+    if (!backdrop) this.rockColliders();
     this.sized = backdrop ? null : resize({ game: this, world: this.world, level: L, B, M: this.M, root: this.gfx.root, def, index: i }, this.mapSize);   // small, medium or large
     L.enemies = capFoes(L.enemies, this.sized && this.sized.large ? 45 : MAX_FOES);
     this.world.meshes = B.build(this.gfx.root);                 // the merged meshes: a broken table takes what lies on it out of them
+    if (!backdrop) { const t0 = performance.now(); this.world.setVisual(this.world.meshes, this.M); this.bvhMs = performance.now() - t0; }   // shots and sight stop at what is drawn; roofs can be stood on
     if (backdrop) this.nav = null;                         // the title screen only shows the world; nobody has to find a way
-    else { const t0 = performance.now(); this.nav = new Nav(this.world); this.navMs = performance.now() - t0; }   // walkable-area grid for enemy route finding
+    else { const t0 = performance.now(); this.world.roofsOn = false; this.nav = new Nav(this.world); this.world.roofsOn = true; this.navMs = performance.now() - t0; }   // walkable-area grid for enemy route finding (on the ground and floors, not on roofs)
     this.gfx.setEnvironment(L.env); this.gfx.applyDetail();
     this.spawnEnemies();
     this.crowd.setup(this.world.people);
@@ -362,6 +364,28 @@ class Game {
       for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; let n = 0; for (let r = 6; r <= 24; r += 6) if (W.clear(best.x, best.y + 1.6, best.z, best.x + Math.sin(a) * r, best.y + 1.6, best.z + Math.cos(a) * r)) n++; if (n > bn) { bn = n; ba = a; } }
       e.yaw = e.homeYaw = ba; e.sync();
     }
+  }
+
+  /**
+   * The rocks and boulders that the chapters scatter as instanced shapes had nothing to bump into: each one of any size gets a
+   * collider now (unless one stands there already), so that nobody walks into a rock or vanishes inside it, and shots stop at it.
+   */
+  rockColliders() {
+    const W = this.world, m4 = new THREE.Matrix4(), p = new THREE.Vector3(), q = new THREE.Quaternion(), sc = new THREE.Vector3();
+    let n = 0;
+    for (const o of this.gfx.root.children) {
+      if (!o.isInstancedMesh || !o.userData.solid) continue;
+      const g = o.geometry; if (!g.boundingSphere) g.computeBoundingSphere();
+      const bs = g.boundingSphere;
+      for (let i = 0; i < o.count; i++) {
+        o.getMatrixAt(i, m4); m4.decompose(p, q, sc);
+        const s = Math.max(sc.x, sc.z), r = bs.radius * s * 0.8, top = p.y + (bs.center.y + bs.radius) * sc.y;
+        if (r < 0.45 || top - W.height(p.x, p.z) < 0.5) continue;
+        if (W.cyls.some((c) => Math.abs(c.x - p.x) < r && Math.abs(c.z - p.z) < r)) continue;
+        W.addCyl(p.x, p.z, r, p.y - 2, top); n++;
+      }
+    }
+    this.rockCols = n;
   }
 
   /** Switch the playable character: figure in the opening shot, hands, and the hero's trait. */
@@ -529,6 +553,11 @@ class Game {
     if (all.length > 40) { const old = all[0]; old.ret.taken = true; this.pickups.splice(this.pickups.indexOf(old), 1); }
   }
   itemLabel(id) { return itemName(id, this.def); }
+  /** A named place found for the first time: its name, large, for a few seconds. */
+  placeBanner(name) {
+    const el = this.ui.placeBan; if (!el || this.state !== 'play') return;
+    el.textContent = name; el.classList.remove('on'); void el.offsetWidth; el.classList.add('on'); this.sound.discover && this.sound.discover();
+  }
   pickupKey(w) { return w ? (w.type === 'weapon' ? 'w:' + w.kind : w.type === 'ammo' ? 'a' : 'i:' + w.id) : 'i:heal'; }
   /** Something the player puts down (G): it lies in front of him, for him to take again later, or for his partner. */
   dropPickup(what) {

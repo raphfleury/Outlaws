@@ -505,7 +505,7 @@ function build({ game, gfx, world, B, M, root, rand, shared }) {
     tufts.push({ x, y: h, z, ry: R() * 6.28, s: [0.35 + R() * 0.4, 0.2 + R() * 0.35, 0.35 + R() * 0.4], c: R.pick([0xd8c070, 0xc8ae60, 0xb89a50, 0xe2cc84]) });
     if (Math.hypot(x + 24, z - 2) < 9 || Math.hypot(x + 74, z - 30) < 4.8 || inSite(x, z)) tufts.pop();
   }
-  root.add(instanced(rockGeo(5, 1), M.rock, rocks));
+  root.add(instanced(rockGeo(5, 1), M.rock, rocks, { solid: true }));
   root.add(instanced(new THREE.IcosahedronGeometry(1, 1), M.rock, shrubs));
   root.add(instanced(tuftGeo(5, 0xa8904a, 0xffffff), windify(M.flat2.clone(), shared, 0.26, 1, 2.4), tufts, { cast: false, thin: true }));
   root.add(makeAmbient(shared, { count: 320, box: 40, boxY: 14, size: 0.04, colorA: 0xffffff, colorB: 0xfff4d8, alpha: 0.55, fall: -0.02, wind: [0.9, 0, 0.3], flutter: 0.9 }));

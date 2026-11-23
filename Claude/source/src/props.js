@@ -28,6 +28,7 @@ export function instanced(geo, mat, items, o = {}) {
   im.castShadow = o.cast ?? true; im.receiveShadow = o.receive ?? true;
   im.frustumCulled = false;
   if (o.thin) { im.userData.thin = true; im.userData.full = items.length; }
+  if (o.solid) im.userData.solid = true;                 // rocks: each gets a collider (see Game.rockColliders)
   return im;
 }
 

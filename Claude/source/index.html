@@ -108,6 +108,12 @@
   #skill.on { color:var(--accent); } #skill.on b i { background:#fff; }
   #skillfx { position:absolute; inset:0; pointer-events:none; opacity:0; transition:opacity .35s; background:radial-gradient(ellipse at center, transparent 55%, var(--tint, rgba(255,255,255,.3)) 100%); }
   body.skillfx #skillfx { opacity:1; }
+  /* a named place found for the first time */
+  #placeban { position:absolute; left:50%; top:22vh; transform:translateX(-50%); font-family:var(--display); font-size:clamp(26px,3.4vw,44px); letter-spacing:.08em; color:var(--ink); text-shadow:0 2px 18px rgba(0,0,0,.85); opacity:0; pointer-events:none; white-space:nowrap; }
+  #placeban::before, #placeban::after { content:''; display:inline-block; width:60px; height:1px; background:var(--accent); vertical-align:middle; margin:0 18px; opacity:.8; }
+  #placeban.on { animation:placeban 4.2s ease-out forwards; }
+  @keyframes placeban { 0% { opacity:0; letter-spacing:.3em; } 15% { opacity:1; letter-spacing:.08em; } 75% { opacity:1; } 100% { opacity:0; } }
+  #pins .pin.mate { background:#7ad86a; }
   /* the partner's tag, together against the enemy */
   #mate { position:absolute; display:none; transform:translate(-50%,-100%); text-align:center; pointer-events:none; white-space:nowrap; text-shadow:0 1px 3px rgba(0,0,0,.9); }
   #mate b { display:block; font-family:var(--display); font-weight:normal; font-size:19px; color:#9fe08a; letter-spacing:.03em; }
@@ -256,6 +262,7 @@
   <div id="pins"></div>
   <div id="bars"></div>
   <div id="mate"></div>
+  <div id="placeban"></div>
   <div id="voice"></div>
 </div>
 <canvas id="bigmap" width="700" height="700"></canvas>

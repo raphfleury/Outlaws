@@ -10,6 +10,7 @@ import * as K from './props.js';
 import { Heightfield } from './build.js';
 import { TYPES } from './actors.js';
 import { rng } from './util.js';
+import { hamletName } from './places.js';
 
 /** How each chapter builds: walls, roofs, the people, the trees, what stands in a yard. */
 const STYLE = {
@@ -134,7 +135,8 @@ function grow(ctx) {
   }
   const out = { chimneys: [], large: true, hamlets: sites.length, why }, trees = [], horses = [];
   const kinds = foeKinds(L.enemies);
-  for (const s of sites) hamlet(ctx, st, s, R, out, trees, horses, kinds);
+  out.places = []; const used = new Set();
+  for (const s of sites) { hamlet(ctx, st, s, R, out, trees, horses, kinds); out.places.push([hamletName(def.id, R, used), s.x, s.z, 16]); }
   for (const b of boats) {
     const y = W.waterY + 0.25; K.ship(B, M, b.x, y, b.z, b.ry, st.boats);
     const crew = st.boats.len > 10 ? 2 : 1, c = Math.cos(b.ry), sn = Math.sin(b.ry);

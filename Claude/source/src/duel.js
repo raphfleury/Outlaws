@@ -363,6 +363,7 @@ export class Duel {
       }
       case 'sh': case 'esh': ghost(); break;
       case 'sk': G.sound.skill(m.k); break;      // the other player's skill: heard
+      case 'mk': if (this.cfg && this.cfg.rules === 'coop') G.map.mateMark(m); break;   // the partner marked a place (or took his mark away)
       case 'drop': if (this.phase === 'play' && m.w && (m.w.type === 'weapon' || m.w.type === 'item')) G.addPickup(m.x, m.z, G.level, m.y, m.w); break;   // something the other player put down
       case 'name': this.theirName = String(m.n || '').slice(0, 16); if (this.remote) this.remote.name = this.theirName || this.remote.hero; if (this.phase === 'pick') G.duelPickInfo(); break;
       case 'en': if (!this.isHost) m.e.forEach((a, i) => { const e = this.ai[i]; if (e) e.net = { x: a[0], y: a[1], z: a[2], yaw: a[3], st: a[4], pose: a[5], sn: a[6], hp: a[7], dk: a[8] || 0 }; }); break;

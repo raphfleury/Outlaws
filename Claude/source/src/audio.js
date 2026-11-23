@@ -185,13 +185,18 @@ export class Sound {
   /** The tank: the engine's growl and the clatter of the tracks. */
   rumble(far = 0) { if (!this.ctx) return; const v = Math.max(0.04, 1 - far); this.noise({ type: 'lowpass', f0: 260, f1: 140, dur: 0.18, vol: v * 0.32 }); if (Math.random() < 0.5) this.noise({ type: 'bandpass', f0: 1800, dur: 0.04, vol: v * 0.08, q: 4 }); }
   /** A pin put on the map, or taken away. */
-  mark(on = true) { if (!this.ctx) return; this.tone({ type: 'triangle', f0: on ? 1320 : 990, dur: 0.12, vol: 0.12 }); this.tone({ type: 'triangle', f0: on ? 1760 : 740, dur: 0.16, vol: 0.1, t: this.t + 0.07 }); }
+  mark(on = true, mate = false) {
+    if (!this.ctx) return;
+    if (mate) { for (const [i, f] of [[0, 988], [1, 1319], [2, 1760]]) this.tone({ t: this.t + i * 0.09, type: 'sine', f0: f, dur: 0.22, vol: 0.16, rev: 0.4 }); return; }   // the partner's mark: a clear three-note ping
+   this.tone({ type: 'triangle', f0: on ? 1320 : 990, dur: 0.12, vol: 0.12 }); this.tone({ type: 'triangle', f0: on ? 1760 : 740, dur: 0.16, vol: 0.1, t: this.t + 0.07 }); }
   /** Weapons changed in the hands. */
   swap() { this.noise({ type: 'bandpass', f0: 1300, dur: 0.06, vol: 0.22, q: 2 }); this.noise({ t: this.ctx ? this.t + 0.09 : 0, type: 'bandpass', f0: 2100, dur: 0.04, vol: 0.18, q: 3 }); }
   /** Drinking or eating. */
   gulp() { if (!this.ctx) return; for (let i = 0; i < 3; i++) this.tone({ t: this.t + i * 0.16, type: 'sine', f0: 260 + i * 30, f1: 160, dur: 0.1, vol: 0.18, lp: 900 }); }
   /** A special skill set going: a short rising chord (lower for strength, higher for the eye). */
   skill(id) { if (!this.ctx) return; const f = { fury: 160, shield: 200, dash: 300, mend: 330, vanish: 440, deadeye: 520, eagle: 600 }[id] || 300; for (const [i, m] of [[0, 1], [1, 1.5], [2, 2]]) this.tone({ t: this.t + i * 0.06, type: 'triangle', f0: f * m, f1: f * m * 1.06, dur: 0.35, vol: 0.12, att: 0.02, rev: 0.5 }); }
+  /** A named place found: a soft low chord. */
+  discover() { if (!this.ctx) return; for (const [i, f] of [[0, 220], [1, 277], [2, 330]]) this.tone({ t: this.t + i * 0.05, type: 'triangle', f0: f, dur: 1.4, vol: 0.07, att: 0.15, rev: 0.7 }); }
   /** A blowgun: a short puff of breath, hardly heard. */
   blow() { this.noise({ type: 'bandpass', f0: 1100, f1: 500, dur: 0.09, vol: 0.18, q: 0.8, att: 0.01 }); }
   /** A sling let fly: the strap cracks. */
