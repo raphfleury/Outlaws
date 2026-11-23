@@ -22,7 +22,7 @@ const GUNS = {
 const VOWELS = [[800, 1200, 2500], [500, 1800, 2500], [300, 2250, 3000], [500, 900, 2400], [350, 800, 2300], [650, 1150, 2600]];
 
 export const SOUND_KEY = 'lonehand-sound';
-/** The player's sound settings: four volumes (0..1), music on or off (M), and the microphone of the duel voice chat. */
+/** The player's sound settings: four volumes (0..1), music on or off (M), and the microphone of the online voice chat. */
 export const SOUND_DEFAULTS = { master: 0.8, effects: 1, voice: 1, music: 0.7, musicOn: true, mic: 'open' };
 
 export class Sound {
@@ -72,8 +72,6 @@ export class Sound {
     const t = this.ctx.currentTime, to = (g, v) => g.gain.setTargetAtTime(v, t, 0.03);
     to(this.master, S.master); to(this.fx, S.effects); to(this.voice, S.voice); to(this.musicBus, S.musicOn ? S.music : 0);
   }
-  /** Loudness of the other player's voice (it plays outside Web Audio, so that the browser's echo cancellation can do its work). */
-  get voiceLevel() { return Math.min(1, this.set.master * this.set.voice); }
   toggleMusic() { this.change({ musicOn: !this.set.musicOn }); return this.set.musicOn; }
   get t() { return this.ctx.currentTime; }
 
