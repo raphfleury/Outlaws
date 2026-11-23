@@ -471,7 +471,7 @@ function build({ game, gfx, world, B, M, root, rand, shared }) {
   { const x = 13, z = -103, h = world.height(x, z); root.add(instanced(blobTreeGeo({ leaf: [0x1c3c22, 0x26502c, 0x183420], trunk: 0x3a2a1e, h: 7, spread: 3.4, blobs: 14, seed: 9 }), M.rock, [{ x, y: h - 0.4, z, ry: 1, s: [2.1, 2.0, 2.1], c: 0xffffff }])); world.addCyl(x, z, 0.9, h - 2, h + 12); }
   const rocks = [];
   for (let i = 0; i < 160; i++) { const x = (R() - 0.5) * 200, z = (R() - 0.5) * 320, h = world.height(x, z); if (h < 0.6 || open(x, z)) continue; const s = 0.3 + R() * R() * 1.6; rocks.push({ x, y: h + s * 0.15, z, ry: R() * 6, s: [s, s * 0.7, s], c: R.pick([0x5a5c58, 0x6a6c66, 0x4a4c48]) }); }
-  root.add(instanced(rockGeo(4, 1), M.rock, rocks));
+  root.add(instanced(rockGeo(4, 1), M.rock, rocks, { solid: true }));
 
   // ---- the last of the rain, catching the low sun ----
   root.add(makeAmbient(shared, { count: 1500, box: 28, boxY: 18, size: 0.026, colorA: 0xffe2b8, colorB: 0xd8c8c0, alpha: 0.42, fall: 17, wind: [1.4, 0, 0.6], flutter: 0.04 }));

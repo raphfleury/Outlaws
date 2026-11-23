@@ -73,10 +73,33 @@ function normalFrom(hc, strength = 2) {
   return out;
 }
 
+/** A tile of soft noise (256 px), laid over a texture to give it the unevenness of real material: stains, wear, grain. */
+let _grain = null;
+function grainTile() {
+  if (_grain) return _grain;
+  const c = cv(256); fill(c, (u, v) => { const n = tfbm(u, v, 8, 4, 77) * 0.65 + tfbm(u, v, 32, 3, 78) * 0.35; const L = n * 255; return [L, L, L]; });
+  return (_grain = c);
+}
+/** Lay the noise over a canvas (all of it, tiled): 'overlay' changes light and dark, 'multiply' only darkens. */
+function weather(cvs, alpha = 0.2, mode = 'overlay') {
+  const ctx = cvs.getContext('2d'), g = grainTile(); ctx.save(); ctx.globalAlpha = alpha; ctx.globalCompositeOperation = mode;
+  for (let x = 0; x < cvs.width; x += 256) for (let y = 0; y < cvs.height; y += 256) ctx.drawImage(g, x, y);
+  ctx.restore();
+}
+/** Rain streaks and grime running down a wall from the top of the tile. */
+function streaks(cvs, r, n, alpha = 0.12) {
+  const ctx = cvs.getContext('2d'), S = cvs.width, H = cvs.height;
+  for (let i = 0; i < n; i++) {
+    const x = r() * S, w = 2 + r() * 10, l = H * (0.15 + r() * 0.5), y = r() * H, g = ctx.createLinearGradient(0, y, 0, y + l);
+    g.addColorStop(0, `rgba(40,34,26,${alpha * (0.5 + r())})`); g.addColorStop(1, 'rgba(40,34,26,0)');
+    ctx.fillStyle = g; ctx.fillRect(x, y, w, l); if (y + l > H) ctx.fillRect(x, y - H, w, l);
+  }
+}
+
 export function tex(c, srgb = true) {
   const t = new THREE.CanvasTexture(c);
   t.wrapS = t.wrapT = THREE.RepeatWrapping;
-  t.anisotropy = 8;
+  t.anisotropy = 16;                         // the renderer keeps it to what the graphics card can do
   t.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;
   return t;
 }
@@ -89,7 +112,7 @@ const rot90 = (t) => {
 // --- individual surfaces ---------------------------------------------------
 
 function woodPlanks(seed = 1) {
-  const S = 512, r = rng(seed), c = cv(S), h = cv(S);
+  const S = 1024, r = rng(seed), c = cv(S), h = cv(S);
   const a = c.getContext('2d'), b = h.getContext('2d');
   const n = 8, pw = S / n;
   for (let i = 0; i < n; i++) {
@@ -97,14 +120,14 @@ function woodPlanks(seed = 1) {
     a.fillStyle = `rgb(${L},${L * 0.88},${L * 0.72})`; a.fillRect(x0, 0, pw, S);
     const hb = 140 + r() * 50;
     b.fillStyle = `rgb(${hb},${hb},${hb})`; b.fillRect(x0, 0, pw, S);
-    for (let k = 0; k < 46; k++) {           // grain streaks
+    for (let k = 0; k < 110; k++) {          // grain streaks
       let x = x0 + r() * pw; const ph = r() * 9, fr = 0.01 + r() * 0.02, am = r() * 2.5;
       const dark = r() < 0.75;
       a.strokeStyle = dark ? `rgba(60,36,16,${0.05 + r() * 0.16})` : `rgba(255,240,215,${0.05 + r() * 0.1})`;
       b.strokeStyle = dark ? `rgba(0,0,0,${0.1 + r() * 0.2})` : `rgba(255,255,255,0.12)`;
       a.lineWidth = b.lineWidth = 0.6 + r() * 1.6;
       a.beginPath(); b.beginPath();
-      for (let y = 0; y <= S; y += 16) {
+      for (let y = 0; y <= S; y += 24) {
         const xx = Math.min(x0 + pw - 1, Math.max(x0 + 1, x + Math.sin(y * fr + ph) * am));
         if (y === 0) { a.moveTo(xx, y); b.moveTo(xx, y); } else { a.lineTo(xx, y); b.lineTo(xx, y); }
       }
@@ -121,22 +144,27 @@ function woodPlanks(seed = 1) {
     a.fillStyle = 'rgba(20,10,4,0.85)'; a.fillRect(x0 - 1.5, 0, 3, S);
     b.fillStyle = '#000'; b.fillRect(x0 - 2.5, 0, 5, S);
     if (i === 0) { a.fillRect(S - 1.5, 0, 3, S); b.fillRect(S - 2.5, 0, 5, S); }
-    for (const ny of [40, 296]) {             // nail heads
-      a.fillStyle = 'rgba(30,22,18,0.8)'; a.beginPath(); a.arc(x0 + pw / 2, (ny + r() * 20) % S, 2, 0, 7); a.fill();
+    for (const ny of [80, 592]) {             // nail heads
+      a.fillStyle = 'rgba(30,22,18,0.8)'; a.beginPath(); a.arc(x0 + pw / 2, (ny + r() * 40) % S, 3.5, 0, 7); a.fill();
     }
   }
-  return { map: tex(c), normalMap: tex(normalFrom(blurred(h, 0.7), 2.6), false) };
+  weather(c, 0.22); streaks(c, r, 40, 0.08); weather(h, 0.12);
+  return { map: tex(c), normalMap: tex(normalFrom(blurred(h, 1.0), 2.6), false) };
 }
 
 function plaster(seed = 2) {
-  const S = 256, c = cv(S), h = cv(S);
+  const S = 512, c = cv(S), h = cv(S), r = rng(seed + 40);
   fill(c, (u, v) => {
-    const n = tfbm(u, v, 4, 5, seed), m = tfbm(u, v, 16, 3, seed + 5);
-    const L = 205 + n * 40 + (m - 0.5) * 22;
+    const n = tfbm(u, v, 4, 5, seed), m = tfbm(u, v, 16, 3, seed + 5), k = tfbm(u, v, 64, 2, seed + 11);
+    const L = 205 + n * 40 + (m - 0.5) * 22 + (k - 0.5) * 12;
     return [L, L * 0.97, L * 0.92];
   });
-  fill(h, (u, v) => { const n = tfbm(u, v, 8, 5, seed + 9) * 255; return [n, n, n]; });
-  return { map: tex(c), normalMap: tex(normalFrom(h, 1.4), false) };
+  streaks(c, r, 26, 0.07);
+  for (let i = 0; i < 14; i++) {              // patches where the plaster was mended, or has worn thin
+    const x = r() * S, y = r() * S, w = 20 + r() * 60, g = c.getContext('2d'); g.fillStyle = `rgba(${r() < 0.5 ? '255,250,240' : '120,110,95'},${0.05 + r() * 0.06})`; g.beginPath(); g.ellipse(x, y, w, w * (0.4 + r() * 0.5), r() * 3, 0, 7); g.fill();
+  }
+  fill(h, (u, v) => { const n = (tfbm(u, v, 8, 5, seed + 9) * 0.8 + tfbm(u, v, 48, 2, seed + 13) * 0.2) * 255; return [n, n, n]; });
+  return { map: tex(c), normalMap: tex(normalFrom(h, 1.6), false) };
 }
 
 function stoneWall(seed = 3) {
@@ -161,11 +189,12 @@ function stoneWall(seed = 3) {
     }
   }
   // speckle
-  for (let i = 0; i < 9000; i++) {
+  for (let i = 0; i < 16000; i++) {
     a.fillStyle = r() < 0.5 ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.07)';
     a.fillRect(r() * S, r() * S, 1 + r() * 2, 1 + r() * 2);
   }
-  return { map: tex(c), normalMap: tex(normalFrom(blurred(h, 2.2), 5), false) };
+  weather(c, 0.32); streaks(c, r, 30, 0.1); weather(h, 0.25);
+  return { map: tex(c), normalMap: tex(normalFrom(blurred(h, 1.6), 5), false) };
 }
 
 function shingles(seed = 4) {
@@ -195,12 +224,13 @@ function shingles(seed = 4) {
     a.fillStyle = `rgba(40,25,10,${0.05 + r() * 0.1})`;
     a.fillRect(r() * S, r() * S, 1, 6 + r() * 18);
   }
+  weather(c, 0.25); weather(h, 0.1);
   return { map: tex(c), normalMap: tex(normalFrom(blurred(h, 1), 3.2), false) };
 }
 
 function kawara() {
   // Japanese clay roof tiles: rounded vertical ridges, stepped rows.
-  const S = 256, c = cv(S), h = cv(S);
+  const S = 512, c = cv(S), h = cv(S);
   const rows = 4, cols = 4;
   fill(h, (u, v) => {
     const ridge = Math.pow(Math.abs(Math.cos(u * Math.PI * cols)), 0.7);
@@ -214,16 +244,17 @@ function kawara() {
     const L = 150 + ridge * 60 + n * 40 - (row > 0.94 ? 80 : 0) - (row < 0.1 ? 30 : 0);
     return [L * 0.93, L * 0.97, L * 1.04];
   });
+  weather(c, 0.2);
   return { map: tex(c), normalMap: tex(normalFrom(h, 3), false) };
 }
 
 function thatch(seed = 6) {
-  const S = 256, r = rng(seed), c = cv(S), h = cv(S);
+  const S = 512, r = rng(seed), c = cv(S), h = cv(S);
   const a = c.getContext('2d'), b = h.getContext('2d');
   a.fillStyle = '#b79b62'; a.fillRect(0, 0, S, S);
   b.fillStyle = '#777'; b.fillRect(0, 0, S, S);
-  for (let i = 0; i < 5000; i++) {
-    const x = r() * S, y = r() * S, l = 10 + r() * 40, L = 120 + r() * 120;
+  for (let i = 0; i < 18000; i++) {
+    const x = r() * S, y = r() * S, l = 16 + r() * 70, L = 120 + r() * 120;
     a.strokeStyle = `rgba(${L},${L * 0.85},${L * 0.5},0.5)`;
     b.strokeStyle = r() < 0.5 ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)';
     a.lineWidth = b.lineWidth = 1;
@@ -232,6 +263,7 @@ function thatch(seed = 6) {
       b.beginPath(); b.moveTo(x, y + oy); b.lineTo(x + r() * 4 - 2, y + l + oy); b.stroke();
     }
   }
+  weather(c, 0.25, 'multiply');
   return { map: tex(c), normalMap: tex(normalFrom(h, 2.2), false) };
 }
 
@@ -254,6 +286,13 @@ function ground(seed = 7) {
     hctx.fillStyle = 'rgba(255,255,255,0.8)';
     hctx.beginPath(); hctx.ellipse(x, y, s, s * 0.75, 0, 0, 7); hctx.fill();
   }
+  for (let i = 0; i < 60; i++) {             // fine cracks in the dry crust
+    let x = r() * S, y = r() * S; ctx.strokeStyle = 'rgba(60,50,40,0.18)'; hctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = hctx.lineWidth = 0.8;
+    ctx.beginPath(); hctx.beginPath(); ctx.moveTo(x, y); hctx.moveTo(x, y);
+    for (let k = 0; k < 6; k++) { x += (r() - 0.5) * 22; y += (r() - 0.5) * 22; ctx.lineTo(x, y); hctx.lineTo(x, y); }
+    ctx.stroke(); hctx.stroke();
+  }
+  weather(c, 0.18);
   return { map: tex(c), normalMap: tex(normalFrom(h, 2.4), false) };
 }
 
@@ -285,10 +324,11 @@ function cobble(seed = 9) {
       b.fillStyle = g; b.beginPath(); b.ellipse(cx + ox, cy, rx, ry, ang, 0, 7); b.fill();
     }
   }
-  for (let i = 0; i < 6000; i++) {
+  for (let i = 0; i < 9000; i++) {
     a.fillStyle = r() < 0.5 ? 'rgba(0,0,0,0.07)' : 'rgba(255,255,255,0.06)';
     a.fillRect(r() * S, r() * S, 2, 2);
   }
+  weather(c, 0.28); weather(h, 0.15);
   return { map: tex(c), normalMap: tex(normalFrom(blurred(h, 1.5), 4), false) };
 }
 
@@ -395,6 +435,7 @@ export function makeMaterials() {
   M.flat = std({});
   M.flat2 = std({ side: THREE.DoubleSide });
   M.rock = std({ flatShading: true, roughness: 0.95 });
+  M.rock.userData.rocky = true;
   M.metal = std({ roughness: 0.38, metalness: 0.75 });
   M.cloth = std({ side: THREE.DoubleSide, roughness: 1 });
   const sj = shoji();

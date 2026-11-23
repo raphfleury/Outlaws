@@ -117,7 +117,7 @@ function build({ game, gfx, world, B, M, root, rand, shared }) {
     for (const dz of [-6.5, 3, 11]) rock(115, 25.5, dz, 5.5, 6, 6, 2);
     for (const k of [-1, 1]) { rock(108.5, 25, k * 7.2, 4.6, 8, 4.4, k); rock(117.5, 31.5, k * 5, 5, 5, 6, 3); }
     for (const dz of [-3.3, -1.4, 1.6, 3.4]) rock(101.5, 0.75, dz, 0.75, 0.55, 0.95, dz);                  // small rocks on the lip of the ledge
-    root.add(instanced(rockGeo(9, 1), M.rock, crag));
+    root.add(instanced(rockGeo(9, 1), M.rock, crag, { solid: true }));
     B.box(M.rock, 6.6, 3, 15, 104.7, ledgeY - 3, fallZ, { c: 0x6a6866, solid: true });                     // the ledge behind the water
     for (const k of [-1, 1]) {
       steps(B, M, 101.4, fallZ + k * 5.7, -Math.PI / 2, ledgeY, 3, { w: 3.4, rise: 0.3, run: 0.65, mat: M.rock, c: 0x7c7a76 });
@@ -620,7 +620,7 @@ function build({ game, gfx, world, B, M, root, rand, shared }) {
     rocks.push({ x, y: h + s * 0.2, z, ry: R() * 6, s: [s, s * 0.8, s], c: R.pick([0x8a8882, 0x9a968e, 0x7a7a76]) });
     if (s > 1 && Math.hypot(x - 6, z - 2) < 140) world.addCyl(x, z, s * 0.85, h - 2, h + s * 0.7);
   }
-  root.add(instanced(rockGeo(4, 1), M.rock, rocks));
+  root.add(instanced(rockGeo(4, 1), M.rock, rocks, { solid: true }));
 
   // ---- atmosphere ------------------------------------------------------------------------------
   root.add(makeAmbient(shared, { count: 420, box: 40, boxY: 14, size: 0.045, colorA: 0xffffff, colorB: 0xfff8d0, alpha: 0.7, fall: -0.03, wind: [0.5, 0, 0.3], flutter: 0.9 }));

@@ -563,7 +563,7 @@ function build({ game, gfx, world, B, M, root, rand, shared }) {
   tree(blobTreeGeo({ leaf: [0xffc9d6, 0xffe2e8, 0xf9aec2], h: 4.6, spread: 3.2, blobs: 11, seed: 3 }), [spot(-13, 33, 1.1), spot(12, 14, 1.0), spot(15.5, 34, 1.25), spot(-14, -37, 1.3), spot(13, -39, 1.2), spot(-9, 6, 0.9)]);
   tree(blobTreeGeo({ leaf: [0xc8401c, 0xe0702a, 0xa82a18], h: 4.2, spread: 2.8, blobs: 9, seed: 7 }), [spot(-17, 11, 1.0), spot(30, 16, 1.2), spot(-33, -30, 1.1), spot(27, -36, 1.2), spot(31, 2, 0.9)]);
   tree(blobTreeGeo({ leaf: [0x23412a, 0x2f5234, 0x1c3824], h: 5.2, spread: 2.6, blobs: 8, seed: 11, trunk: 0x2a2018 }), [spot(-34, 30, 1.2), spot(34, 30, 1.1), spot(-36, 6, 1.0), spot(36, -22, 1.2), spot(26, -62, 1.3), spot(-30, -64, 1.2), spot(20, -44, 1.6, false)]);
-  root.add(instanced(rockGeo(5, 1), M.rock, rocks));
+  root.add(instanced(rockGeo(5, 1), M.rock, rocks, { solid: true }));
   const tufts = [], bushes = [];
   for (let i = 0; i < 10500; i++) {
     const x = (R() - 0.5) * 162, z = -76 + R() * 156;

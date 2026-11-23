@@ -369,8 +369,16 @@ function build({ game, gfx, world, B, M, root, rand, shared }) {
     for (const [lx, lz] of [[0.92, 1.1], [-0.92, 1.1], [0.92, -1.1], [-0.92, -1.1]]) { const [wx, wz] = P(lx, lz); B.geo(M.flat, wheel(), [wx, 0.67, wz], [0, ry, 0]); }
     const [tx, tz] = P(0, 2.9); B.box(M.wood, 0.1, 0.1, 2.6, tx, 0.62, tz, { ry, rx: 0.2, c: 0x5a3a24 });
     if (cover) {
-      const g = new THREE.CylinderGeometry(0.95, 0.95, 3.3, 14, 1, true, 0, Math.PI);
-      B.geo(M.cloth, g, [x, 1.3, z], [Math.PI / 2, ry + Math.PI / 2, 0], [1, 1, 1.25], 0xe0d6c0);
+      // a prairie schooner: a canvas bonnet stretched lengthwise over five bent wooden bows, open at both ends, laced to the sides of the bed
+      const g = new THREE.CylinderGeometry(0.86, 0.86, 3.2, 18, 1, true, Math.PI / 2, Math.PI); g.rotateX(Math.PI / 2);
+      B.geo(M.cloth, g, [x, 1.38, z], [0, ry, 0], [1, 1.12, 1], 0xe8e0cc);
+      for (let i = 0; i < 5; i++) {
+        const lz = -1.55 + i * 0.775, [bx, bz] = P(0, lz), bow = new THREE.TorusGeometry(0.885, 0.028, 4, 16, Math.PI);
+        B.geo(M.wood, bow, [bx, 1.38, bz], [0, ry, 0], [1, 1.12, 1], 0x6a4a2e);
+      }
+      for (const e of [-1, 1]) { const [ex, ez] = P(0, e * 1.6), puck = new THREE.TorusGeometry(0.5, 0.05, 5, 14, Math.PI); B.geo(M.cloth, puck, [ex, 1.38, ez], [0, ry, 0], [1.6, 1.9, 1], 0xd8d0bc); }   // the drawn-in canvas at the ends
+      const [sx, sz] = P(0, 1.3); B.box(M.woodH, 1.5, 0.12, 0.5, sx, 1.42, sz, { ry, c: 0x5a3a24 });                                                   // the driver's seat under the front bow
+      for (const a of [-1, 1]) { const [rx, rz] = P(a * 0.8, 0); B.box(M.cloth, 0.04, 0.05, 3.2, rx, 1.36, rz, { ry, c: 0x8a7a5a }); }                  // the lacing along the bed
     }
     world.addBox(x, z, 2.0, 3.6, ry, 0, cover ? 2.4 : 1.4);
   };
@@ -748,7 +756,7 @@ function build({ game, gfx, world, B, M, root, rand, shared }) {
     for (const L of [cacti, rocks, sage, tufts]) for (const it of L) if (inB(it.x, it.z)) it.s = 0;
     world.cyls = world.cyls.filter((c) => !inB(c.x, c.z)); }
   root.add(instanced(cactusGeo(), M.flat, cacti));
-  root.add(instanced(rockGeo(3, 1), M.rock, rocks));
+  root.add(instanced(rockGeo(3, 1), M.rock, rocks, { solid: true }));
   root.add(instanced(new THREE.IcosahedronGeometry(1, 1), M.rock, sage, { cast: true }));
   const grassMat = windify(M.flat2.clone(), shared, 0.22, 1, 2.2);
   root.add(instanced(tuftGeo(7, 0xb89a60, 0xffffff), grassMat, tufts, { cast: false, thin: true }));

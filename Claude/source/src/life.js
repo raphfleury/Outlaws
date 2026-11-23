@@ -18,17 +18,17 @@ const BIRDS = {
 const WIND = { west: { dust: true, devil: true }, greece: { dust: true }, tibet: { dust: true, devil: true }, aztec: { dust: true }, russia: { snow: true }, north: { snow: true }, swiss: { dust: true } };
 
 export class Life {
-  constructor(game) { this.game = game; this.flocks = []; this.train = null; this.tank = null; this.gustT = 6; this.devil = null; this.devilT = 20; this._v = new THREE.Vector3(); }
+  constructor(game) { this.game = game; this.flocks = []; this.train = null; this.tank = null; this.car = null; this.gustT = 6; this.devil = null; this.devilT = 20; this._v = new THREE.Vector3(); }
 
   /** After a chapter is built (and its route grid made). */
   setup() {
     const G = this.game;
-    this.flocks = []; this.train = null; this.tank = null; this.devil = null; this.gustT = 4 + Math.random() * 4; this.devilT = 15 + Math.random() * 15;
+    this.flocks = []; this.train = null; this.tank = null; this.car = null; this.devil = null; this.gustT = 4 + Math.random() * 4; this.devilT = 15 + Math.random() * 15;
     if (!G.nav) return;
     const id = G.def.id, B = BIRDS[id];
     if (B) this.makeBirds(B);
     if (id === 'west') this.makeTrain();
-    if (id === 'russia') this.makeTank();
+    if (id === 'russia') { this.makeTank(); this.makeCar(); }
     const w = Math.random() * 6.283; this.wind = { x: Math.cos(w), z: Math.sin(w) };
   }
 
@@ -242,7 +242,7 @@ export class Life {
     if (speed < 2 || P.dead || this.hurtT > 0) return;
     for (const b of cols) {
       const dx = P.pos.x - b.x, dz = P.pos.z - b.z, lx = dx * b.c - dz * b.s, lz = dx * b.s + dz * b.c;
-      if (Math.abs(lx) < b.hw + 0.45 && Math.abs(lz) < b.hd + 0.45 && P.pos.y < b.y1 && P.pos.y + 1.7 > b.y0) { this.hurtT = 1.5; G.hurtPlayer(what === 'train' ? 40 : 30, { x: b.x, z: b.z }, true); G.say(what === 'train' ? 'Hit by the train' : 'Knocked down by the tank'); break; }
+      if (Math.abs(lx) < b.hw + 0.45 && Math.abs(lz) < b.hd + 0.45 && P.pos.y < b.y1 && P.pos.y + 1.7 > b.y0) { this.hurtT = 1.5; G.hurtPlayer(what === 'train' ? 40 : 30, { x: b.x, z: b.z }, true); G.say(what === 'train' ? 'Hit by the train' : what === 'car' ? 'Hit by a car' : 'Knocked down by the tank'); break; }
     }
   }
   far(x, z) { const P = this.game.player.pos; return Math.min(1, Math.hypot(x - P.x, z - P.z) / 140); }
@@ -253,5 +253,35 @@ export class Life {
     this.gusts(dt, t);
     if (this.train) this.trainUpdate(dt);
     if (this.tank) this.tankUpdate(dt, t);
+    if (this.car) this.carUpdate(dt, t);
+  }
+
+  // ---- chapter VII: a Volga up the prospekt ----------------------------------------------------
+  // A black car of the Committee drives in from the south along the prospekt (between the tram and the parked cars), as far as
+  // the checkpoint, turns round there and drives out again; then, a minute later, another time. It pushes whoever is in its way.
+  makeCar() {
+    const G = this.game, W = G.world, M = G.M, X = Math.PI / 2, C = 0x16161a, GL = 0x1c2630;
+    const parts = [gBox(1.8, 0.6, 4.6, C, [0, 0.55, 0]), gBox(1.6, 0.5, 2.3, C, [0, 1.1, -0.2]), gBox(1.62, 0.36, 2.0, GL, [0, 1.12, -0.2]), gBox(1.78, 0.08, 4.62, 0xb8bcc0, [0, 0.62, 0])];
+    for (const [x, z] of [[0.85, 1.45], [-0.85, 1.45], [0.85, -1.45], [-0.85, -1.45]]) parts.push(gCyl(0.33, 0.33, 0.22, 0x101012, [x, 0.33, z], [0, 0, X], 1, 10));
+    const g = new THREE.Group(); g.add(new THREE.Mesh(merge(parts), M.metal));
+    const lights = merge([gBox(0.26, 0.14, 0.04, 0xfff0c0, [0.6, 0.66, 2.31]), gBox(0.26, 0.14, 0.04, 0xfff0c0, [-0.6, 0.66, 2.31]), gBox(0.22, 0.1, 0.04, 0xff3020, [0.65, 0.68, -2.31]), gBox(0.22, 0.1, 0.04, 0xff3020, [-0.65, 0.68, -2.31])]);
+    g.add(new THREE.Mesh(lights, M.glow)); g.traverse((q) => { q.castShadow = true; }); g.visible = false; G.gfx.root.add(g);   // the model's front is its +Z
+    const col = W.addBox(-400, 0, 1.9, 4.7, 0, -1, 1.5);
+    this.car = { g, col, x: -3.3, z: 115, ry: Math.PI, v: 0, state: 'away', t: 8 + Math.random() * 20, hum: 0, turn: 0 };
+  }
+  carUpdate(dt, t) {
+    const C = this.car, G = this.game, W = G.world, LANE = 3.3, STOP = 37, R = LANE;
+    C.t -= dt;
+    if (C.state === 'away') { C.g.visible = false; C.col.x = -400; if (C.t > 0) return; C.state = 'in'; C.x = -LANE; C.z = 115; C.ry = Math.PI; C.v = 0; }
+    if (C.state === 'in') { C.v = Math.min(9, C.v + dt * 3, Math.max(1.2, (C.z - STOP) * 0.7)); C.z -= C.v * dt; if (C.z <= STOP + 0.05) { C.state = 'turn'; C.turn = 0; } }
+    else if (C.state === 'turn') {                                   // round in a half circle to the other side of the road
+      C.turn = Math.min(Math.PI, C.turn + dt * 0.9); C.x = -R * Math.cos(C.turn); C.z = STOP - R * Math.sin(C.turn); C.ry = Math.PI - C.turn;
+      if (C.turn >= Math.PI) { C.state = 'out'; C.v = 2; }
+    } else if (C.state === 'out') { C.ry = 0; C.v = Math.min(9, C.v + dt * 3); C.x = LANE; C.z += C.v * dt; if (C.z >= 115) { C.state = 'away'; C.t = 40 + Math.random() * 50; } }
+    const y = W.height(C.x, C.z); C.g.visible = true; C.g.position.set(C.x, y, C.z); C.g.rotation.y = C.ry;
+    C.col.x = C.x; C.col.z = C.z; C.col.c = Math.cos(C.ry); C.col.s = Math.sin(C.ry); C.col.y0 = y - 1; C.col.y1 = y + 1.5;
+    C.hum -= dt; if (C.hum <= 0) { C.hum = 0.18; const f = this.far(C.x, C.z) * 1.6; if (f < 1) G.sound.engine(f); }
+    if (Math.random() < dt * 3) G.crowd.alarm(C.x + Math.sin(C.ry) * 4, C.z + Math.cos(C.ry) * 4, 4, C.x, C.z);     // out of its way
+    this.knock([C.col], C.v, 'car');
   }
 }

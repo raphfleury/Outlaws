@@ -457,7 +457,7 @@ function build({ game, gfx, world, B, M, root, rand, shared }) {
     if (s > 1 && Math.abs(x) < 118 && z > -100 && z < 66) world.addCyl(x, z, s * 0.85, h - 2, h + s * 0.7);
   }
   for (const [ix, iz, rr] of SKERRIES) for (let k = 0; k < 7; k++) { const a = R() * 6.28, x = ix + Math.cos(a) * rr * 0.7, z = iz + Math.sin(a) * rr * 0.7, s = 2 + R() * 6; rocks.push({ x, y: world.height(x, z) + s * 0.3, z, ry: R() * 6, s: [s, s * 1.5, s], c: 0x565c66 }); }
-  root.add(instanced(rockGeo(4, 1), M.rock, rocks));
+  root.add(instanced(rockGeo(4, 1), M.rock, rocks, { solid: true }));
 
   // ---- atmosphere ---------------------------------------------------------------------------------
   root.add(makeAmbient(shared, { count: 1700, box: 34, boxY: 18, size: 0.05, colorA: 0xffffff, colorB: 0xdfeaff, alpha: 0.9, fall: 1.5, wind: [0.9, 0, 0.4], flutter: 0.7 }));

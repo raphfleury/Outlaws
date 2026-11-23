@@ -94,7 +94,7 @@
   #sound button, .soundbtn { font:inherit; font-size:14px; letter-spacing:.2em; text-transform:uppercase; color:var(--ink); background:rgba(0,0,0,.45); border:1px solid rgba(244,234,212,.35); padding:6px 14px; cursor:pointer; }
   #sound button { margin-top:12px; float:right; } #sound button:hover, .soundbtn:hover { border-color:var(--accent); }
   #title .soundbtn { position:absolute; left:2.2vw; bottom:calc(2.4vh + 34px); font-size:12px; padding:3px 10px; }
-  #pause .soundbtn { margin-top:2vh; pointer-events:auto; }
+  #pause .soundbtn { margin-top:0; }
   #vital .num { font-family:var(--display); font-size:44px; line-height:.9; min-width:74px; }
   #vital .lab, #arms .lab { font-size:13px; letter-spacing:.24em; text-transform:uppercase; color:var(--dim); }
   #hpbar { width:230px; height:9px; background:rgba(0,0,0,.5); border:1px solid rgba(244,234,212,.35); margin-top:6px; }
@@ -108,6 +108,12 @@
   #skill.on { color:var(--accent); } #skill.on b i { background:#fff; }
   #skillfx { position:absolute; inset:0; pointer-events:none; opacity:0; transition:opacity .35s; background:radial-gradient(ellipse at center, transparent 55%, var(--tint, rgba(255,255,255,.3)) 100%); }
   body.skillfx #skillfx { opacity:1; }
+  /* a named place found for the first time */
+  #placeban { position:absolute; left:50%; top:22vh; transform:translateX(-50%); font-family:var(--display); font-size:clamp(26px,3.4vw,44px); letter-spacing:.08em; color:var(--ink); text-shadow:0 2px 18px rgba(0,0,0,.85); opacity:0; pointer-events:none; white-space:nowrap; }
+  #placeban::before, #placeban::after { content:''; display:inline-block; width:60px; height:1px; background:var(--accent); vertical-align:middle; margin:0 18px; opacity:.8; }
+  #placeban.on { animation:placeban 4.2s ease-out forwards; }
+  @keyframes placeban { 0% { opacity:0; letter-spacing:.3em; } 15% { opacity:1; letter-spacing:.08em; } 75% { opacity:1; } 100% { opacity:0; } }
+  #pins .pin.mate { background:#7ad86a; }
   /* the partner's tag, together against the enemy */
   #mate { position:absolute; display:none; transform:translate(-50%,-100%); text-align:center; pointer-events:none; white-space:nowrap; text-shadow:0 1px 3px rgba(0,0,0,.9); }
   #mate b { display:block; font-family:var(--display); font-weight:normal; font-size:19px; color:#9fe08a; letter-spacing:.03em; }
@@ -223,6 +229,12 @@
   .hero .ht { font-size:14.5px; line-height:1.35; } .hero .ht b { color:var(--accent); font-weight:normal; }
   .hero .hs { font-size:13px; line-height:1.3; margin-top:5px; color:var(--dim); } .hero .hs b { color:var(--ink); font-weight:normal; } .hero .hs kbd { font-size:10px; padding:0 4px; }
   #heroes.many .hs, #heroes.lots .hs { font-size:11.5px; margin-top:3px; }
+  /* the buttons of the menus: what to do next, and always the way back to the main menu */
+  .menu { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; margin-top:3.2vh; }
+  .menubtn { font:inherit; font-size:15px; letter-spacing:.16em; text-transform:uppercase; color:var(--ink); background:rgba(10,8,6,.55); border:1px solid rgba(244,234,212,.4); padding:9px 20px; cursor:pointer; transition:border-color .15s, background .15s; }
+  .menubtn:hover, .menubtn:focus-visible { border-color:var(--accent); background:rgba(40,30,20,.7); outline:none; }
+  .menubtn.main { border-color:var(--accent); color:var(--accent); }
+  #introback { position:absolute; right:3vw; top:3.4vh; font-size:13px; padding:7px 16px; z-index:3; }
   .go { margin-top:3vh; font-size:16px; letter-spacing:.34em; text-transform:uppercase; color:var(--ink); animation:pulse 1.8s ease-in-out infinite; }
   @keyframes pulse { 50% { opacity:.35; } }
   .mid .veil { background:rgba(0,0,0,.5); }
@@ -256,6 +268,7 @@
   <div id="pins"></div>
   <div id="bars"></div>
   <div id="mate"></div>
+  <div id="placeban"></div>
   <div id="voice"></div>
 </div>
 <canvas id="bigmap" width="700" height="700"></canvas>
@@ -338,11 +351,16 @@
     <label class="opt" title="How large the chapter is: small — only its heart; medium — as it was made; large — with outskirts round it">Map <select id="sizesel"><option value="small">Small</option><option value="medium">Medium</option><option value="large">Large</option></select></label></div>
   <div class="pick">Choose your hero</div>
   <div id="heroes"></div>
+  <button class="menubtn" id="introback" data-act="title">&larr; Main menu</button>
 </div>
 
-<div id="pause" class="layer screen mid"><div class="veil"></div><div class="big">Paused</div><div class="go">Click to resume</div><div class="sub" style="font-size:16px;margin-top:2vh">M — music on/off &nbsp;·&nbsp; O — sound settings &nbsp;·&nbsp; G — graphics &nbsp;·&nbsp; Q — back to the chapters</div><div class="sub" id="gfxnow" style="font-size:14px;margin-top:1vh;opacity:.75"></div><button class="soundbtn">Sound settings</button></div>
-<div id="dead" class="layer screen mid"><div class="veil"></div><div class="big"></div><div class="sub"></div><div class="go">Click to try again</div></div>
-<div id="clear" class="layer screen mid"><div class="veil"></div><div class="kicker"></div><div class="big"></div><div class="stats"></div><div class="go"></div></div>
+<div id="pause" class="layer screen mid"><div class="veil"></div><div class="big">Paused</div>
+  <div class="menu"><button class="menubtn main" data-act="resume">Resume</button><button class="menubtn soundbtn" data-act="sound">Sound settings</button><button class="menubtn" data-act="gfx" id="gfxbtn">Graphics</button><button class="menubtn" data-act="title">Main menu</button></div>
+  <div class="sub" style="font-size:15px;margin-top:2.4vh;opacity:.8">Esc or a click — resume &nbsp;·&nbsp; M — music &nbsp;·&nbsp; O — sound &nbsp;·&nbsp; G — graphics &nbsp;·&nbsp; Q — main menu</div><div class="sub" id="gfxnow" style="font-size:14px;margin-top:1vh;opacity:.75"></div></div>
+<div id="dead" class="layer screen mid"><div class="veil"></div><div class="big"></div><div class="sub"></div>
+  <div class="menu"><button class="menubtn main" data-act="retry">Try again</button><button class="menubtn" data-act="heroes">Another hero</button><button class="menubtn" data-act="title">Main menu</button></div></div>
+<div id="clear" class="layer screen mid"><div class="veil"></div><div class="kicker"></div><div class="big"></div><div class="stats"></div>
+  <div class="menu"><button class="menubtn main" data-act="next" id="clearnext"></button><button class="menubtn" data-act="again">Play this chapter again</button><button class="menubtn" data-act="title">Main menu</button></div></div>
 <div id="scope"></div>
 <div id="practice" title="Practice mode: enemies cannot hurt you"><svg viewBox="0 0 32 32" fill="currentColor" aria-hidden="true"><path d="M5 27C11 22 18 15 27 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><ellipse cx="10.5" cy="19" rx="4.6" ry="1.9" transform="rotate(-78 10.5 19)"/><ellipse cx="13.5" cy="24" rx="4.6" ry="1.9" transform="rotate(-8 13.5 24)"/><ellipse cx="15.5" cy="13.5" rx="4.6" ry="1.9" transform="rotate(-80 15.5 13.5)"/><ellipse cx="19" cy="18.5" rx="4.6" ry="1.9" transform="rotate(-12 19 18.5)"/><ellipse cx="20.5" cy="8.5" rx="4.2" ry="1.8" transform="rotate(-84 20.5 8.5)"/><ellipse cx="24.5" cy="12.5" rx="4.2" ry="1.8" transform="rotate(-14 24.5 12.5)"/></svg><span>PAX</span></div>
 <div id="load" class="layer screen on"><p>Preparing the frontier…</p></div>

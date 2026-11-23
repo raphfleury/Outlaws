@@ -30,14 +30,25 @@ function build({ game, gfx, world, B, M, root, rand, shared }) {
   const hf = new Heightfield(760, 150, (x, z) => {
     const paved = Math.max(1 - smooth(9, 13, Math.abs(x)), (1 - smooth(46, 52, Math.abs(x))) * (1 - smooth(30, 36, Math.abs(z + 6))), z < -30 ? 1 - smooth(52, 58, Math.abs(x)) : 0,
       (1 - smooth(11, 15, Math.abs(x - 90))) * (1 - smooth(68, 74, Math.abs(z - 38))),          // level ground under the goods siding
-      (1 - smooth(11, 14, Math.abs(x + 92))) * (1 - smooth(22, 26, Math.abs(z + 13))));         // and under the church and the boiler house
+      (1 - smooth(11, 14, Math.abs(x + 92))) * (1 - smooth(22, 26, Math.abs(z + 13))),          // and under the old church and the boiler house
+      (1 - smooth(21, 25, Math.abs(x - 49))) * (1 - smooth(12, 15, Math.abs(z - 39))),           // over the metro
+      (1 - smooth(12, 15, Math.abs(x + 92))) * (1 - smooth(8, 11, Math.abs(z - 19))));           // under the church of St Nicholas
     return (fbm(x * 0.06, z * 0.06, 3, 4) - 0.5) * 0.4 * (1 - paved);
   });
   world.height = (x, z) => hf.h(x, z);
   world.bounds = { x0: -104, x1: 104, z0: -86, z1: 104 };
   world.maxSlope = 0.95; world.waterY = -50;
   const cS = new THREE.Color(0xdfe5ec), cS2 = new THREE.Color(0xc4ccd6), cD = new THREE.Color(0x8a8e94), tmp = new THREE.Color();
-  root.add(hf.mesh(M.ground, (x, z) => tmp.copy(cS).lerp(cS2, fbm(x * 0.05, z * 0.05, 3, 6)).lerp(cD, (1 - smooth(8, 16, Math.abs(x))) * 0.5)));
+  const ground = hf.mesh(M.ground, (x, z) => tmp.copy(cS).lerp(cS2, fbm(x * 0.05, z * 0.05, 3, 6)).lerp(cD, (1 - smooth(8, 16, Math.abs(x))) * 0.5));
+  { // the ground is not drawn over the well of the metro's escalators, inside the pavilion (x 29.5 to 33.8, z 33.6 to 37.2)
+    const m = (ground.material = M.ground.clone());
+    m.onBeforeCompile = (sh) => {
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec2 vHoleXZ;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvHoleXZ = (modelMatrix * vec4(transformed, 1.0)).xz;');
+      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec2 vHoleXZ;').replace('void main() {', 'void main() {\n  if (vHoleXZ.x > 29.45 && vHoleXZ.x < 33.85 && vHoleXZ.y > 33.55 && vHoleXZ.y < 37.25) discard;');
+    };
+    m.customProgramCacheKey = () => 'metro-hole';
+  }
+  root.add(ground);
   B.box(M.flat, 15, 0.08, 140, 0, -0.03, 34, { c: 0x46484c });                             // the prospekt
   for (const s of [-1, 1]) { B.box(M.metal, 0.09, 0.03, 140, s * 0.75, 0.05, 34, { c: 0x7a7c80 }); B.box(M.flat, 0.5, 0.2, 140, s * 7.7, -0.04, 34, { c: 0x8a8c90 }); }
   for (let z = 100; z > -30; z -= 6) B.box(M.flat, 0.16, 0.01, 2.4, 3.6, 0.055, z, { c: 0xc8c8c4 });
@@ -128,7 +139,7 @@ function build({ game, gfx, world, B, M, root, rand, shared }) {
     B.box(M.glow, 0.05, 0.8, 1.6, x + 1.31, 1.1, z, { c: 0xffe0a0 }); sign('ГАЗЕТЫ', x + 1.34, 2.05, z, 2.2, 0.36, { ry: PI / 2, bg: '#e8e0d0', fg: '#1c2a4a' });
   }
   // ---- the south-west courtyard ---------------------------------------------------------------
-  block(-36, 80, 44, 11, 15, 0xd8d8d2, { doors: -1 }); block(-62, 52, 11, 42, 15, 0xcfd4d0, { doors: 1 }); block(-32, 36, 40, 11, 15, 0xd4d0c8, { doors: 1, gap: [-33, -23], open: 1 });
+  block(-50, 80, 16, 11, 15, 0xd8d8d2, { doors: -1 }); block(-22, 80, 16, 11, 15, 0xd8d8d2, { doors: -1 });   // between the two, the section with its stairwell and flats (below) block(-62, 52, 11, 42, 15, 0xcfd4d0, { doors: 1 }); block(-32, 36, 40, 11, 15, 0xd4d0c8, { doors: 1, gap: [-33, -23], open: 1 });
   { // a ground-floor flat in that block, and the stairwell beside it that runs right through: a short cut from the courtyard to the square
     const x = -28, z = 36, F = 0.16, WC = 0xc8c4ba, H = 2.34;
     room(B, M, x, 0.1, z, { w: 10, d: 11, h: 2.4, t: 0.3, mat: M.plaster, c: WC, base: 0.6, doors: [{ side: 's', at: -4, w: 1.6, h: 2.2 }, { side: 'n', at: -4, w: 1.6, h: 2.2 }],
@@ -394,14 +405,18 @@ function build({ game, gfx, world, B, M, root, rand, shared }) {
   { // metro pavilion south of the square: turnstiles, a ticket window, the way down closed by a grille
     const x = 28, z = 34.5;
     room(B, M, x, 0, z, { w: 12, d: 8, h: 4.4, t: 0.4, mat: M.plaster, c: 0xc8c2b4, base: 0.6, doors: [{ side: 'w', at: 0, w: 2.8, h: 2.8 }, { side: 'n', at: -2.5, w: 2.8, h: 2.8 }], wins: [{ side: 's', at: -1.5, w: 5, y: 1.2, h: 1.8 }],
-      floor: { mat: M.cobble, c: 0x9a8a80 }, ceil: { mat: M.plaster, c: 0xb8b2a4 } });
+      floor: false, ceil: { mat: M.plaster, c: 0xb8b2a4 } });
+    // the floor, with the well of the escalators cut out of it (x 29.5 to 33.8, z 33.6 to 37.2), and a balustrade round the well
+    for (const [ax, bx, az, bz] of [[22.2, 29.5, 30.7, 38.3], [29.5, 33.8, 30.7, 33.6], [29.5, 33.8, 37.2, 38.3]]) B.box(M.cobble, bx - ax, 0.66, bz - az, (ax + bx) / 2, -0.6, (az + bz) / 2, { c: 0x9a8a80, solid: true });
+    for (const bz of [33.6, 37.2]) B.box(M.stone, 4.3, 1.0, 0.16, 31.65, 0.06, bz, { c: 0xd8d2c4, solid: true });
+    B.box(M.stone, 0.16, 1.0, 3.6, 33.72, 0.06, 35.4, { c: 0xd8d2c4, solid: true });
+    sign('ВХОД', 29.2, 2.6, 35.4, 1.4, 0.4, { ry: -PI / 2, bg: '#1c2a4a', fg: '#f0e8c8' });
     roofed(x, 4.6, z, 12, 8);
     sign('МЕТРО', x - 6.1, 3.65, z, 4.2, 0.8, { ry: -PI / 2, bg: '#1c2a4a', fg: '#f0e8c8' }); sign('МЕТРО', x - 2.5, 3.65, z - 4.1, 4.2, 0.8, { ry: PI, bg: '#1c2a4a', fg: '#f0e8c8' });
     B.box(M.metal, 0.16, 2.0, 0.16, x - 5, 5.3, z - 3, { c: IRON }); sign('М', x - 5, 8.1, z - 3, 1.7, 1.7, { ry: -PI / 4, bg: '#f0ece0', fg: '#d01818' });
     for (const k of [-3.3, -1.25, 0.8]) { B.box(M.metal, 1.3, 1.0, 0.35, x - 1.5, 0.06, z + k, { c: 0x6a6e74, solid: true }); B.box(M.glow, 0.16, 0.06, 0.2, x - 2.0, 1.07, z + k, { c: 0x40ff70 }); }
     B.box(M.plaster, 2.4, 2.7, 2.5, x - 1.5, 0.06, z + 2.3, { c: 0x8a9aa6, solid: true }); B.box(M.glow, 0.05, 0.7, 1.2, x - 2.72, 1.2, z + 2.3, { c: 0xffe0a0 }); sign('КАССА', x - 2.74, 2.25, z + 2.3, 1.6, 0.36, { ry: -PI / 2, bg: '#e8e0d0', fg: '#1c2a4a' });
-    bars(B, M, x + 1.2, z - 3.6, x + 1.2, z + 1.05, 0.06, 3.2); sign('ЗАКРЫТО', x + 1.12, 2.3, z - 1.3, 2.4, 0.5, { ry: -PI / 2, bg: '#e8e0d0', fg: '#a01818' });
-    B.box(M.flat, 0.1, 3.0, 3.8, x + 5.5, 0.06, z - 1.4, { c: 0x0c0c10 }); for (const k of [-2.6, -1.4, -0.2]) B.box(M.metal, 3.6, 0.12, 0.16, x + 3.6, 0.55, z + k, { rz: -0.32, c: 0x2a2a2e });
+
     emblem(x + 5.42, 3.55, z - 1.4, 1.0, -PI / 2);
     B.box(M.woodH, 0.5, 0.45, 2.6, x - 5.2, 0.06, z + 2.4, { c: 0x6a5a3a, solid: true });
     for (const k of [-3, 3]) B.box(M.glow, 2.6, 0.08, 0.3, x + k, 4.3, z, { c: 0xf0f4ff });
@@ -541,6 +556,200 @@ function build({ game, gfx, world, B, M, root, rand, shared }) {
     folk('russianWoman', -72.3, -46.6, -PI / 2, { y: 0.06, arms: [-0.7, -0.6], over: { face: ['bun', 'glasses'], extras: ['dress', 'shawl'], shawl: 0x6a4a5a, shirt: 0x8a8a7a, sleeve: 0x8a8a7a, dress: 0x4a4a52 } });
   }
 
+  // ---- below ground: the metro station under the pavilion ----------------------------------------------------------------
+  // An escalator hall goes down 9 m from the pavilion to a platform between two tracks, in the manner of the Moscow stations:
+  // marble columns, arches, bronze chandeliers, the name of the station on the walls; a train stands at the platform with its
+  // doors open. The ground there is cut away (world.height is lowered under the hall at the end of the build).
+  const METRO = { y: -9.0, pit: -10.3, x0: 44.5, x1: 68, z0: 29.5, z1: 48.5, sx0: 29.5, sz0: 33.6, sz1: 37.2 }, MARBLE = 0xd8d2c4, GRANITE = 0x7a6a64, BRONZE = 0xb8903a;
+  {
+    const { y: PY, pit: PIT, x0, x1, z0, z1, sx0, sz0, sz1 } = METRO, zc = (sz0 + sz1) / 2, SW = sz1 - sz0, N = 30, RISE = (0.06 - PY) / N, RUN = (x0 - sx0) / N;
+    // the flight of steps (each a solid block down to the bottom, so that nothing thinks there is room under it)
+    for (let i = 0; i < N; i++) { const top = 0.06 - RISE * (i + 1); B.box(M.stone, RUN, top - PIT + 0.1, SW, sx0 + RUN * (i + 0.5), PIT - 0.1, zc, { c: i % 2 ? GRANITE : 0x6e605a, solid: true }); }
+    // the escalator shaft: marble walls, a vault that follows the slope, bronze lamps on the balustrades
+    for (const s of [-1, 1]) B.box(M.plaster, x0 - sx0 + 0.3, -PIT + 0.4, 0.3, (sx0 + x0) / 2, PIT - 0.4, zc + s * (SW / 2 + 0.15), { c: MARBLE, solid: true });
+    for (let x = 34; x < x0; x += 1.5) { const yt = 0.06 - RISE * ((x - sx0) / RUN) + 3.4; if (yt < -0.5) B.box(M.plaster, 1.55, 0.25, SW + 0.6, x + 0.75, yt, zc, { c: 0xe8e2d4 }); }
+    for (const dz of [-0.6, 0.6]) for (let i = 0; i < N; i += 1) { const x = sx0 + RUN * (i + 0.5), top = 0.06 - RISE * (i + 1); B.box(M.woodH, RUN + 0.02, 0.9, 0.1, x, top, zc + dz, { c: 0x3a2a20 }); }
+    for (let i = 2; i < N; i += 5) { const x = sx0 + RUN * (i + 0.5), top = 0.06 - RISE * (i + 1); for (const dz of [-0.6, 0.6]) { B.cyl(M.metal, 0.04, 0.05, 0.6, x, top + 0.9, zc + dz, { c: BRONZE, seg: 6 }); B.geo(M.glow, new THREE.CylinderGeometry(0.09, 0.07, 0.22, 8), [x, top + 1.6, zc + dz], [0, 0, 0], 1, 0xfff0c0); } }
+    // the ground over the shaft and the hall: one can still walk across it up there
+    for (const [ax, bx, az, bz] of [[33.8, x1 + 0.4, sz0 - 0.4, sz1 + 0.4], [x0 - 0.3, x1 + 0.4, z0 - 0.4, z1 + 0.4]]) { const b = world.addBox((ax + bx) / 2, (az + bz) / 2, bx - ax, bz - az, 0, -0.45, 0); b.noMap = true; }
+    // the hall: walls, the platform between the two tracks, the vault
+    B.box(M.stone, x1 - x0, PY - PIT + 0.1, 11, (x0 + x1) / 2, PIT - 0.1, 38.5, { c: GRANITE, solid: true });                                  // the platform, z 33 to 44
+    for (const s of [-1, 1]) B.box(M.stone, x1 - x0, 0.06, 0.4, (x0 + x1) / 2, PY - 0.03, 38.5 + s * 5.3, { c: 0xe8d8a0 });                      // its pale edges
+    const wallZ = (z, y0, y1) => B.box(M.plaster, x1 - x0 + 0.6, y1 - y0, 0.3, (x0 + x1) / 2, y0, z, { c: MARBLE, solid: true });
+    wallZ(z0 - 0.15, PIT - 0.2, PY + 5.4); wallZ(z1 + 0.15, PIT - 0.2, PY + 5.4);
+    B.box(M.plaster, 0.3, PY + 5.4 - PIT, z1 - z0, x1 + 0.15, PIT - 0.2, (z0 + z1) / 2, { c: MARBLE, solid: true });
+    B.box(M.plaster, 0.3, PY + 5.4 - PIT, sz0 - z0, x0 - 0.15, PIT - 0.2, (z0 + sz0) / 2, { c: MARBLE, solid: true }); B.box(M.plaster, 0.3, PY + 5.4 - PIT, z1 - sz1, x0 - 0.15, PIT - 0.2, (sz1 + z1) / 2, { c: MARBLE, solid: true });
+    B.box(M.plaster, 0.3, 2.2, SW, x0 - 0.15, PY + 3.2, zc, { c: MARBLE, solid: true });
+    for (const [z, dir] of [[z0 + 0.05, 1], [z1 - 0.05, -1]]) for (const x of [x0 + 0.2, x1 - 0.2]) B.box(M.flat, 0.4, 3.6, 3.2, x, PIT, z + dir * 1.75, { c: 0x050506 });   // the dark mouths of the tunnels
+    for (let x = x0; x < x1; x += 2) { B.box(M.plaster, 2.05, 0.3, z1 - z0 + 0.6, x + 1, PY + 5.4, (z0 + z1) / 2, { c: 0xf0ead8 }); }
+    for (let x = x0 + 1; x < x1; x += 3.5) B.geo(M.plaster, new THREE.TorusGeometry(2.7, 0.18, 6, 16, Math.PI), [x, PY + 2.7, 38.5], [0, Math.PI / 2, 0], [1, 1, 1], 0xf4eedc);
+    // the tracks: rails on sleepers in the two pits
+    for (const zt of [31.25, 46.25]) { for (const d of [-0.76, 0.76]) B.box(M.metal, x1 - x0, 0.14, 0.08, (x0 + x1) / 2, PIT + 0.12, zt + d, { c: 0x6a6c70 }); for (let x = x0 + 0.3; x < x1; x += 0.7) B.box(M.woodH, 0.22, 0.12, 2.4, x, PIT, zt, { c: 0x3a2e26 }); B.box(M.metal, x1 - x0, 0.12, 0.1, (x0 + x1) / 2, PIT + 0.2, zt + (zt < 38 ? -1.3 : 1.3), { c: 0x5a5a60 }); }
+    // columns of marble with bronze capitals, chandeliers between them, the name of the station, benches
+    for (let x = x0 + 2.7; x < x1 - 1; x += 3.5) for (const zz of [35.2, 41.8]) { B.box(M.plaster, 0.95, 5.4, 0.95, x, PY, zz, { c: 0xe4dccc, solid: true }); B.box(M.metal, 1.15, 0.3, 1.15, x, PY + 5.1, zz, { c: BRONZE }); B.box(M.stone, 1.1, 0.25, 1.1, x, PY, zz, { c: GRANITE }); }
+    for (let x = x0 + 4.45; x < x1 - 2; x += 7) {
+      B.cyl(M.metal, 0.02, 0.02, 1.2, x, PY + 3.9, 38.5, { c: BRONZE, seg: 4 }); B.geo(M.metal, new THREE.TorusGeometry(0.7, 0.04, 5, 16), [x, PY + 3.9, 38.5], [Math.PI / 2, 0, 0], 1, BRONZE);
+      for (let k = 0; k < 8; k++) { const a = k / 8 * 6.283; B.geo(M.glow, new THREE.SphereGeometry(0.1, 7, 5), [x + Math.cos(a) * 0.7, PY + 4.02, 38.5 + Math.sin(a) * 0.7], [0, 0, 0], 1, 0xfff0c8); }
+      B.geo(M.glow, new THREE.SphereGeometry(0.22, 9, 7), [x, PY + 3.75, 38.5], [0, 0, 0], 1, 0xfff4d8);
+    }
+    for (const [z, ry] of [[z0 + 0.32, 0], [z1 - 0.32, PI]]) for (const x of [x0 + 8, x1 - 8]) sign('ПЛОЩАДЬ РЕВОЛЮЦИИ', x, PY + 3.3, z, 7.2, 0.7, { ry, bg: '#e8e0cc', fg: '#8a1414' });
+    sign('СЛАВА ТРУДУ', x1 - 0.18, PY + 4.3, 38.5, 5, 0.7, { ry: -PI / 2, bg: '#8a1414', fg: '#f0d890' }); emblem(x1 - 0.2, PY + 2.4, 38.5, 1.4, -PI / 2);
+    for (const x of [x0 + 6, x0 + 13, x0 + 20]) { B.box(M.woodH, 2.2, 0.1, 0.5, x, PY + 0.45, 38.5, { c: 0x6a4a30 }); B.box(M.woodH, 2.2, 0.5, 0.08, x, PY + 0.55, 38.5, { c: 0x6a4a30 }); world.addBox(x, 38.5, 2.2, 0.6, 0, PY, PY + 0.9); }
+    // the train at the north platform, its doors open: two cars to walk through
+    for (const [cx, n] of [[51.5, 0], [61.8, 1]]) {
+      const FL = PY - 0.1, zt = 31.25, L = 9.6, BL = 0x2a4a8a;
+      room(B, M, cx, FL, zt, { w: L, d: 2.7, h: 2.3, t: 0.08, mat: M.metal, c: BL, base: 0.9, doors: [-3.2, 0, 3.2].map((at) => ({ side: 's', at, w: 1.2, h: 1.95 })),
+        wins: [-3.2, 0, 3.2].map((at) => ({ side: 'n', at, w: 1.6, y: 0.85, h: 0.75 })).concat([-1.6, 1.6].map((at) => ({ side: 's', at, w: 1.4, y: 0.85, h: 0.75 }))), floor: { mat: M.woodH, c: 0x6a5a4a }, ceil: { mat: M.metal, c: 0xd8d4c8 } });
+      B.box(M.metal, L + 0.04, 0.36, 2.74, cx, FL + 0.9, zt, { c: 0xd8cca8 }); B.box(M.metal, L, 0.5, 2.5, cx, FL - 0.95, zt, { c: 0x1c1c20 });    // the cream band, the bogies
+      for (const s of [-1, 1]) B.box(M.woodH, L - 1, 0.1, 0.45, cx, FL + 0.45, zt - s * 1.0, { c: 0x8a6a40 });                                       // the seats along the sides
+      for (let k = -1; k <= 1; k++) B.box(M.glow, 1.6, 0.04, 0.12, cx + k * 3.2, FL + 2.25, zt, { c: 0xf0f4ff });
+      if (n === 1) { B.box(M.metal, 0.06, 1.2, 1.6, cx + L / 2 + 0.03, FL + 0.9, zt, { c: 0xd8cca8 }); B.geo(M.glow, new THREE.SphereGeometry(0.12, 7, 5), [cx + L / 2 + 0.05, FL + 0.6, zt - 0.8], [0, 0, 0], 1, 0xfff0c0); B.geo(M.glow, new THREE.SphereGeometry(0.12, 7, 5), [cx + L / 2 + 0.05, FL + 0.6, zt + 0.8], [0, 0, 0], 1, 0xfff0c0); }
+    }
+    // who is down there: people waiting for the next train, a cleaner, and the Committee's men
+    folk('russianWoman', x0 + 9, 37, 0.4, { y: PY, pose: 'carry', over: { extras: ['coat', 'shawl'], coat: 0x5a4a3a, shawl: 0x8a2a2a } });
+    folk('russianMan', x0 + 15, 40, PI + 0.3, { y: PY, pose: 'talk', over: { extras: ['coat'], coat: 0x3a3a44, hat: 'ushanka' } });
+    folk('russianWoman', x0 + 21.5, 36.8, -0.8, { y: PY, pose: 'work', over: { extras: ['dress', 'apron'], apron: 0x8ab0c8, kerchief: 0xe8e0d0 } });
+    folk('russianMan', x0 + 13, 38.5, PI / 2, { y: PY, pose: 'sit', seat: 0.45, arms: [-1.1, -1.1], over: { extras: ['coat'], coat: 0x4a4034 } });
+    extraFoes.push(['militia', x0 + 5, 38, { y: PY + 0.3 }], ['agent', x0 + 17, 41, { y: PY + 0.3 }], ['agent', 51.5, 31.3, { y: PY + 0.2, patrol: false }], ['dog', x0 + 19, 36, { y: PY + 0.3 }]);
+    extraPicks.push([x0 + 13.3, 38.6, PY + 0.6]);
+  }
+
+  // ---- a block one can go up: a stairwell with five floors and a flat on each ---------------------------------------------
+  // In the long block on the north side of the courtyard a section is not prefabricated wall but rooms: a stairwell from the
+  // courtyard up to the fifth floor, and on every landing the door of a flat (hall, kitchen, living room), each furnished in its
+  // own way. Windows look out on the courtyard and behind. Enemies can follow up the stairs (see World.ladders, 'stair').
+  const FLATS = { x0: -42, x1: -30, z0: 74.5, z1: 85.5, n: 5, FH: 2.9 };
+  {
+    const { x0, x1, z0, z1, n, FH } = FLATS, WC = 0xd8d8d2, IN = 0xe4dcc8, Y = (k) => 0.16 + FH * k, sx1 = -38.4, oz0 = 77.0, oz1 = 81.3;
+    const slab = (ax, bx, az, bz, top, c = 0x8a8a86) => B.box(M.stone, bx - ax, 0.26, bz - az, (ax + bx) / 2, top - 0.26, (az + bz) / 2, { c, solid: true });
+    const wallX = (z, y0, y1, holes, t = 0.3, c = WC) => {          // a wall along x at z, from x0 to x1, with openings [a, b, ya, yb]
+      let cur = x0; const piece = (a, b, ya, yb) => { if (b - a > 0.02 && yb - ya > 0.02) B.box(M.plaster, b - a, yb - ya, t, (a + b) / 2, ya, z, { c, solid: true }); };
+      for (const [a, b, ya, yb] of holes.sort((p, q) => p[0] - q[0])) { piece(cur, a, y0, y1); piece(a, b, y0, ya); piece(a, b, yb, y1); cur = b; }
+      piece(cur, x1, y0, y1);
+    };
+    const wallZ = (x, za, zb, y0, y1, doorA, doorB, c = IN, dh = 2.1) => {   // a partition along z at x, with a door from doorA to doorB
+      const piece = (a, b, ya, yb) => { if (b - a > 0.02) B.box(M.plaster, 0.14, yb - ya, b - a, x, ya, (a + b) / 2, { c, solid: true }); };
+      if (doorA === undefined) piece(za, zb, y0, y1); else { piece(za, doorA, y0, y1); piece(doorB, zb, y0, y1); piece(doorA, doorB, y0 + dh, y1); }
+    };
+    const wallX2 = (z, xa, xb, y0, y1, doorA, doorB, c = IN, dh = 2.1) => {
+      const piece = (a, b, ya, yb) => { if (b - a > 0.02) B.box(M.plaster, b - a, yb - ya, 0.14, (a + b) / 2, ya, z, { c, solid: true }); };
+      piece(xa, doorA, y0, y1); piece(doorB, xb, y0, y1); piece(doorA, doorB, y0 + dh, y1);
+    };
+    B.box(M.stone, x1 - x0, 0.46, z1 - z0, (x0 + x1) / 2, -0.3, (z0 + z1) / 2, { c: 0x8a8a86, solid: true });          // ground floor
+    for (let k = 0; k < n; k++) {
+      const y = Y(k), top = y + FH;
+      if (k > 0) { slab(x0, x1, z0 + 0.3, oz0, y); slab(sx1, x1, oz0, z1 - 0.3, y); slab(x0, sx1, oz1, z1 - 0.3, y); }
+      const winF = [[-35.6, -34.4, y + 0.9, y + 2.2], [-31.8, -30.6, y + 0.9, y + 2.2]], winB = [[-35.2, -33.6, y + 0.9, y + 2.2], [-32, -30.8, y + 0.9, y + 2.2], [-41.2, -39.8, y + 1.45 + 0.6, y + 1.45 + 1.9]];
+      if (k === 0) winF.push([-40.8, -39.4, y - 0.1, y + 2.25]);                                                      // the door of the stairwell
+      else winF.push([-41.2, -39.8, y + 1.0, y + 2.0]);
+      wallX(z0 + 0.15, y - 0.26, top - 0.26 + (k === n - 1 ? 0.3 : 0), winF); wallX(z1 - 0.15, y - 0.26, top - 0.26 + (k === n - 1 ? 0.3 : 0), winB);
+      // the flight up from this floor: five steps along the west side, a landing, five steps back along the east side
+      if (k < n - 1) {
+        for (let i = 0; i < 5; i++) B.box(M.stone, 1.7, 0.24, 0.5, -41.1, y + 0.29 * (i + 1) - 0.24, oz0 + 0.25 + 0.5 * i, { c: 0x9a9690, solid: true });
+        B.box(M.stone, 3.5, 0.24, oz1 - (oz0 + 2.5), -40.2, y + 1.45 - 0.24, (oz0 + 2.5 + oz1) / 2, { c: 0x9a9690, solid: true });
+        for (let j = 0; j < 5; j++) B.box(M.stone, 1.7, 0.24, 0.5, -39.3, y + 1.45 + 0.29 * (j + 1) - 0.24, oz0 + 2.25 - 0.5 * j, { c: 0x9a9690, solid: true });
+        B.box(M.plaster, 0.1, FH - 0.3, oz0 + 2.5 - oz0, -40.2, y, oz0 + 1.25, { c: IN, solid: true });                     // the wall between the two flights
+        B.box(M.metal, 0.05, 0.9, 2.5, -40.2, y + 2.9 - 0.05, oz0 + 1.25, { c: 0x3a5a3a });                                // the handrail
+        world.ladders.push({ stair: true, pts: [[-41.1, y, oz0 - 0.4], [-41.1, y + 1.45, oz0 + 2.9], [-39.3, y + 1.45, oz0 + 2.9], [-39.3, y + FH, oz0 - 0.4]], x: -39.3, z: oz0 - 0.4, nx: 0, nz: -1, y0: y, y1: y + FH });
+      } else B.box(M.metal, 1.8, 1.0, 0.06, -41.1, y, oz0, { c: 0x3a5a3a, solid: true });                                   // the top landing: a rail over the stairs
+      B.box(M.metal, 0.06, 1.0, oz1 - oz0, sx1 + 0.1, y, (oz0 + oz1) / 2, { c: 0x3a5a3a });
+      // the flat: its door from the landing, a hall, a kitchen at the front, a living room at the back
+      wallZ(sx1, z0 + 0.3, z1 - 0.3, y, top - 0.26, 75.3, 76.3);
+      B.box(M.woodH, 0.06, 2.05, 0.95, sx1 + 0.12, y, 76.85, { c: [0x6a3a22, 0x8a6a4a, 0x5a2a1c, 0x7a5a3a, 0x4a3020][k] });   // its door, standing open against the wall
+      wallX2(79.8, sx1, x1, y, top - 0.26, -36.3, -35.3); wallZ(-34.2, z0 + 0.3, 79.8, y, top - 0.26, 77.9, 78.8);
+      for (const [lx, lz] of [[-36.3, 77.3], [-32.1, 77.3], [-34.2, 82.5]]) B.geo(M.glow, new THREE.SphereGeometry(0.13, 7, 5), [lx, top - 0.55, lz], [0, 0, 0], 1, 0xffe8b8);
+      // the hall: coats on hooks, boots
+      B.box(M.woodH, 0.1, 0.1, 1.2, sx1 + 0.12, y + 1.7, 77.6, { c: 0x5a3a24 }); B.box(M.cloth, 0.3, 1.0, 0.5, sx1 + 0.25, y + 0.75, 77.4, { c: [0x3a3a44, 0x5a4a3a, 0x4a2a2a][k % 3] });
+      // the kitchen
+      B.box(M.metal, 0.6, 0.85, 0.6, -30.7, y, 75.3, { c: 0xe8e4dc, solid: true }); B.box(M.flat, 0.56, 0.03, 0.56, -30.7, y + 0.85, 75.3, { c: 0x1c1c1e });
+      B.box(M.woodH, 1.8, 0.85, 0.6, -32.4, y, 75.25, { c: [0x8a9a8a, 0xb8b0a0, 0x9aa8b8, 0xc8c0a8, 0x8a7a6a][k], solid: true }); B.box(M.metal, 0.6, 0.03, 0.45, -32.9, y + 0.85, 75.25, { c: 0xc8ccd0 });
+      B.box(M.metal, 0.6, 1.5, 0.6, -30.7, y, 79.1, { c: 0xe8e8e2, solid: true });
+      table(B, M, -32.4, y, 77.6, 0, { w: 1.0, d: 0.7, c: 0x6a4a30, top: [0x8ab0c8, 0xc8a8a0, 0xa8c8a0, 0xd8d0b0, 0xb8b8c8][k] });
+      for (const s of [-1, 1]) B.box(M.woodH, 0.34, 0.45, 0.34, -32.4 + s * 0.8, y, 77.6, { c: 0x6a4a30 });
+      B.cyl(M.metal, 0.12, 0.09, 0.3, -32.6, y + 0.8, 77.6, { c: 0xc9a23a, seg: 10 });
+      // the living room, each different: a bed or a sofa, the wall carpet, the wardrobe, the radio or the television, books
+      const rc = [0x7a2a26, 0x2a3a6a, 0x6a2a4a, 0x3a5a3a, 0x8a5a2a][k];
+      B.box(M.cloth, 2.4, 1.4, 0.04, -33, y + 0.9, z1 - 0.33, { c: rc }); B.box(M.cloth, 1.8, 0.9, 0.05, -33, y + 1.15, z1 - 0.34, { c: 0xb8863a });
+      if (k % 2 === 0) bed(B, M, -33, y, 84.3, PI / 2, { c: 0x3a3a3e, blanket: rc });
+      else { B.box(M.woodH, 2.2, 0.45, 0.8, -33, y, 84.6, { c: 0x5a4a3a, solid: true }); B.box(M.cloth, 2.1, 0.12, 0.7, -33, y + 0.45, 84.6, { c: rc }); B.box(M.cloth, 2.1, 0.5, 0.15, -33, y + 0.57, 84.95, { c: rc }); }
+      B.box(M.woodH, 1.2, 2.0, 0.55, -37.6, y, 84.7, { c: 0x4a3020, solid: true });
+      B.box(M.woodH, 1.4, 0.75, 0.45, -30.6, y, 82.3, { ry: PI / 2, c: 0x5a3c26, solid: true });
+      if (k % 2) { B.box(M.flat, 0.5, 0.42, 0.45, -30.6, y + 0.75, 82.3, { c: 0x3a2a1c }); B.box(M.glow, 0.02, 0.28, 0.36, -30.84, y + 0.82, 82.3, { c: 0x9ab8d8 }); }
+      else { B.box(M.woodH, 0.5, 0.3, 0.22, -30.6, y + 0.75, 82.6, { c: 0x6a4a30 }); B.box(M.glow, 0.02, 0.06, 0.22, -30.73, y + 0.86, 82.6, { c: 0xffd9a0 }); }
+      shelf(B, M, -37.8, y, 81.5, PI / 2, 1.6, 1.9, { c: 0x5a3c26 });
+      rug(B, M, -34, y, 82.4, 0, { w: 3, d: 2.2, c: rc });
+      if (k === 2 || k === 3) folk(k === 2 ? 'russianWoman' : 'russianMan', -35.6, 77.4, PI / 2, { y, pose: k === 2 ? 'work' : 'talk', over: { extras: k === 2 ? ['dress', 'apron'] : ['vest'] } });
+    }
+    roofed((x0 + x1) / 2, Y(n) - 0.12, (z0 + z1) / 2, x1 - x0, z1 - z0);
+    B.box(M.flat, 2.6, 0.18, 1.5, -40.1, 2.5, z0 - 0.7, { c: 0x5a5c60 }); B.box(M.stone, 2.4, 0.3, 1.3, -40.1, -0.14, z0 - 0.7, { c: 0x8a8a8a, solid: true });
+    sign('ПОДЪЕЗД 2', -40.1, 2.95, z0 - 0.02, 1.4, 0.3, { bg: '#2a4a6a', fg: '#f0f0e8' });
+    extraFoes.push(['agent', -35, 75.3, { y: Y(2), static: true, yaw: PI }], ['militia', -31.2, 76.1, { y: Y(4), static: true, yaw: PI }], ['agent', -33, 82, { y: Y(3), patrol: false, static: true, yaw: PI }]);
+    extraPicks.push([-32.4, 77.6, Y(1) + 0.8], [-33.6, 83, Y(4) + 0.5]);
+  }
+
+  // ---- the church of St Nicholas: still open, with its priest -----------------------------------------------------------
+  // A parish church in the old Moscow manner: a white cube under five onion domes, blue with gold stars, a low refectory and a bell
+  // tower with a tented roof to the west. Inside, the gilded screen of icons, candle stands, the chandelier; the priest, and two old
+  // women at prayer.
+  const CHURCH = { x: -86, z: 19 };
+  {
+    const { x, z } = CHURCH, F = world.height(x, z) + 0.3, WH = 0xf0ece2, BLUE = 0x2a4a8a, GOLD = 0xd8b040, GREEN = 0x4a7a5a;
+    room(B, M, x, F, z, { w: 9, d: 9, h: 7, t: 0.5, mat: M.plaster, c: WH, base: 0.9, doors: [{ side: 'w', at: 0, w: 2.4, h: 3.2 }], wins: [-2.5, 2.5].flatMap((at) => [{ side: 'n', at, w: 0.9, y: 2.6, h: 2.2 }, { side: 's', at, w: 0.9, y: 2.6, h: 2.2 }]),
+      floor: { mat: M.stone, c: 0x9a8c7a }, ceil: { mat: M.plaster, c: 0xe8dcc0 } });
+    room(B, M, x - 7.25, F, z, { w: 5.5, d: 7, h: 4.5, t: 0.45, mat: M.plaster, c: WH, base: 0.9, doors: [{ side: 'w', at: 0, w: 1.5, h: 2.4 }, { side: 's', at: 0, w: 1.6, h: 2.5 }, { side: 'e', at: 0, w: 2.4, h: 3.2 }],
+      wins: [{ side: 'n', at: 0, w: 0.9, y: 1.6, h: 1.6 }], floor: { mat: M.stone, c: 0x9a8c7a }, ceil: { mat: M.plaster, c: 0xe8dcc0 } });
+    room(B, M, x - 11.75, F, z, { w: 3.5, d: 3.5, h: 8.5, t: 0.45, mat: M.plaster, c: WH, base: 0.9, doors: [{ side: 'w', at: 0, w: 1.4, h: 2.6 }, { side: 'e', at: 0, w: 1.4, h: 2.4 }], floor: { mat: M.stone, c: 0x9a8c7a }, ceil: { mat: M.plaster, c: 0xe8dcc0 } });
+    B.box(M.stone, 2.6, 0.3, 2.2, x - 14.2, F - 0.45, z, { c: 0x8a8478, solid: true }); B.box(M.stone, 2.2, 0.3, 1.6, x - 7.25, F - 0.45, z + 4.2, { c: 0x8a8478, solid: true });
+    // the roofs: the cube's four slopes in green, the refectory's, and the apse to the east
+    const hip = (cx, cy, cz, w, d, h, c) => { const g = new THREE.ConeGeometry(1, h, 4); g.rotateY(PI / 4); B.geo(M.shingle, g, [cx, cy + h / 2, cz], [0, 0, 0], [w / 1.414, 1, d / 1.414], c); };
+    hip(x, F + 7, z, 10, 10, 2.2, GREEN); hip(x - 7.25, F + 4.5, z, 6.3, 7.8, 1.6, GREEN);
+    B.geo(M.plaster, new THREE.CylinderGeometry(2.8, 2.8, 5.2, 14, 1, false, 0, PI), [x + 4.5, F - 0.4 + 2.6, z], [0, 0, 0], 1, WH); world.addBox(x + 5.6, z, 2.4, 5.4, 0, F - 1, F + 5);
+    B.geo(M.shingle, new THREE.SphereGeometry(2.9, 12, 6, 0, PI, 0, PI / 2), [x + 4.5, F + 4.8, z], [0, PI / 2, 0], [1, 0.6, 1], GREEN);
+    // five domes: a drum on each, an onion of blue with gold stars (the middle one gilded), a gold cross on top
+    const ONION = [[0.02, 0], [0.9, 0.05], [1.18, 0.55], [1.05, 1.15], [0.62, 1.75], [0.22, 2.25], [0.05, 2.75]].map(([r, y]) => new THREE.Vector2(r, y));
+    const cross = (cx, cy, cz, s) => { B.box(M.metal, 0.08 * s, 1.5 * s, 0.08 * s, cx, cy, cz, { c: GOLD }); B.box(M.metal, 0.08 * s, 0.08 * s, 0.75 * s, cx, cy + 1.0 * s, cz, { c: GOLD }); B.box(M.metal, 0.08 * s, 0.08 * s, 0.4 * s, cx, cy + 1.3 * s, cz, { c: GOLD }); B.box(M.metal, 0.08 * s, 0.08 * s, 0.5 * s, cx, cy + 0.45 * s, cz, { rx: 0.4, c: GOLD }); };
+    for (const [dx, dz, s, gold] of [[0, 0, 1.3, true], [-2.7, -2.7, 0.7, false], [2.7, -2.7, 0.7, false], [-2.7, 2.7, 0.7, false], [2.7, 2.7, 0.7, false]]) {
+      const cx = x + dx, cz = z + dz, base = F + 7 + (gold ? 1.4 : 0.9), dh = gold ? 3 : 1.6;
+      B.cyl(M.plaster, 1.25 * s, 1.25 * s, dh, cx, base - 0.6, cz, { c: WH, seg: 14 });
+      for (let k = 0; k < 6; k++) { const a = k / 6 * 6.283; B.box(M.flat, 0.3 * s, dh * 0.5, 0.05, cx + Math.cos(a) * 1.24 * s, base - 0.3 + dh * 0.15, cz + Math.sin(a) * 1.24 * s, { ry: -a + PI / 2, c: 0x2a2a30 }); }
+      const top = base - 0.6 + dh;
+      B.geo(M.metal, new THREE.LatheGeometry(ONION, 14), [cx, top, cz], [0, 0, 0], s, gold ? GOLD : BLUE);
+      if (!gold) for (let k = 0; k < 7; k++) { const a = k * 2.4, h = 0.5 + (k % 3) * 0.45; B.geo(M.metal, new THREE.SphereGeometry(0.06 * s, 5, 4), [cx + Math.cos(a) * (1.1 - Math.abs(h - 0.9) * 0.4) * s, top + h * s, cz + Math.sin(a) * (1.1 - Math.abs(h - 0.9) * 0.4) * s], [0, 0, 0], 1, GOLD); }
+      cross(cx, top + 2.7 * s, cz, s * 1.1);
+    }
+    // the bell tower: an open belfry with its bells, a tall tented roof, a small dome and a cross
+    { const tx = x - 11.75, ty = F + 8.5;
+      B.box(M.stone, 3.7, 0.3, 3.7, tx, ty, z, { c: 0x9a9488, solid: true });
+      for (const [dx, dz] of [[-1.55, -1.55], [1.55, -1.55], [-1.55, 1.55], [1.55, 1.55]]) B.box(M.plaster, 0.55, 2.8, 0.55, tx + dx, ty + 0.3, z + dz, { c: WH, solid: true });
+      B.box(M.plaster, 3.9, 0.5, 3.9, tx, ty + 3.1, z, { c: WH });
+      for (const [dx, s] of [[0, 1.0], [-0.9, 0.55], [0.9, 0.55]]) B.geo(M.metal, new THREE.CylinderGeometry(0.22 * s, 0.55 * s, 0.8 * s, 12, 1, true), [tx + dx, ty + 2.4 - 0.4 * s, z], [0, 0, 0], 1, 0x8a6a2a);
+      const g = new THREE.ConeGeometry(1, 4.6, 8); B.geo(M.shingle, g, [tx, ty + 3.6 + 2.3, z], [0, PI / 8, 0], [1.95, 1, 1.95], GREEN);
+      B.geo(M.metal, new THREE.LatheGeometry(ONION, 12), [tx, ty + 8.1, z], [0, 0, 0], 0.45, GOLD); cross(tx, ty + 9.3, z, 0.6); }
+    // inside: the screen of icons in gold, its open royal doors, icons in rows, the candle stands, the chandelier, the lectern
+    { const ix = x + 3.6, H = 5.2;
+      for (const [za, zb] of [[z - 4.2, z - 0.8], [z + 0.8, z + 4.2]]) B.box(M.metal, 0.25, H, zb - za, ix, F, (za + zb) / 2, { c: GOLD, solid: true });
+      B.box(M.metal, 0.25, H - 3.2, 1.6, ix, F + 3.2, z, { c: GOLD, solid: true });
+      for (const s of [-1, 1]) B.box(M.metal, 0.06, 2.6, 0.75, ix - 0.4, F, z + s * 1.15, { ry: s * 0.9, c: GOLD });
+      const icon = (iz, iy, w, h, c) => { B.box(M.flat, 0.04, h, w, ix - 0.14, iy, iz, { c: 0x2a1c12 }); B.box(M.flat, 0.03, h - 0.1, w - 0.1, ix - 0.165, iy + 0.05, iz, { c }); B.geo(M.metal, new THREE.CircleGeometry(w * 0.22, 12), [ix - 0.19, iy + h * 0.7, iz], [0, -PI / 2, 0], 1, GOLD); B.box(M.flat, 0.02, h * 0.35, w * 0.32, ix - 0.185, iy + h * 0.18, iz, { c: [0x8a2a22, 0x2a3a6a, 0x3a5a3a][Math.round(iz * 3) % 3 < 0 ? 0 : Math.round(iz * 3) % 3] }); };
+      for (const iz of [z - 3.3, z - 1.9, z + 1.9, z + 3.3]) icon(iz, F + 0.9, 1.1, 1.7, 0x6a4a2a);
+      for (let k = 0; k < 7; k++) icon(z - 3.6 + k * 1.2, F + 3.3, 0.85, 1.0, 0x5a3a22);
+      for (let k = 0; k < 5; k++) icon(z - 2.4 + k * 1.2, F + 4.35, 0.7, 0.75, 0x4a3020);
+      B.geo(M.metal, new THREE.CircleGeometry(0.5, 16), [ix - 0.2, F + 4.75, z], [0, -PI / 2, 0], 1, 0xe8c860);
+      for (const cz of [z - 2.6, z + 2.6]) { B.cyl(M.metal, 0.05, 0.08, 1.0, ix - 2.4, F, cz, { c: BRONZE, seg: 6 }); B.cyl(M.metal, 0.4, 0.4, 0.05, ix - 2.4, F + 1.0, cz, { c: BRONZE, seg: 14 }); world.addCyl(ix - 2.4, cz, 0.4, F, F + 1.1);
+        for (let k = 0; k < 11; k++) { const a = k * 2.4, r = 0.08 + (k % 4) * 0.08; B.cyl(M.flat, 0.012, 0.012, 0.16 + (k % 3) * 0.05, ix - 2.4 + Math.cos(a) * r, F + 1.05, cz + Math.sin(a) * r, { c: 0xf0e8c8, seg: 4 }); B.geo(M.glow, new THREE.SphereGeometry(0.018, 4, 3), [ix - 2.4 + Math.cos(a) * r, F + 1.24 + (k % 3) * 0.05, cz + Math.sin(a) * r], [0, 0, 0], 1, 0xffc060); } }
+      B.cyl(M.metal, 0.012, 0.012, 1.8, x, F + 5.2, z, { c: BRONZE, seg: 4 }); B.geo(M.metal, new THREE.TorusGeometry(1.3, 0.05, 5, 24), [x, F + 5.2, z], [PI / 2, 0, 0], 1, BRONZE);
+      for (let k = 0; k < 14; k++) { const a = k / 14 * 6.283; B.geo(M.glow, new THREE.SphereGeometry(0.05, 5, 4), [x + Math.cos(a) * 1.3, F + 5.33, z + Math.sin(a) * 1.3], [0, 0, 0], 1, 0xffd890); }
+      B.box(M.woodH, 0.5, 1.15, 0.5, ix - 3.4, F, z, { c: 0x5a3a24, solid: true }); B.box(M.cloth, 0.56, 0.06, 0.56, ix - 3.4, F + 1.15, z, { rz: 0.3, c: 0x8a1c22 });
+      rug(B, M, x - 1, F, z, 0, { w: 6, d: 1.4, c: 0x8a1c22 });
+      for (const [wz, s] of [[z - 4.22, 1], [z + 4.22, -1]]) for (const wx of [x - 2.6, x + 0.2]) { B.box(M.flat, 0.9, 1.3, 0.04, wx, F + 1.4, wz + s * 0.03, { c: 0x3a2414 }); B.box(M.flat, 0.78, 1.18, 0.03, wx, F + 1.46, wz + s * 0.05, { c: 0x7a5a2a }); B.geo(M.metal, new THREE.CircleGeometry(0.18, 10), [wx, F + 2.3, wz + s * 0.07], [0, s > 0 ? 0 : PI, 0], 1, GOLD); }
+      folk('orthodoxPriest', ix - 1.0, z, -PI / 2, { y: F, pose: 'talk' });
+      folk('russianWoman', x - 1.2, z - 1.4, PI / 2, { y: F, pose: 'pray', over: { extras: ['coat', 'shawl'], coat: 0x3a3a44, shawl: 0x6a5a4a, kerchief: 0xe8e0d0 } });
+      folk('russianWoman', x - 2.4, z + 1.2, PI / 2 - 0.2, { y: F, pose: 'pray', over: { extras: ['dress', 'shawl'], shawl: 0x3a2a3a } });
+      folk('russianWoman', x - 16, z - 2.4, PI / 2, { y: world.height(x - 16, z - 2.4), pose: 'stand', over: { extras: ['coat', 'shawl'], coat: 0x4a3a2a, shawl: 0x8a8a7a } });
+      extraPicks.push([x - 7.25, z + 2.6, F + 0.5]);
+    }
+  }
+
   // ---- the rest of the city, beyond reach ------------------------------------------------------------
   for (let i = 0; i < 44; i++) {
     const a = i / 44 * 6.283 + R() * 0.1, r = 135 + R() * 120, x = Math.cos(a) * r, z = Math.sin(a) * r - 10, h = 15 + Math.floor(R() * 4) * 6, along = R() < 0.5;
@@ -564,6 +773,10 @@ function build({ game, gfx, world, B, M, root, rand, shared }) {
     ['russiaBoss', 0, -47.5, { up: 1.9, yaw: 0, patrol: false }],
   ];
   const tea = merge([gCyl(0.07, 0.06, 0.2, 0xb8601c, [0, 0, 0], [0, 0, 0], 1, 9), gCyl(0.078, 0.07, 0.11, 0xc8ccd0, [0, -0.05, 0], [0, 0, 0], 1, 9), gCyl(0.012, 0.012, 0.1, 0xc8ccd0, [0.1, -0.02, 0], [0, 0, 0], 1, 5), gCyl(0.012, 0.012, 0.06, 0xc8ccd0, [0.085, 0.03, 0], [0, 0, 1.2], 1, 5)]);
+  // below the metro the ground is cut away: the hall and the escalator shaft are 10 m down (the terrain mesh, seen from below, is
+  // not drawn; the surface over them is carried by a slab, see above)
+  { const base = world.height, H = [[METRO.sx0, METRO.x0, METRO.sz0, METRO.sz1], [METRO.x0, METRO.x1, METRO.z0, METRO.z1]], PIT = METRO.pit;
+    world.height = (x, z) => { for (const [a, b, c, d] of H) if (x > a && x < b && z > c && z < d) return PIT; return base(x, z); }; }
   let st = 0;
   return {
     env: {

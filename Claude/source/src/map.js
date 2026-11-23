@@ -6,20 +6,28 @@
 // unseen does not (in a duel the same holds for the other player, who sneaks with X).
 import * as THREE from 'three';
 import { clamp } from './util.js';
+import { PLACES } from './places.js';
 
-const N = 512, MAX_MARKS = 9, FOG = 128;
+const N = 512, FOG = 128;
+const esc = (t) => String(t).replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
 
 export class MapView {
   constructor(game) {
     this.game = game; this.base = document.createElement('canvas'); this.base.width = this.base.height = N;
     this.mini = document.getElementById('minimap'); this.big = document.getElementById('bigmap'); this.pins = document.getElementById('pins');
     this.range = 55;              // metres from the centre to the rim of the mini-map
-    this.marks = []; this._v = new THREE.Vector3(); this.open = false;
+    this.marks = []; this._v = new THREE.Vector3(); this.open = false; this.places = []; this.mateX = 1e9; this.mateZ = 1e9;
     this.fog = document.createElement('canvas'); this.fog.width = this.fog.height = N;           // what is still unknown: dark, cut away where the player has been
     this.known = new Uint8Array(FOG * FOG); this.lastX = 1e9; this.lastZ = 1e9;
   }
-  /** Uncover the map around (x, z). */
-  reveal(x, z) {
+  /** Uncover the map around (x, z), where this player is (who = 'me') or his partner ('mate'): the named places near it get their name. */
+  reveal(x, z, who = 'me') {
+    for (const p of this.places) {
+      if (p.found || (p.x - x) ** 2 + (p.z - z) ** 2 > (p.r + 6) ** 2) continue;
+      p.found = true;
+      if (who === 'me') this.game.placeBanner(p.name);
+      else { const R = this.game.duel && this.game.duel.remote; this.game.say((R ? R.name : 'Your partner') + ' has found ' + p.name); }
+    }
     const R = 30, k = this.k, ctx = this.fog.getContext('2d'), cx = (x - this.x0) * k, cz = (z - this.z0) * k, r = R * k;
     ctx.save(); ctx.globalCompositeOperation = 'destination-out';
     const g = ctx.createRadialGradient(cx, cz, r * 0.55, cx, cz, r); g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(1, 'rgba(0,0,0,0)');
@@ -51,7 +59,7 @@ export class MapView {
     }
     ctx.putImageData(img, 0, 0);
     // what stands on it, seen from above: low things first, walls and houses darker
-    const boxes = W.boxes.filter((b) => b.hw * b.hd > 0.04).map((b) => ({ b, top: b.y1 - W.height(b.x, b.z) })).filter((o) => o.top > 0.35).sort((a, b) => a.top - b.top);
+    const boxes = W.boxes.filter((b) => b.hw * b.hd > 0.04 && !b.noMap).map((b) => ({ b, top: b.y1 - W.height(b.x, b.z) })).filter((o) => o.top > 0.35).sort((a, b) => a.top - b.top);
     for (const { b, top } of boxes) {
       ctx.setTransform(k * b.c, -k * b.s, k * b.s, k * b.c, (b.x - this.x0) * k, (b.z - this.z0) * k);
       ctx.fillStyle = top > 1.6 ? 'rgba(42,32,24,0.86)' : 'rgba(60,48,36,0.5)';
@@ -63,35 +71,53 @@ export class MapView {
     this.accent = getComputedStyle(document.body).getPropertyValue('--accent').trim() || '#e0a040';
     { const f = this.fog.getContext('2d'); f.globalCompositeOperation = 'source-over'; f.clearRect(0, 0, N, N); f.fillStyle = 'rgb(14,11,9)'; f.fillRect(0, 0, N, N);
       f.fillStyle = 'rgba(244,234,212,0.05)'; for (let i = -N; i < N; i += 9) { f.save(); f.translate(i, 0); f.rotate(0.6); f.fillRect(0, -N, 1.5, N * 3); f.restore(); } }   // faint hatching: unknown land
-    this.known.fill(0); this.lastX = this.lastZ = 1e9;
+    this.known.fill(0); this.lastX = this.lastZ = 1e9; this.mateX = this.mateZ = 1e9;
     this.clearMarks();
+    // the named places of the chapter (and the hamlets of a large map), within the edge of the map
+    this.places = (PLACES[G.def.id] || []).concat((G.sized && G.sized.places) || []).filter(([, x, z]) => W.inside(x, z, -4)).map(([name, x, z, r]) => ({ name, x, z, r, found: false }));
   }
 
-  // ---- the places marked -----------------------------------------------------------
+  // ---- the places marked: one for this player, one for his partner -------------------------
   clearMarks() { for (const m of this.marks) { m.mesh.removeFromParent(); m.el.remove(); } this.marks = []; }
-  /** The middle button: mark the place the crosshair points at, or take away the mark it points at. */
+  /** The middle button: mark the place the crosshair points at (the mark made before goes), or take away the mark it points at. */
   toggleMark() {
     const G = this.game, P = G.player, cam = G.gfx.camera, o = cam.getWorldPosition(new THREE.Vector3()), dir = P.forward(new THREE.Vector3());
     const hit = G.world.raycast(o, dir, 600), t = hit ? hit.t : 140;
     const x = o.x + dir.x * t, z = o.z + dir.z * t, y = hit ? o.y + dir.y * t : G.world.groundAt(x, z, o.y);
-    for (const m of this.marks) {                                  // pointing at a mark: it goes
+    const m = this.marks.find((q) => q.who === 'me'), D = G.duel, share = D && D.cfg && D.cfg.rules === 'coop' && D.phase === 'play';
+    if (m) {
       const dx = m.x - o.x, dy = m.y + 1.5 - o.y, dz = m.z - o.z, l = Math.hypot(dx, dy, dz);
-      if ((dx * dir.x + dy * dir.y + dz * dir.z) / l > 0.9985 || Math.hypot(m.x - x, m.z - z) < 2.5) { this.remove(m); G.sound.mark(false); return; }
+      if ((dx * dir.x + dy * dir.y + dz * dir.z) / l > 0.9985 || Math.hypot(m.x - x, m.z - z) < 2.5) {        // pointing at it: it goes
+        this.remove(m); G.sound.mark(false); if (share) D.send({ t: 'mk', off: 1 }); return;
+      }
     }
-    if (this.marks.length >= MAX_MARKS) this.remove(this.marks[0]);
-    let n = 1; while (this.marks.some((m) => m.n === n)) n++;
-    const col = new THREE.Color(this.accent || '#e0a040');
+    this.setMark('me', x, y, z);
+    G.sound.mark(true); G.say(share ? 'Place marked — your partner sees it too' : 'Place marked — middle button on it again to remove it');
+    if (share) D.send({ t: 'mk', x: +x.toFixed(2), y: +y.toFixed(2), z: +z.toFixed(2) });
+  }
+  /** Put the mark of who ('me', or 'mate': the partner's, in green) at (x, y, z), in place of the one he had. */
+  setMark(who, x, y, z) {
+    const old = this.marks.find((q) => q.who === who); if (old) this.remove(old);
+    const col = new THREE.Color(who === 'me' ? this.accent || '#e0a040' : '#7ad86a');
     const mat = new THREE.MeshBasicMaterial({ color: col, fog: false, transparent: true, opacity: 0.9 });
     const mesh = new THREE.Group();
     const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 2.6, 6), mat); pole.position.y = 1.3;
     const head = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 8), mat); head.position.y = 2.75;
     const ring = new THREE.Mesh(new THREE.RingGeometry(0.35, 0.5, 20), mat); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.05; ring.material = mat.clone(); ring.material.side = THREE.DoubleSide;
-    mesh.add(pole, head, ring); mesh.position.set(x, y, z); G.gfx.root.add(mesh);
-    const el = document.createElement('div'); el.className = 'pin'; this.pins.appendChild(el);
-    this.marks.push({ n, x, y, z, mesh, el, mat });
-    G.sound.mark(true); G.say('Place ' + n + ' marked — middle button on it again to remove');
+    mesh.add(pole, head, ring); mesh.position.set(x, y, z); this.game.gfx.root.add(mesh);
+    const el = document.createElement('div'); el.className = 'pin' + (who === 'me' ? '' : ' mate'); this.pins.appendChild(el);
+    this.marks.push({ who, x, y, z, mesh, el, mat, col: '#' + col.getHexString() });
+  }
+  /** The partner marked a place, or took his mark away (m.off). */
+  mateMark(m) {
+    const G = this.game, R = G.duel && G.duel.remote, name = R ? R.name : 'Your partner';
+    if (m.off) { const q = this.marks.find((k) => k.who === 'mate'); if (q) this.remove(q); return; }
+    this.setMark('mate', m.x, m.y, m.z); G.sound.mark(true, true);
+    const d = Math.round(Math.hypot(m.x - G.player.pos.x, m.z - G.player.pos.z)); G.say(name + ' marked a place, ' + d + ' m away');
   }
   remove(m) { m.mesh.removeFromParent(); m.el.remove(); this.marks.splice(this.marks.indexOf(m), 1); }
+  /** The letter on a mark's dot on the maps: the initial of whoever made it. */
+  markLetter(m) { const G = this.game, R = G.duel && G.duel.remote; return ((m.who === 'me' ? G.myName || 'You' : (R && R.name) || 'P')[0] || '?').toUpperCase(); }
 
   /** Who shows on the map: enemies on the move (not standing still, not creeping up unseen), and in a duel the other player likewise. */
   seen(e) {
@@ -108,6 +134,8 @@ export class MapView {
   update(dt, input) {
     const G = this.game, P = G.player;
     if ((P.pos.x - this.lastX) ** 2 + (P.pos.z - this.lastZ) ** 2 > 2.5) { this.lastX = P.pos.x; this.lastZ = P.pos.z; this.reveal(P.pos.x, P.pos.z); }
+    { const D = G.duel, R = D && D.remote;                    // together: what the partner sees is uncovered for this player too
+      if (D && D.cfg && D.cfg.rules === 'coop' && R && R.net && R.alive && (R.pos.x - this.mateX) ** 2 + (R.pos.z - this.mateZ) ** 2 > 2.5) { this.mateX = R.pos.x; this.mateZ = R.pos.z; this.reveal(R.pos.x, R.pos.z, 'mate'); } }
     this.open = G.state === 'play' && input.keys.has('Tab');
     this.big.classList.toggle('on', this.open);
     this.drawMini(P);
@@ -119,7 +147,7 @@ export class MapView {
       m.mesh.children[1].scale.setScalar(1 + Math.min(4, dist / 40));      // the pin's head stays visible from afar
       if (v.z > 1 || Math.abs(v.x) > 1.05 || Math.abs(v.y) > 1.05) { m.el.style.display = 'none'; continue; }
       m.el.style.display = 'block'; m.el.style.left = (v.x * 0.5 + 0.5) * w + 'px'; m.el.style.top = (-v.y * 0.5 + 0.5) * h + 'px';
-      const txt = m.n + ' · ' + Math.round(dist) + ' m'; if (m.el.textContent !== txt) m.el.textContent = txt;
+      const R = G.duel && G.duel.remote, txt = (m.who === 'me' ? '' : ((R && R.name) || 'Partner') + ' · ') + Math.round(dist) + ' m'; if (m.el.textContent !== txt) m.el.textContent = txt;
     }
   }
   setPinsVisible(on) { this.pins.style.display = on ? 'block' : 'none'; }
@@ -143,7 +171,14 @@ export class MapView {
     for (const m of this.marks) {                     // a mark beyond the rim sits on the rim, in its direction
       let [x, y] = at(m.x, m.z); const dx = x - R, dy = y - R, l = Math.hypot(dx, dy), lim = R - 9 * dpr;
       if (l > lim) { x = R + dx / l * lim; y = R + dy / l * lim; }
-      pinDot(ctx, x, y, m.n, dpr, this.accent);
+      pinDot(ctx, x, y, this.markLetter(m), dpr, m.col);
+    }
+    // the names of the places found, upright, near enough to show
+    ctx.font = `italic ${10.5 * dpr}px Georgia, serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    for (const p of this.places) {
+      if (!p.found) continue;
+      const [x, y] = at(p.x, p.z); if (Math.hypot(x - R, y - R) > R - 18 * dpr) continue;
+      label(ctx, p.name, x, y, dpr);
     }
     // the player in the middle, always looking up; N on the rim
     arrow(ctx, R, R, 0, 7 * dpr);
@@ -159,7 +194,9 @@ export class MapView {
     const at = (x, z) => [(x - this.x0) * k, (z - this.z0) * k], dpr = S / 700;
     for (const e of this.game.enemies) { if (!this.seen(e)) continue; const [x, y] = at(e.pos.x, e.pos.z); dot(ctx, x, y, (e.remote || e.cfg.boss ? 6 : 4.5) * dpr, e.remote ? (this.game.friend(e) ? '#7ad86a' : '#ffffff') : '#d83a2a', e.remote || e.cfg.boss ? (this.game.friend(e) ? '#1c4a18' : '#d83a2a') : 'rgba(0,0,0,.7)'); }
     this.drawFlags(ctx, at, dpr * 1.3, 0);
-    for (const m of this.marks) { const [x, y] = at(m.x, m.z); pinDot(ctx, x, y, m.n, dpr * 1.2, this.accent); }
+    for (const m of this.marks) { const [x, y] = at(m.x, m.z); pinDot(ctx, x, y, this.markLetter(m), dpr * 1.2, m.col); }
+    ctx.font = `italic ${14 * dpr}px Georgia, serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    for (const p of this.places) if (p.found) { const [x, y] = at(p.x, p.z); label(ctx, p.name, x, y, dpr * 1.3); }
     const [px, py] = at(P.pos.x, P.pos.z); arrow(ctx, px, py, -P.yaw, 10 * dpr);
     ctx.font = `${15 * dpr}px Georgia, serif`; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillStyle = 'rgba(244,234,212,.85)';
     ctx.fillText('N ↑   ·   middle mouse button: mark a place   ·   release Tab to close', 14 * dpr, 12 * dpr);
@@ -186,6 +223,11 @@ export class MapView {
   }
 }
 
+/** A place name on a map: pale lettering with a dark rim, readable over any ground. */
+function label(ctx, text, x, y, s) {
+  ctx.lineWidth = 3 * s; ctx.strokeStyle = 'rgba(12,9,6,.85)'; ctx.lineJoin = 'round'; ctx.strokeText(text, x, y);
+  ctx.fillStyle = 'rgba(244,234,212,.95)'; ctx.fillText(text, x, y);
+}
 function dot(ctx, x, y, r, fill, ring) { ctx.beginPath(); ctx.arc(x, y, r, 0, 6.283); ctx.fillStyle = fill; ctx.fill(); ctx.lineWidth = Math.max(1, r * 0.35); ctx.strokeStyle = ring; ctx.stroke(); }
 function arrow(ctx, x, y, a, s) {
   ctx.save(); ctx.translate(x, y); ctx.rotate(a);

@@ -308,7 +308,7 @@ export class Duel {
     this.send(m);
   }
   // what this player fires, shown in the other browser
-  tracer(ax, ay, az, bx, by, bz) { this.send({ t: 'tr', a: [r2(ax), r2(ay), r2(az), r2(bx), r2(by), r2(bz)] }); }
+  tracer(ax, ay, az, bx, by, bz, k) { this.send({ t: 'tr', a: [r2(ax), r2(ay), r2(az), r2(bx), r2(by), r2(bz)], k }); }
   /** This player used his skill: the other one hears it (a vanishing is shown through the state flags). */
   skill(id) { this.send({ t: 'sk', k: id }); }
   shot(kind, x, y, z, dx, dy, dz, speed, grav) { this.send({ t: 'sh', k: kind, a: [r2(x), r2(y), r2(z), r3(dx), r3(dy), r3(dz), speed], g: grav }); }
@@ -334,7 +334,7 @@ export class Duel {
       if (!G.shots.geo[m.k]) return;
       const s = G.shots.spawn(m.k, m.a[0], m.a[1], m.a[2], m.a[3], m.a[4], m.a[5], m.a[6], false, 0, m.g ?? undefined); s.ghost = true; s.foe = m.t === 'esh';   // foe: an enemy's (its bomb hurts both players)
       const d = Math.hypot(m.a[0] - P.pos.x, m.a[2] - P.pos.z);
-      if (m.k === 'bullet') { G.muzzle(m.a[0], m.a[1], m.a[2], m.a[3], m.a[4], m.a[5], 0.7); G.sound.gun(Math.max(0.15, 0.8 - d / 90), Math.min(1, d / 70)); } else if (d < 40) G.sound.bow();
+      if (m.k === 'bullet') { G.muzzle(m.a[0], m.a[1], m.a[2], m.a[3], m.a[4], m.a[5], 0.7); G.sound.gun(Math.max(0.15, 0.8 - d / 90), Math.min(1, d / 70), m.t === 'esh' ? 'rifle' : 'pistol'); } else if (d < 40) G.sound.bow();
     };
     switch (m.t) {
       case 'setup': if (!this.isHost && this.phase !== 'pick' && this.phase !== 'play') { this.cfg = m.c; this.enterPick(); } break;   // the first duel, or the next one
@@ -358,11 +358,12 @@ export class Duel {
         const a = m.a, l = Math.hypot(a[3] - a[0], a[4] - a[1], a[5] - a[2]) || 1, d = Math.hypot(a[0] - P.pos.x, a[2] - P.pos.z);
         G.crowd.alarm(a[0], a[2], 26, a[0], a[2]); G.crowd.alarm(a[3], a[5], 7, a[0], a[2]);
         G.shots.tracer(a[0], a[1], a[2], a[3], a[4], a[5]); G.muzzle(a[0], a[1], a[2], (a[3] - a[0]) / l, (a[4] - a[1]) / l, (a[5] - a[2]) / l, 0.8);
-        G.sound.gun(Math.max(0.15, 0.8 - d / 90), Math.min(1, d / 70));
+        G.sound.gun(Math.max(0.15, 0.8 - d / 90), Math.min(1, d / 70), m.k || 'rifle');
         break;
       }
       case 'sh': case 'esh': ghost(); break;
       case 'sk': G.sound.skill(m.k); break;      // the other player's skill: heard
+      case 'mk': if (this.cfg && this.cfg.rules === 'coop') G.map.mateMark(m); break;   // the partner marked a place (or took his mark away)
       case 'drop': if (this.phase === 'play' && m.w && (m.w.type === 'weapon' || m.w.type === 'item')) G.addPickup(m.x, m.z, G.level, m.y, m.w); break;   // something the other player put down
       case 'name': this.theirName = String(m.n || '').slice(0, 16); if (this.remote) this.remote.name = this.theirName || this.remote.hero; if (this.phase === 'pick') G.duelPickInfo(); break;
       case 'en': if (!this.isHost) m.e.forEach((a, i) => { const e = this.ai[i]; if (e) e.net = { x: a[0], y: a[1], z: a[2], yaw: a[3], st: a[4], pose: a[5], sn: a[6], hp: a[7], dk: a[8] || 0 }; }); break;
