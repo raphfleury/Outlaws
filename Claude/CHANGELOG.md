@@ -16,6 +16,18 @@ Each version is a Git tag named `lone-hand-vX.Y.Z` and a
 game as one downloadable file. The number is also shown in the bottom right corner of the
 title screen.
 
+## [1.10.0] - 2026-11-23
+
+### Added
+
+- **An old priest in the closed church of Stalnogorsk** (chapter VII). He has come back to
+  the church that was turned into a store: an old man with a white beard down to his
+  waist, in a black habit embroidered with two white crosses and a black cap with a small
+  cross, standing before the frame of the old icon screen with a lit taper in one hand and
+  the other raised in blessing. He takes no part in the fight. Like the other bystanders
+  he turns to you when you stand near him, raises his hands when you aim at him, and runs
+  for cover when shots fall, then walks back to his place.
+
 ## [1.9.0] - 2026-11-22
 
 ### Added

@@ -798,7 +798,7 @@ class Game {
   /** Debug (?kit): every shared piece of furniture and every bystander look in three rows beside the place where the player starts. */
   kitDemo() {
     const W = this.world, B = new Builder(W), M = this.M, root = this.gfx.root, P = this.player.pos, x0 = P.x - 14, z0 = P.z, y = W.height(P.x, P.z);
-    const looks = ['westWoman', 'westMan', 'japanWoman', 'japanMan', 'swissWoman', 'swissMan', 'greekWoman', 'greekMan', 'norseWoman', 'norseMan', 'frenchWoman', 'frenchMan', 'cure', 'russianWoman', 'russianMan', 'tibetWoman', 'nepalWoman', 'tibetMan', 'nun', 'monk', 'mexicaWoman', 'mexicaMan'];
+    const looks = ['westWoman', 'westMan', 'japanWoman', 'japanMan', 'swissWoman', 'swissMan', 'greekWoman', 'greekMan', 'norseWoman', 'norseMan', 'frenchWoman', 'frenchMan', 'cure', 'russianWoman', 'russianMan', 'orthodoxPriest', 'tibetWoman', 'nepalWoman', 'tibetMan', 'nun', 'monk', 'mexicaWoman', 'mexicaMan'];
     looks.forEach((k, i) => { K.person(B, M, root, k, x0 + i * 1.25, y, z0 - 4, 0); K.person(B, M, root, k, x0 + i * 1.25, y, z0 - 6.5, 0.5, { pose: ['talk', 'carry', 'work', 'pray', 'point', 'hips', 'cheer'][i % 7] }); });
     let x = x0;
     K.table(B, M, x, y, z0 - 9); K.bench(B, M, x, y, z0 - 8.2); K.person(B, M, root, 'westWoman', x - 0.4, y, z0 - 8.2, 0, { pose: 'sit', seat: 0.45 }); K.person(B, M, root, 'norseMan', x + 1.6, y, z0 - 8.4, 0, { pose: 'sit', seat: 0 }); x += 3.4;

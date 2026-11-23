@@ -4,7 +4,7 @@ import { Heightfield, prismGeo } from '../build.js';
 import { makeAmbient } from '../gfx.js';
 import { signTexture, drawTexture } from '../tex.js';
 import { makeHumanoid } from '../actors.js';
-import { instanced, room, bars, steps, shelf, barrel, crate, gCyl, merge, ladder, den, rod, table, bed, sacks, rug, pots, deck, stall, crawlway, person, idle } from '../props.js';
+import { instanced, room, bars, steps, shelf, barrel, crate, gCyl, gCone, merge, ladder, den, rod, table, bed, sacks, rug, pots, deck, stall, crawlway, person, idle } from '../props.js';
 import { fbm, smooth } from '../util.js';
 
 export const russia = {
@@ -520,7 +520,11 @@ function build({ game, gfx, world, B, M, root, rand, shared }) {
     sacks(B, M, x - 1.6, F, z + 2.2, PI, { w: 2.2 }); barrel(B, M, x - 3.4, F, z + 2.5, 0x5a6a7a); barrel(B, M, x - 3.5, F, z - 2.5, 0x5a6a7a);
     B.box(M.woodH, 0.12, 0.2, 5.6, x + 3.3, F + 3, z, { c: 0x5a4028 }); for (const pz of [-2.7, -0.9, 0.9, 2.7]) B.box(M.woodH, 0.12, 3, 0.12, x + 3.3, F, z + pz, { c: 0x5a4028 });
     for (const pz of [-1.8, 1.8]) B.box(M.flat, 0.02, 1.1, 0.75, x + 3.98, F + 1.2, z + pz, { c: 0xe4e0d4 });
-    extraFoes.push(['agent', x + 0.5, z + 0.4, { patrol: false }]); extraPicks.push([x - 3.2, z + 0.9, 0.6]);
+    extraFoes.push(['agent', x - 1.6, z - 0.4, { patrol: false }]); extraPicks.push([x - 3.2, z + 0.9, 0.6]);
+    // an old priest has come back to his church: he stands before the frame of the screen with a lit taper and raises his hand in blessing
+    { const f = person(B, M, root, 'orthodoxPriest', x + 2.3, F, z + 0.2, -PI / 2, { pose: (g) => { g.hips.rotation.x = 0.1; g.armR.rotation.x = -1.95; g.armR.rotation.z = 0.2; g.armL.rotation.x = -1.0; g.armL.rotation.z = -0.12; } });
+      const taper = new THREE.Mesh(gCyl(0.012, 0.014, 0.34, 0xe8dcb0, [0, -0.596, 0.08], [1.0, 0, 0], 1, 6), M.flat), flame = new THREE.Mesh(gCone(0.02, 0.07, 0xffb040, [0, -0.485, 0.252], [1.0, 0, 0], 1, 6), M.glow);      // held upright: the arm is turned forward by one radian, the taper back by as much
+      f.armL.add(taper, flame); people.push(f); }
   }
   { // the building site: a ladder to the top slab, and a long one to a perch on the crane's mast
     const x = -86, z = 62, cx = -97.5, cz = 70.5;

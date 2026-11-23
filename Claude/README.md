@@ -1,6 +1,6 @@
 # Lone Hand — Claude version
 
-**Version 1.9.0** · [What changed (changelog)](CHANGELOG.md) · [All releases](https://github.com/iago-swi/outlaws/releases)
+**Version 1.10.0** · [What changed (changelog)](CHANGELOG.md) · [All releases](https://github.com/iago-swi/outlaws/releases)
 
 A first-person shooter in nine chapters, built with Claude (Anthropic) in the spirit of
 late-1990s Western shooters. From a frontier town to a Japanese shrine, an alpine valley,
@@ -100,7 +100,7 @@ about; they are solid, they do not move from their place, and they are not targe
 | IV | three women at the well, Penelope at her upright loom, the swineherd Eumaeus, the old dog Argos by the villa's door, a baker at her oven, a market woman, a priestess, a potter, an old fisherman, a bard with a lyre, a shepherd with goats |
 | V | Norse women at the loom, the cauldron, the mead casks and the cod racks, one in a doorway looking out to sea; a skald, a priest of the old gods, a boat builder, a shepherd, two of your crew aboard your ship; two captives at a post in the raiders' yard |
 | VI | the baker and his wife, a woman at the café window, the schoolmistress, an old woman in the churchyard, a farm woman, the curé, a farmer, a railwayman, a man of the Resistance, a wounded glider pilot by the wreck |
-| VII | a saleswoman and the people waiting outside the food shop, two men at chess, a yard-keeper, a librarian, two stallholders, an ice fisherman, a lathe worker, two prisoners in the Committee's cells |
+| VII | a saleswoman and the people waiting outside the food shop, two men at chess, a yard-keeper, a librarian, two stallholders, an ice fisherman, a lathe worker, two prisoners in the Committee's cells; in the closed church an old priest with a white beard to his waist, a lit taper in his hand |
 | VIII | the Dalai Lama with two monks and three Khampa riders at the start; nuns at the prayer wheels, women in striped aprons at the loom, the tea churn and on the terraces, two Nepalese traders with their bales, a Khampa herder with his yaks, an old hermit in his cell |
 | IX | a drummer at the great drum on the Great Temple, market women, a woman at the grinding stone, a weaver, an old man in a doorway, a conch-blower on the palace roof, men and women in canoes on the lake |
 
@@ -652,7 +652,7 @@ animated by rotating those five parts; there are no skeletons or animation files
 The same builder makes the twenty-seven playable heroes, the thirty duel villains
 (the one-eyed Cyclops, Medusa with her snakes and the bull-headed Minotaur included),
 the human enemy types, the bystanders and the
-statues of chapters IV and VII. The bystanders have twenty-two looks of their own, a man's and a woman's for each chapter
+statues of chapters IV and VII. The bystanders have twenty-three looks of their own, a man's and a woman's for each chapter and the old priest of chapter VII (a beard to the waist, a black cap with a cross and a habit with embroidered crosses were added for him)
 (long skirts, aprons, shawls, brooches, plaits, buns and headscarves were added to the builder for them), beside the monks,
 nuns, flute monks and geisha. One function places a bystander in a pose (standing, talking, carrying, working, praying,
 sitting, lying, or any turn of the five parts) and another lets them breathe and look about. There are thirty-one enemy types in all. The guard dogs of chapter VI are one of them: a four-legged rig that exposes the

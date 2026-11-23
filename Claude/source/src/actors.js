@@ -134,6 +134,8 @@ export function makeHumanoid(M, sp) {
     if (f === 'moustache') T.push(gBox(0.1, 0.022, 0.02, S.hair, [0, HY - 0.045, 0.125]), gBox(0.02, 0.05, 0.02, S.hair, [0.055, HY - 0.07, 0.118]), gBox(0.02, 0.05, 0.02, S.hair, [-0.055, HY - 0.07, 0.118]));
     if (f === 'beard') T.push(gSph(0.105, S.hair, [0, HY - 0.075, 0.045], [1.1, 1.05, 0.95]), gBox(0.1, 0.02, 0.02, S.hair, [0, HY - 0.04, 0.127]));
     if (f === 'longbeard') T.push(gSph(0.11, S.hair, [0, HY - 0.08, 0.045], [1.12, 1.1, 0.95]), gCone(0.09, 0.2, S.hair, [0, HY - 0.2, 0.09], [Math.PI, 0, 0], [1, 1, 0.6]), gBox(0.1, 0.02, 0.02, S.hair, [0, HY - 0.04, 0.127]));
+    if (f === 'greatbeard') T.push(gSph(0.115, S.hair, [0, HY - 0.085, 0.045], [1.18, 1.1, 0.95]), gCone(0.125, 0.56, S.hair, [0, HY - 0.37, 0.108], [Math.PI, 0, 0], [1.12, 1, 0.5], 9),                 // a beard to the waist,
+      gSph(0.07, S.hair, [0, HY - 0.16, 0.1], [1.5, 1.3, 0.7]), gBox(0.125, 0.026, 0.024, S.hair, [0, HY - 0.042, 0.127]), gBox(0.026, 0.07, 0.022, S.hair, [0.066, HY - 0.075, 0.118]), gBox(0.026, 0.07, 0.022, S.hair, [-0.066, HY - 0.075, 0.118]));   // full at the chin, with a heavy moustache
     if (f === 'bandana') T.push(gBox(0.21, 0.09, 0.13, S.accent ?? 0x8a1c1c, [0, HY - 0.06, 0.06]), gCone(0.07, 0.12, S.accent ?? 0x8a1c1c, [0, HY - 0.16, 0.1], [Math.PI, 0, 0], [1, 1, 0.4]));
     if (f === 'headband') T.push(gCyl(0.132, 0.132, 0.03, S.accent ?? 0xffffff, [0, HY + 0.05, 0]));
     if (f === 'topknot') T.push(gSph(0.045, S.hair, [0, HY + 0.17, -0.04]));
@@ -263,6 +265,12 @@ export function makeHumanoid(M, sp) {
       T.push(gCyl(0.152, 0.146, 0.09, 0xf0ece0, [0, HT - 0.01, 0], [0, 0, 0], [1, 1, 1.05], 12), gCyl(0.095, 0.135, 0.15, S.hatC ?? 0xb01c1c, [0, HT + 0.1, 0], [0, 0, 0], 1, 10),
         gCyl(0.155, 0.155, 0.025, 0xd9b23a, [0, HT - 0.05, 0], [0, 0, 0], [1, 1, 1.05], 12), gSph(0.03, 0xd9b23a, [0, HT + 0.19, 0]));
       break;
+    case 'skufia': { // the black cap of an Orthodox monk or priest, a small cross sewn on its front
+      const wc = S.trim ?? 0xe8e4d8;
+      T.push(gCyl(0.122, 0.133, 0.15, S.hatC ?? 0x121216, [0, HT + 0.035, -0.005], [0, 0, 0], 1, 12), gCyl(0.1, 0.122, 0.03, S.hatC ?? 0x121216, [0, HT + 0.125, -0.005], [0, 0, 0], 1, 12),
+        gBox(0.012, 0.062, 0.008, wc, [0, HT + 0.045, 0.126]), gBox(0.042, 0.012, 0.008, wc, [0, HT + 0.055, 0.126]));
+      break;
+    }
     case 'fez':     // black fez with a tassel
       T.push(gCyl(0.1, 0.128, 0.15, S.hatC ?? 0x15151a, [0, HT + 0.045, 0], [0, 0, 0], 1, 12), gBox(0.012, 0.11, 0.012, 0xd9b23a, [0.07, HT + 0.07, 0.07]), gCyl(0.02, 0.02, 0.012, 0xd9b23a, [0, HT + 0.125, 0], [0, 0, 0], 1, 6));
       break;
@@ -364,6 +372,14 @@ export function makeHumanoid(M, sp) {
     if (e === 'brooches') { const bc = S.brooch ?? 0xc9a050, sc = S.strap ?? S.dress ?? S.shirt;                                                            // shoulder straps pinned by two brooches, a string of beads between them
       T.push(gBox(0.035, 0.24, 0.02, sc, [0.085, 0.4, 0.12], [-0.25, 0, 0]), gBox(0.035, 0.24, 0.02, sc, [-0.085, 0.4, 0.12], [-0.25, 0, 0]), gSph(0.03, bc, [0.085, 0.42, 0.135], [1, 1.3, 0.5]), gSph(0.03, bc, [-0.085, 0.42, 0.135], [1, 1.3, 0.5]),
         gBox(0.15, 0.016, 0.014, S.beads ?? bc, [0, 0.395, 0.14])); }
+    if (e === 'analav') {                                                                 // the long front panel of a monk's habit, embroidered in white: two three-barred crosses, one above the other, between two borders
+      const wc = S.trim ?? 0xe8e4d8, pc = S.panel ?? 0x1c1c22, tilt = -0.092, at = (yy) => 0.196 - (yy + 0.39) * 0.092;
+      const P = [gBox(0.25, 0.8, 0.014, pc, [0, -0.39, 0.166], [tilt, 0, 0])];
+      for (const sx of [-1, 1]) P.push(gBox(0.012, 0.78, 0.008, wc, [sx * 0.112, -0.39, 0.176], [tilt, 0, 0]));
+      for (const cy of [-0.2, -0.58]) P.push(gBox(0.016, 0.3, 0.008, wc, [0, cy, at(cy) - 0.02], [tilt, 0, 0]), gBox(0.11, 0.016, 0.008, wc, [0, cy + 0.06, at(cy + 0.06) - 0.02], [tilt, 0, 0]),
+        gBox(0.056, 0.014, 0.008, wc, [0, cy + 0.115, at(cy + 0.115) - 0.02], [tilt, 0, 0]), gBox(0.07, 0.014, 0.008, wc, [0, cy - 0.07, at(cy - 0.07) - 0.02], [tilt, 0, 0.42]));
+      T.push(...P);
+    }
     if (e === 'shawl') T.push(gCyl(0.15, 0.262, 0.2, S.shawl ?? 0x6a4a3a, [0, 0.45, -0.005], [0, 0, 0], [1, 1, 0.7], 12), gCyl(0.262, 0.25, 0.1, S.shawl ?? 0x6a4a3a, [0, 0.3, -0.005], [0, 0, 0], [1, 1, 0.7], 12));      // a shawl over the shoulders
     if (e === 'robe') T.push(gCyl(0.185, 0.3, 0.8, S.robe ?? S.pants, [0, -0.39, 0], [0, 0, 0], [1, 1, 0.64], 10), gBox(0.52, 0.1, 0.32, S.sash ?? S.robe ?? S.pants, [0, 0.34, 0], [0, 0, 0.78]),
       gCyl(0.2, 0.19, 0.12, S.robe ?? S.pants, [0, 0.06, 0], [0, 0, 0], [1, 1, 0.68], 10));
@@ -726,6 +742,8 @@ export function lookFor(type, r) {
     case 'frenchMan': return { skin: pick([0xe0b89a, 0xd6a88a]), hair: pick([0x2a1c12, 0x5a3a1c, 0x9a9a90]), shirt: pick([0xd8d0c0, 0xb8c0c8, 0xa8a090]), pants: pick([0x3a3a44, 0x4a4034, 0x33415c]), boots: 0x2a1c12,
       hat: 'beret', hatC: pick([0x22222a, 0x3a2a22]), face: [pick(['moustache', 'bigmoustache', 'pipe'])], extras: ['vest'], vest: pick([0x2a2a30, 0x4a3a2a, 0x3a3a3a]) };
     case 'cure': return { skin: 0xe0b89a, hair: 0x9a9a90, shirt: 0x15151a, sleeve: 0x15151a, pants: 0x15151a, boots: 0x0c0c0c, belt: 0x15151a, hat: null, face: ['glasses'], extras: ['robe'], robe: 0x15151a, sash: 0x15151a };
+    case 'orthodoxPriest': return { skin: 0xe2c4ac, hair: 0xe0e0d8, brow: 0xb4b4ac, shirt: 0x15151a, sleeve: 0x15151a, pants: 0x15151a, boots: 0x0c0c0c, belt: 0x15151a, hat: 'skufia', hatC: 0x121216,     // an old monk-priest: black habit, a white beard to the waist
+      face: ['longhair', 'greatbeard'], extras: ['robe', 'analav'], robe: 0x15151a, sash: 0x15151a, wideSleeve: true };
     case 'russianWoman': { const d = pick([0x4a4a52, 0x5a4a3a, 0x3a4a5a, 0x5a3a3a]);
       return { skin: pick([0xe6c8b0, 0xe0bca0]), hair: pick([0x8a6a3a, 0x5a3a1c, 0xc8a050, 0x9a9a90]), shirt: d, sleeve: d, pants: d, dress: pick([0x3a3a44, 0x4a3a30, 0x2a3a4a]), boots: pick([0x8a8478, 0x1a1410]), hat: null, lip: 0xa8483c,
         face: ['kerchief'], kerchief: pick([0xb83a2a, 0xe6e0d0, 0x3a5a8a, 0xc8a84a]), extras: ['dress', 'coat'], coat: d, scale: 0.94 }; }
