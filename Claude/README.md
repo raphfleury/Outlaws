@@ -1,6 +1,6 @@
 # Lone Hand — Claude version
 
-**Version 1.9.0** · [What changed (changelog)](CHANGELOG.md) · [All releases](https://github.com/iago-swi/outlaws/releases)
+**Version 2.0.0** · [What changed (changelog)](CHANGELOG.md) · [All releases](https://github.com/iago-swi/outlaws/releases)
 
 A first-person shooter in nine chapters, built with Claude (Anthropic) in the spirit of
 late-1990s Western shooters. From a frontier town to a Japanese shrine, an alpine valley,
@@ -53,17 +53,17 @@ who are on the move; the last three come looking for you. Health items
 into the bag and restore 35 points when used (`H`, or take one in hand and press the left
 button).
 
-| Chapter | Weapons | Enemies (at most 30, see *Choose your hero*) |
+| Chapter | Weapons (the second one of the chapter, and the bag at the start, in brackets) | Enemies (at most 30, 45 on a large map, see *Choose your hero*) |
 | --- | --- | --- |
-| I · Dry Gulch, Arizona Territory, 1881 | six-shooter | cowboys, sombrero bandits, the gang boss Silas Crowe |
-| II · Kagemori, Japan, 1600 | throwing stars (shuriken) and katana | ninja who ambush from smoke, rōnin, archers, the Iron Rōnin |
-| III · Uri, the Waldstätten, 1307 | crossbow and halberd | Habsburg halberdiers, crossbowmen, knights, the bailiff |
-| IV · Ithaca, Greece, the age of heroes | javelins and short sword | Spartan hoplites, javelin throwers, their captain |
-| V · Jarnvik, Norway, winter of 985 | throwing axes and a flail | rival Vikings in animal skins, berserkers, bowmen, chieftains in horned helmets, the grey jarl |
-| VI · Sainte-Aubine, Normandy, 6 June 1944 | scoped rifle, Sten gun or pistol, and a knife | German riflemen, officers, machine-gunners, guard dogs, the battery commander |
-| VII · Stalnogorsk, Soviet Union, winter of 1974 | submachine gun or pistol, and a knife | KGB agents, militia with submachine guns, guard dogs, Colonel Voronin |
-| VIII · Che La, Tibet, March 1959 | rifle or pistol and a knife, or bow and sword | Chinese riflemen, machine-gunners, Red Guards, Commander Zhao |
-| IX · Tenochtitlan, Mexico, 30 June 1520 | poisoned dart-thrower, stones or bow, and an obsidian-edged club | Spanish swordsmen, crossbowmen, arquebusiers, horsemen, a cannon and its gunner, Captain Luján of the rear guard |
+| I · Dry Gulch, Arizona Territory, 1881 | six-shooter (cavalry sabre) | cowboys, sombrero bandits, the gang boss Silas Crowe |
+| II · Kagemori, Japan, 1600 | throwing stars (shuriken) and katana (blowgun) | ninja who ambush from smoke, rōnin, archers, the Iron Rōnin |
+| III · Uri, the Waldstätten, 1307 | crossbow and halberd (sword; three big stones) | Habsburg halberdiers, crossbowmen, knights, the bailiff |
+| IV · Ithaca, Greece, the age of heroes | javelins and short sword (sling) | Spartan hoplites, javelin throwers, their captain |
+| V · Jarnvik, Norway, winter of 985 | throwing axes and a flail (seax; three big stones) | rival Vikings in animal skins, berserkers, bowmen, chieftains in horned helmets, the grey jarl |
+| VI · Sainte-Aubine, Normandy, 6 June 1944 | scoped rifle, Sten gun or pistol, and a knife (a pistol, or a rifle for the hero with a pistol; two Molotov cocktails) | German riflemen, officers, machine-gunners, guard dogs, the battery commander |
+| VII · Stalnogorsk, Soviet Union, winter of 1974 | submachine gun or pistol, and a knife (a rifle; three Molotov cocktails) | KGB agents, militia with submachine guns, guard dogs, Colonel Voronin |
+| VIII · Che La, Tibet, March 1959 | rifle or pistol and a knife, or bow and sword (herder's sling) | Chinese riflemen, machine-gunners, Red Guards, Commander Zhao |
+| IX · Tenochtitlan, Mexico, 30 June 1520 | poisoned dart-thrower, stones or bow, and an obsidian-edged club (blowgun) | Spanish swordsmen, crossbowmen, arquebusiers, horsemen, a cannon and its gunner, Captain Luján of the rear guard |
 
 ### Places you can go into, onto and behind
 
@@ -129,9 +129,10 @@ the roof or the deck. A jump clears about 1.3 m.
 
 Every watch platform, lookout, high seat and hunter's stand has a ladder too.
 Enemies can follow you up anything that has steps and stands in the open: the butte can be
-stormed. Both the butte and the boulder are held by a marksman when you arrive. Enemies cannot climb ladders, crouch or jump, so roofs,
-platforms and high seats are safe from blades, though not from bullets, and they cannot
-get through a crawl space at all. Upper floors are an exception among the stairs: the
+stormed. Both the butte and the boulder are held by a marksman when you arrive. Enemies of
+*Medium* and *Genius* wits (see *Choose your hero*) climb ladders after you and crouch into
+low hiding places; dull ones (*Low*) do neither, so for them roofs, platforms and high seats
+are safe from blades, though not from bullets. Upper floors are an exception among the stairs: the
 route grid knows one floor per spot, so where a stair leads to a room or a roof above
 another room (the saloon and the hotel in chapter I, the church towers, the house roofs of
 chapters IV and IX) enemies stay below, and whoever is posted up there holds the post.
@@ -144,42 +145,81 @@ card to see the figure in the opening shot, then click it, or press `1` to `3` a
 also carry different weapons.
 
 Above the cards, the **Enemies** list sets how many enemies the chapter holds: 5, 10, 15,
-20, 25 or 30. It starts at 15, and no chapter ever holds more than 30. The boss always
+20, 25 or 30 (up to 45 on a large map). It starts at 15. The boss always
 stays and every kind of enemy is kept as long as the number allows; the others are taken
 away where they stand thickest, so the whole map remains guarded. The choice is kept for
 the next chapter and when you retry.
 
+Beside it, two more lists, also remembered:
+
+- **Wits**: how the enemies think. *Low*: they fight back when they see you or are hurt,
+  but hear nothing, never climb or crawl after you, stay near their post and give up as
+  soon as you are out of sight for a moment. *Medium* (the default): those with a gun or a
+  bow take up places with a view and something to hide behind; they hear what goes on
+  near them, go after you where they last saw or heard you (up ladders, crouching into
+  hiding places), search for about twelve seconds and walk back if they find nothing or you
+  got far away. *Genius*: they hear from almost twice as far and see a little further,
+  tell each other where you are (within 60 m), fight from cover, crouched and rising to
+  shoot, move to a new place after a few shots or hits, come round the sides, creep up
+  crouched where you cannot see them, throw their bombs at where you hide, keep their
+  distance when badly hurt, and half of their marksmen start on a roof, a deck or a
+  balcony. They also shoot straighter and react faster.
+- **Map**: *Small* keeps only the heart of the chapter, from where you come in to where the
+  boss stands, with a rope and little red and white flags along the edge; enemies who stood
+  outside are not there. *Medium* is the chapter as it was made. *Large* makes it half as
+  wide again, with outskirts in the chapter's own style: up to nine hamlets of two or three
+  houses you can walk into, each furnished (table and bench, a bed or a chest, jars), with
+  things in the yard, a fence, trees, two to four people at work, a horse in some chapters
+  and smoke from the chimneys; the ground of a hamlet on a hillside is levelled for it, and
+  where the new ground is water there are boats at anchor with their crews. Two or three
+  enemies are about each hamlet.
+
+**Two weapons and a skill.** Every hero sets out with his own weapon and the second weapon
+of the chapter (see the table below), and presses `E` for his **special skill**, shown
+under the health bar (ready, at work, or how many seconds until it is back) and on his
+card:
+
+| Skill | What it does | Lasts | Back after |
+| --- | --- | --- | --- |
+| Dash | a burst of speed, 80% faster | 3 s | 16 s |
+| Stand fast | wounds hurt five times less | 5 s | 28 s |
+| Dead eye | every shot flies true and hits 80% harder | 6 s | 28 s |
+| Second wind | 50 health back over four seconds | 4 s | 36 s |
+| Vanish | the enemies lose sight of you and go where they saw you last; in a duel the other player sees only a faint shape | 6 s | 32 s |
+| Fury | blows strike twice as hard and 60% quicker, and you move 20% faster | 7 s | 26 s |
+| Eagle eye | every enemy within 90 m is marked through walls and shows on the map | 9 s | 30 s |
+
 ![The hero selection for Dry Gulch: the keys W A S D, Shift, Space and C, the Enemies list set to 15, and cards for Wyatt Earp, Calamity Jane and Billy the Kid, with Wyatt Earp in his black coat standing in the desert](screenshot-heroes.jpg)
 
-| Chapter | Hero | Who | Strength |
-| --- | --- | --- | --- |
-| I | Wyatt Earp | Lawman of Tombstone, 1881 | Iron nerve: takes 25% less damage |
-| I | Calamity Jane | Scout and sharpshooter of Deadwood | Frontier scout: moves 18% faster |
-| I | Billy the Kid | The fastest gun in New Mexico | Quick draw: fires and reloads much faster |
-| II | Miyamoto Musashi | Undefeated duellist, master of two swords | Two swords: faster katana cuts with longer reach |
-| II | Tomoe Gozen | Woman warrior of the Genpei War | Swift hands: throws her stars almost twice as fast |
-| II | Date Masamune | The One-Eyed Dragon of Sendai | Black armour: takes 30% less damage |
-| III | Wilhelm Tell | The crossbowman of Bürglen, Uri | Master shot: reloads the crossbow 40% faster |
-| III | Arnold von Winkelried | Hero of Sempach, from Nidwalden | Breaks the line: starts with 150 health |
-| III | Werner Stauffacher | Man of Schwyz, of the Rütli oath | Steadfast: slowly recovers health out of danger |
-| IV | Ulysses | King of Ithaca, the man of many wiles | Sure aim: javelins fly faster and hit harder |
-| IV | Achilles | Greatest warrior of the Trojan War | Nearly invulnerable: takes 35% less damage |
-| IV | Heracles | Strongest of heroes, of the twelve labours | Strength of ten: starts with 170 health |
-| V | Erik the Red | Outlaw and founder of Greenland | Hot temper: throws axes much faster |
-| V | Leif Erikson | Leif the Lucky, who sailed to Vinland | The Lucky: takes 30% less damage |
-| V | Ragnar Lothbrok | Legendary sea-king and raider | Raider: faster, harder blows with the flail |
-| VI | Lyudmila Pavlichenko | Soviet sniper, 309 confirmed kills | Sniper: scoped rifle, one shot fells a soldier |
-| VI | Virginia Hall | American spy, “the limping lady” | Spy: Sten gun; sentries notice her much later |
-| VI | Maurice Bavaud | Of Neuchâtel, who set out to shoot Hitler in 1938 | Sure hand: pistol whose shots hit 60% harder |
-| VII | Aleksandr Solzhenitsyn | Artillery captain, prisoner, writer | Frontline officer: submachine gun; takes 15% less damage |
-| VII | Andrei Sakharov | Physicist, and the conscience of a country | Precision: pistol whose shots hit 60% harder |
-| VII | Rudolf Nureyev | The dancer who leapt to freedom in 1961 | The leap: moves 25% faster; agents notice him later |
-| VIII | Gompo Tashi Andrugtsang | Khampa leader of the Chushi Gangdruk | Marksman: rifle, one shot fells a soldier |
-| VIII | Ani Pachen | The warrior nun who led her clan on horseback | Rider: pistol; moves 20% faster |
-| VIII | Songtsen Gampo | The king who founded the Tibetan empire | King of old: bow and sword; takes 20% less damage |
-| IX | Cuauhtémoc | The Descending Eagle, last ruler of the Mexica | Descending Eagle: poisoned darts that fly faster and hit harder |
-| IX | Tzilacatzin | Warrior of Tlatelolco, who felled Spaniards with stones | Stone thrower: hurls heavy stones; starts with 130 health |
-| IX | Nezahualcóyotl | The Fasting Coyote, poet-king of Texcoco | Fasting Coyote: bow and club; moves 15% faster |
+| Chapter | Hero | Who | Strength | Skill (`E`) |
+| --- | --- | --- | --- | --- |
+| I | Wyatt Earp | Lawman of Tombstone, 1881 | Iron nerve: takes 25% less damage | Stand fast |
+| I | Calamity Jane | Scout and sharpshooter of Deadwood | Frontier scout: moves 18% faster | Dash |
+| I | Billy the Kid | The fastest gun in New Mexico | Quick draw: fires and reloads much faster | Dead eye |
+| II | Miyamoto Musashi | Undefeated duellist, master of two swords | Two swords: faster katana cuts with longer reach | Fury |
+| II | Tomoe Gozen | Woman warrior of the Genpei War | Swift hands: throws her stars almost twice as fast | Dead eye |
+| II | Date Masamune | The One-Eyed Dragon of Sendai | Black armour: takes 30% less damage | Stand fast |
+| III | Wilhelm Tell | The crossbowman of Bürglen, Uri | Master shot: reloads the crossbow 40% faster | Dead eye |
+| III | Arnold von Winkelried | Hero of Sempach, from Nidwalden | Breaks the line: starts with 150 health | Second wind |
+| III | Werner Stauffacher | Man of Schwyz, of the Rütli oath | Steadfast: slowly recovers health out of danger | Second wind |
+| IV | Ulysses | King of Ithaca, the man of many wiles | Sure aim: javelins fly faster and hit harder | Dead eye |
+| IV | Achilles | Greatest warrior of the Trojan War | Nearly invulnerable: takes 35% less damage | Stand fast |
+| IV | Heracles | Strongest of heroes, of the twelve labours | Strength of ten: starts with 170 health | Second wind |
+| V | Erik the Red | Outlaw and founder of Greenland | Hot temper: throws axes much faster | Dead eye |
+| V | Leif Erikson | Leif the Lucky, who sailed to Vinland | The Lucky: takes 30% less damage | Stand fast |
+| V | Ragnar Lothbrok | Legendary sea-king and raider | Raider: faster, harder blows with the flail | Fury |
+| VI | Lyudmila Pavlichenko | Soviet sniper, 309 confirmed kills | Sniper: scoped rifle, one shot fells a soldier | Eagle eye |
+| VI | Virginia Hall | American spy, “the limping lady” | Spy: Sten gun; sentries notice her much later | Vanish |
+| VI | Maurice Bavaud | Of Neuchâtel, who set out to shoot Hitler in 1938 | Sure hand: pistol whose shots hit 60% harder | Dead eye |
+| VII | Aleksandr Solzhenitsyn | Artillery captain, prisoner, writer | Frontline officer: submachine gun; takes 15% less damage | Stand fast |
+| VII | Andrei Sakharov | Physicist, and the conscience of a country | Precision: pistol whose shots hit 60% harder | Dead eye |
+| VII | Rudolf Nureyev | The dancer who leapt to freedom in 1961 | The leap: moves 25% faster; agents notice him later | Vanish |
+| VIII | Gompo Tashi Andrugtsang | Khampa leader of the Chushi Gangdruk | Marksman: rifle, one shot fells a soldier | Eagle eye |
+| VIII | Ani Pachen | The warrior nun who led her clan on horseback | Rider: pistol; moves 20% faster | Dash |
+| VIII | Songtsen Gampo | The king who founded the Tibetan empire | King of old: bow and sword; takes 20% less damage | Stand fast |
+| IX | Cuauhtémoc | The Descending Eagle, last ruler of the Mexica | Descending Eagle: poisoned darts that fly faster and hit harder | Dead eye |
+| IX | Tzilacatzin | Warrior of Tlatelolco, who felled Spaniards with stones | Stone thrower: hurls heavy stones; starts with 130 health | Second wind |
+| IX | Nezahualcóyotl | The Fasting Coyote, poet-king of Texcoco | Fasting Coyote: bow and club; moves 15% faster | Dash |
 
 The heroes are drawn from history, myth and saga, not from any film, series or comic.
 Several do not belong to their chapter's year or place (Winkelried is of 1386, Tomoe
@@ -209,9 +249,11 @@ belong to the years after 1966 and are in the chapter by request, not by the cal
 Click **Two players online** on the title screen. Two players, each on their own computer,
 play one of the nine chapters against each other, or together against its enemies.
 
-1. One player chooses the chapter, the game and how many computer enemies are in the
-   world (none, or 3 to 24 by threes; at least 3 together), then clicks *Create and get
-   the invite link*.
+1. Each player writes a name at the top of the screen (it is remembered): the other player
+   sees it in the scores, in the messages and, together, over your head. One player
+   chooses the chapter, the game, how many computer enemies are in the world (none, or 3
+   to 24 by threes; at least 3 together), their wits and the size of the map, then clicks
+   *Create and get the invite link*.
 2. They send the link, or its code of five characters, to the other player, who opens
    the link or types the code.
 3. Both choose a fighter. The duel starts when both have chosen.
@@ -227,7 +269,10 @@ play one of the nine chapters against each other, or together against its enemie
 | Together against the enemy | Both players start side by side against 3 to 24 of the chapter's enemies, the boss among them. Nothing one fires or swings can hurt the other. Each counts his own kills (the host's browser decides who struck the last blow). A fallen player is back at the start five seconds later. The mission is over when the last enemy falls. |
 
 In every game the enemies stand at places drawn at random for that game, the same in both
-browsers (the host's browser draws a number that both use).
+browsers (the host's browser draws a number that both use); the outskirts of a large map
+and the posts the enemies take up are the same on both sides too. Together, your partner's
+name, distance and health show over his head, through walls, and at the edge of the screen
+when he is out of view; what one of you puts down with `G`, the other can take.
 
 In a duel each chapter offers its villains beside its three heroes. Heroes stand in a
 row marked with a gold star, villains in a row marked with a red skull, and every card
@@ -291,13 +336,27 @@ network.
 
 ### Arsenal, bag, map and things that break
 
-- **Every weapon runs out.** The hero sets out with a limited supply (42 rounds for the
-  six-shooter or a pistol, 128 for a submachine gun, 40 for a rifle, 25 for the scoped
-  rifle, 30 arrows, 20 bolts, 20 throws of stars, 10 javelins or axes, 20 darts, 15
-  stones) and can carry at most twice that. More is found on the fallen and in crates,
-  chests and barrels, as boxes of ammunition: a box fills the weapon in hand if it can
-  take more, otherwise the hero's own. With nothing left to fire, the hands go to the
-  fists (`2`), which never run out.
+- **Every weapon runs out** except the blades and the fists. The hero sets out with a
+  limited supply (42 rounds for the six-shooter or a pistol, 128 for a submachine gun, 40
+  for a rifle, 25 for the scoped rifle, 20 arrows, 14 bolts, 12 throws of stars, 6
+  javelins or axes, 12 darts, 8 stones, 20 sling stones, 10 blowgun darts) and can carry at
+  most twice that. More is found on the fallen and in crates, chests and barrels, as boxes
+  of ammunition: a box fills the weapon in hand if it can take more, otherwise the hero's
+  own. With nothing left to fire, the hands go to the fists, which never run out.
+- **Take back what you threw.** Arrows, bolts, stars, javelins, axes, darts, sling stones,
+  blowgun darts and big stones lie where they fell or stick where they struck, in a wall,
+  a tree or a body, and glow faintly: walk over one to take it back (the forty most recent
+  are kept).
+- **Blades** (knife, seax, sword, sabre, katana, halberd) are held in hand: the left button
+  strikes. They need no ammunition and make no sound that enemies hear. The **sling** is
+  whirled once overhead and lets a stone fly; the **blowgun** is brought to the eye with
+  the right button (a narrow, sniper's view) and shoots silent poisoned darts. **Big
+  stones** are thrown from the bag and picked up again; a **Molotov cocktail** bursts into a
+  pool of fire three metres wide that burns for about seven seconds, hurting whoever stands
+  in it (you too), setting bystanders running and burning wooden things.
+- **Put down what you hold** with `G`: a weapon with the shots it has left, or one thing from
+  the bag. It lies in front of you; you take it again once you have stepped away and come
+  back, and in a game for two the other player can take it.
 - **Weapons taken from the enemy.** Gunmen, archers, crossbowmen, javelin throwers,
   axemen and ninjas leave their weapon where they fall, glowing on the ground; walk over
   it to take it. It comes with a number of shots (12 for a revolver, 16 for a rifle, 64
@@ -335,19 +394,24 @@ network.
   numbered); pressed again on a mark, it takes it away. A mark is a pin in the world, a
   label with its distance seen through walls, and a dot on both maps; a mark beyond the
   rim of the mini-map sits on the rim, in its direction.
-- **Things that break.** Crates, barrels, jars, fences (bay by bay), tables, chests, sacks,
-  carts, woodpiles, haystacks, market stalls and shelves break under shots, blows, thrown
-  weapons and blasts, the bigger ones after more hits; chips fly off at every hit. What
-  stood on them falls with them, and what lay on a table or a chest goes with it. Walls,
-  houses, rocks and trees stand: they hold up floors, roofs and ladders, and the enemies'
-  routes are worked out around them. In chapters I, II, VI, VII, VIII and IX
+- **Things that break.** Everything breaks under shots, blows, thrown weapons, fire and
+  blasts except stone, plaster, rock and trees. Small things (bottles, lamps, pots, bowls,
+  ornaments) go at one shot or blow, and a bullet goes on through them; furniture, crates,
+  barrels, fences (bay by bay), carts, woodpiles, haystacks, stalls, shelves, benches and
+  beds after two to four; wooden and paper walls and doors after several, and the
+  enemies' routes are worked out again through the gap. Chips fly off at every hit. What
+  stood on a thing falls with it, and whoever sat on a bench or a bed jumps up. In chapters I, II, VI, VII, VIII and IX
   one barrel in three is a red powder keg with a pale lid: it explodes, hurting everyone
   within about six metres (you too; a wall between softens the blast), breaking what is
   around it and setting off other kegs.
 - **Sneaking** (`X`) halves your speed and silences your steps. Enemies see a sneaking
   hero at two thirds of the usual distance, and from behind only within three metres.
-  Running near them, on the other hand, is heard within twelve metres, even through a
-  wall. Enemies who close in on you while you cannot see them sneak as well.
+- **Noise.** Enemies of *Medium* wits hear a gunshot about 35 m away, a bow, a sling or a
+  throw about 10 m, running feet 11 m, walking feet 4 m, even through walls, and come to see
+  where it was; *Genius* ones hear 80% further, *Low* ones nothing. Blades, fists and the
+  blowgun are silent, and so are sneaking and crouching. A thing breaking makes those near
+  look round. Enemies who close in on you while you cannot see them sneak as well (clever
+  ones crouch).
 
 ### Bystanders, fists, wounds and aimed throws
 
@@ -357,9 +421,10 @@ network.
   Stand still near one for a moment, without fighting, and he turns to you and talks,
   waves, nods, shrugs or points; aim at one and he raises his hands. A shot or two kills
   one; the end of the chapter shows how many bystanders you killed.
-- **Fists** are always the second place of the arsenal (`2`): the left button jabs with
-  either hand in turn (28 damage), the right button throws a hook (55). They reach about
-  a metre and a half, need no ammunition and break crates and fences too.
+- **Fists** are always the last weapon of the arsenal: the left button jabs with either hand
+  in turn (28 damage), the right button throws a hook (55). They reach about a metre and a
+  half, strike the bystanders and enemies within reach and the nearest breakable thing
+  (a small thing, furniture, a wooden wall), need no ammunition and make no noise.
 - **Wounds.** A shot leaves a dark mark on the body where it went in, pushes the figure back
   a little, and shows a small health bar over the enemy for four seconds (over the other
   player of a duel as long as he is hurt). Below 40% of his strength an enemy limps.
@@ -397,15 +462,17 @@ and the other player (green while they speak).
 | Right mouse button | Aim (six-shooter, crossbow, the guns of chapters VI to VIII; through the scope with the sniper rifle). With a thrown weapon (stars, javelins, axes, darts, stones, bombs) it aims too and shows the flight to where it will land. With the bow, the sword or katana cut; with the fists, a hook |
 | `F` | Halberd thrust in chapter III, knife in chapters VI to VIII, katana in chapter II, sword in chapter IV, flail in chapter V, club in chapter IX |
 | `R` | Reload the six-shooter and the guns of chapters VI to VIII |
-| Mouse wheel | Change weapon: through the arsenal (the hero's weapon, the fists, the weapons taken from the enemy) and the bag. `1` to `9` take a place directly; `2` is always the fists |
+| Mouse wheel | Change weapon: through the arsenal (the hero's weapon, the second weapon, the weapons taken from the enemy, the fists) and the bag. `1` to `9` take a place directly |
 | Middle mouse button (press the wheel) | Mark the place the cross-hair points at; again on a mark, take it away |
 | `Tab` (hold) | The map of the whole chapter |
 | `H` | Use a healing item from the bag without taking it in hand |
+| `E` | The hero's special skill (see *Choose your hero*) |
+| `G` | Put down what you hold: the weapon in hand, or one thing from the bag |
 | `T` | In a duel: mute and unmute the microphone, or hold to speak (see *Sound settings*) |
 | `Esc` | Pause; then `Q` returns to the chapter list. `P` also pauses when the browser has not captured the mouse |
 | `M` | Music on/off |
 | `O` | Sound settings (on the title screen, the duel screen and while paused) |
-| `G` | Graphics: steps through Automatic, High, Medium and Low (also while paused) |
+| `G` (while paused) | Graphics: steps through Automatic, High, Medium and Low |
 
 **Sneaking is on `X`, not on `Ctrl`.** Browsers keep the `Ctrl` combinations for
 themselves, and a page cannot stop them: `Ctrl`+`W` closes the tab and `Ctrl`+`Q` can close
@@ -413,7 +480,7 @@ the browser, so holding `Ctrl` while walking would end the game. As a safeguard,
 chapter or a duel is on, the browser asks before the page is closed.
 
 **If the game runs slowly.** The *Graphics* list at the bottom left of the title screen
-offers four choices, and `G` steps through them during a chapter. *High* is the full
+offers four choices, and `G` steps through them in the pause screen. *High* is the full
 picture. *Medium* draws three quarters of the resolution. *Low* draws half of it, with
 fewer grass tufts and far trees, shorter shadows and no glow. *Automatic*, the default,
 starts on High and steps down by itself while the game runs below about 42 frames a
@@ -469,6 +536,8 @@ green. The end-of-chapter screen notes that the result was reached in practice m
 | [loot.js](source/src/loot.js) | What each kind of enemy leaves behind, the shots that come with a weapon, and the names shown in the arsenal and the bag. |
 | [life.js](source/src/life.js) | Life around: birds, gusts and dust devils, the train of chapter I and the tank of chapter VII. |
 | [crowd.js](source/src/crowd.js) | The bystanders: fright and flight, crouching, the way back, talking to the player, hands up, wounds and death. |
+| [skills.js](source/src/skills.js) | The heroes' special skills (`E`): what each does, how long it lasts, and which hero has which. |
+| [outskirts.js](source/src/outskirts.js) | The size of the map: the roped-off heart of a small one; the outskirts of a large one (hamlets in each chapter's style, levelled hillsides, boats, trees, people, horses, chimneys, enemies). |
 | [arc.js](source/src/arc.js) | The line of dots that shows where a thrown weapon will land. |
 | [voice.js](source/src/voice.js) | Voice chat in a duel: the microphone, the call to the other browser, the other player's voice. |
 | [duel.js](source/src/duel.js) | Duel mode: the other player's figure, rounds and scores, the messages between the two games, the lobby. |
@@ -641,6 +710,20 @@ hand-placed waypoints. The start and the goal are matched to the walker's own st
 an enemy standing beside a crate does not plan from the top of it.
 
 ### Characters and behaviour
+
+**Wits.** Each enemy keeps what he knows: where the target was last seen or heard, and
+when. With the target in sight he fights; out of sight, a *Low* enemy waits two and a half
+seconds and walks back to his post, while *Medium* and *Genius* ones go to the last known
+place (by the route grid, and by a ladder when that place is on another floor: the ladder
+whose foot is on his floor and whose top is nearest the place), crouch into low gaps, then
+search at random points around it before going home. Noises are events with a loudness in
+metres, multiplied by the hearing of the level (0, 1 or 1.8). A clever gunman picks cover
+from twenty-two points within twelve metres: a point where a ray from crouching height to
+the target is blocked and one from standing height is clear. The posts at the start are
+picked the same way in both browsers, from the game's number: a ground cell next to one or
+two blocked cells with the widest view, or, for a clever marksman, a flat surface 2.6 to 14
+m above the ground with room to stand.
+
 
 Characters are built from capsules, cylinders, spheres and boxes, merged into five
 meshes: torso and head, two arms and two legs, plus a metal mesh for blades and gun
@@ -952,6 +1035,23 @@ The game was checked with scripted runs in an automated browser: loading each ch
 firing each weapon with simulated clicks, selecting heroes and measuring their
 strengths, enemy attacks, practice mode, death and retry, and the end-of-chapter screen
 (reached by removing the enemies in a script, not by playing through).
+
+Version 2.0.0 was checked the same way. The enemies' wits: a gunshot out of sight brings
+*Medium* and *Genius* enemies to where it was fired and leaves *Low* ones idle; a player who
+hides 16 m away is searched for and found by a medium enemy, while a dull one waits and
+gives up; melee enemies of *Medium* and *Genius* wits sent after a player on a roof walked to
+the ladder, climbed it and struck, in chapters II and V; a *Genius* gunman took three
+different covers in twenty seconds and crouched between shots. All nine chapters were run
+for thirty seconds of game time with every enemy alerted, at each level of wits and each
+size of map, with no script error and under 1.5 ms of simulation per frame on average. The
+sizes: a small map keeps the spawn and the boss and roughly halves the area; a large one
+gets two to nine hamlets, or boats where the new ground is water (chapters III and IV).
+The weapons: the second weapon and the bag of every chapter, a strike with each blade, a
+shot with the sling and the blowgun, a Molotov cocktail burning an enemy, a big stone
+thrown and lying to be taken back, a javelin taken back. The skills were each switched on
+and their effects measured. A game together was played between two tabs: the names reached
+both sides, the large map and the enemies' posts were the same in both browsers, a weapon
+put down by one player appeared for the other, and the partner's tag showed.
 
 Collisions and route finding were checked the same way in all eight chapters. A script
 asks for a route from every enemy to the player and reports any that has none; this

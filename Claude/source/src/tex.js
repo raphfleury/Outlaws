@@ -406,6 +406,9 @@ export function makeMaterials() {
   M.leaf = std({ ...leafCard(12, [200, 200, 200], false), alphaTest: 0.5, side: THREE.DoubleSide, roughness: 0.85 });
   // Unlit, over-bright material: anything painted with it glows (bloom).
   M.glow = new THREE.MeshBasicMaterial({ vertexColors: true, fog: false });
+  // what breaks: wood, paper and bamboo walls can be broken through; ground, rock, roofing, leaves, glass and light are never "small things"
+  M.wood.userData.breakable = M.woodH.userData.breakable = M.bamboo.userData.breakable = 'wood'; M.shoji.userData.breakable = 'paper';
+  for (const k of ['ground', 'raked', 'cobble', 'rock', 'glow', 'leaf', 'bambooLeaf', 'window', 'shoji', 'kawara', 'shingle', 'thatch']) if (M[k]) M[k].userData.noTrinket = true;
   M.glow.color.setScalar(4);
   M.glow.userData = { tile: 1, noShadow: true };
   M.window.userData.noShadow = true;

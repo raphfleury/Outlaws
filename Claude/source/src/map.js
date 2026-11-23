@@ -96,7 +96,9 @@ export class MapView {
   /** Who shows on the map: enemies on the move (not standing still, not creeping up unseen), and in a duel the other player likewise. */
   seen(e) {
     if (!e.alive || e.state === 'hidden') return false;
-    const D = this.game.duel;
+    const D = this.game.duel, P = this.game.player;
+    if (P.skillOn && P.skillOn('eagle') && !this.game.friend(e) && Math.hypot(e.pos.x - P.pos.x, e.pos.z - P.pos.z) < 90) return true;   // the Eagle eye skill
+    if (e.remote && e.cloak && D && D.cfg.rules !== 'coop') return false;            // an opponent who has vanished
     if (e.remote) return !!e.net && (D && (D.cfg.rules === 'coop' || D.carrying('them')) || (e.moving > 0.2 && !(e.net.f & 16)));   // a team-mate always; an opponent while he moves openly, or carries a flag
     if (!this.isKnown(e.pos.x, e.pos.z)) return false;                              // ground the player has not seen: nothing shows there
     return (e.moving > 0.2 && !e.sneaking) || e.state === 'combat' || this.game.time - (e.shotAt ?? -99) < 3;   // on the move, shooting, or after the player

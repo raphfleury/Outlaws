@@ -136,6 +136,7 @@ export class Sound {
   smash(kind = 'wood', far = 0) {
     if (!this.ctx) return;
     const v = Math.max(0.15, 1 - far);
+    if (kind === 'paper') { this.noise({ type: 'highpass', f0: 1800, f1: 900, dur: 0.25, vol: 0.35 * v, att: 0.01 }); return; }
     if (kind === 'straw' || kind === 'cloth') { this.noise({ type: 'lowpass', f0: 1400, f1: 300, dur: 0.35, vol: 0.55 * v, att: 0.02 }); return; }
     if (kind === 'clay') { this.noise({ type: 'highpass', f0: 2600, dur: 0.18, vol: 0.45 * v }); for (const f of [2300, 3400]) this.tone({ type: 'triangle', f0: f * (0.9 + Math.random() * 0.2), dur: 0.12, vol: 0.06 * v }); }
     else { this.noise({ type: 'bandpass', f0: 900, f1: 300, dur: 0.22, vol: 0.6 * v, q: 0.9 }); for (let i = 0; i < 3; i++) this.noise({ t: this.t + 0.03 + i * 0.045, type: 'bandpass', f0: 1800 + Math.random() * 900, dur: 0.05, vol: 0.25 * v, q: 2 }); }
@@ -189,6 +190,17 @@ export class Sound {
   swap() { this.noise({ type: 'bandpass', f0: 1300, dur: 0.06, vol: 0.22, q: 2 }); this.noise({ t: this.ctx ? this.t + 0.09 : 0, type: 'bandpass', f0: 2100, dur: 0.04, vol: 0.18, q: 3 }); }
   /** Drinking or eating. */
   gulp() { if (!this.ctx) return; for (let i = 0; i < 3; i++) this.tone({ t: this.t + i * 0.16, type: 'sine', f0: 260 + i * 30, f1: 160, dur: 0.1, vol: 0.18, lp: 900 }); }
+  /** A special skill set going: a short rising chord (lower for strength, higher for the eye). */
+  skill(id) { if (!this.ctx) return; const f = { fury: 160, shield: 200, dash: 300, mend: 330, vanish: 440, deadeye: 520, eagle: 600 }[id] || 300; for (const [i, m] of [[0, 1], [1, 1.5], [2, 2]]) this.tone({ t: this.t + i * 0.06, type: 'triangle', f0: f * m, f1: f * m * 1.06, dur: 0.35, vol: 0.12, att: 0.02, rev: 0.5 }); }
+  /** A blowgun: a short puff of breath, hardly heard. */
+  blow() { this.noise({ type: 'bandpass', f0: 1100, f1: 500, dur: 0.09, vol: 0.18, q: 0.8, att: 0.01 }); }
+  /** A sling let fly: the strap cracks. */
+  sling() { this.noise({ type: 'bandpass', f0: 2600, f1: 1200, dur: 0.07, vol: 0.3, q: 2 }); }
+  /** A blade through the air. */
+  swish() { this.noise({ type: 'bandpass', f0: 1600, f1: 4200, dur: 0.16, vol: 0.22, q: 1.6, att: 0.03 }); }
+  /** A bottle of oil bursting into flame, and the fire crackling. */
+  flame(far = 0) { if (!this.ctx) return; const v = Math.max(0.08, 1 - far); this.noise({ type: 'highpass', f0: 3000, dur: 0.12, vol: 0.4 * v }); this.noise({ type: 'lowpass', f0: 1600, f1: 300, dur: 1.2, vol: 0.7 * v, att: 0.05, rev: 0.4 }); }
+  crackle(far = 0) { if (!this.ctx) return; const v = Math.max(0.05, 1 - far) * 0.2; for (let i = 0; i < 4; i++) this.noise({ t: this.t + Math.random() * 0.3, type: 'bandpass', f0: 1500 + Math.random() * 2500, dur: 0.03, vol: v, q: 3 }); }
   fuse() { this.noise({ type: 'highpass', f0: 4200, dur: 0.5, vol: 0.12, att: 0.05 }); }
   poof() { this.noise({ type: 'lowpass', f0: 2400, f1: 300, dur: 0.4, vol: 0.4, att: 0.02 }); }
   fanfare(kind) {

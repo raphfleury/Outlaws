@@ -240,6 +240,10 @@ export class Crowd {
       f.legL.rotation.x = 0.25 * e; f.legR.rotation.x = -0.2 * e; f.shinL.rotation.x = 0.35 * e;
     }
   }
+  /** A bench or a bed has been broken: whoever sat or lay on it gets up and runs. */
+  seatGone(p) {
+    for (const w of this.list) if (!w.dead && w.sit && !w.stood && Math.hypot(w.x - p.x, w.z - p.z) < p.r + 0.4 && Math.abs(w.y - p.y) < 0.6) this.frighten(w, p.x, p.z);
+  }
   /** Duel: the other player killed bystander i. */
   killed(i) { const w = this.list[i]; if (w && !w.dead) this.die(w, w.px + 1, w.pz, false, false); }
 }

@@ -10,10 +10,83 @@ const _c = new THREE.Color();
 
 export class Havoc {
   constructor(game) {
-    this.game = game; this.debris = []; this.queue = []; this.mats = new Map();
+    this.game = game; this.debris = []; this.queue = []; this.mats = new Map(); this.fires = [];
     this.chunk = new THREE.BoxGeometry(1, 1, 1);
   }
-  reset() { for (const d of this.debris) d.mesh.removeFromParent(); this.debris = []; this.queue = []; }
+  reset() { for (const d of this.debris) d.mesh.removeFromParent(); this.debris = []; this.queue = []; this.tgrid = null; this.fires = []; }
+
+  /**
+   * A Molotov cocktail bursts: a pool of fire of radius 3 m burns for about seven seconds. It hurts whoever stands in it (this player,
+   * and the enemies simulated here), sets the bystanders running and burns the wooden things around. A ghost fire (the other player's)
+   * does not break pieces here: that is reported from the browser where it was thrown.
+   */
+  fire(x, y, z, o = {}) {
+    const G = this.game, W = G.world, fl = W.groundAt ? W.groundAt(x, z, y + 0.3) : W.height(x, z);
+    const f = { x, y: Math.max(fl, y - 1.5), z, r: 3, t: 7, tick: 0, ghost: !!o.ghost };
+    this.fires.push(f);
+    G.flashLight.position.set(x, f.y + 1, z); G.flashLight.intensity = 260;
+    for (let i = 0; i < 30; i++) { const a = Math.random() * 6.283, v = 2 + Math.random() * 5; G.gfx.glow.spawn(x, f.y + 0.3, z, Math.cos(a) * v, 1 + Math.random() * 3, Math.sin(a) * v, { life: 0.4 + Math.random() * 0.4, s0: 0.7, s1: 0.2, r: 4, g: 1.8 + Math.random(), b: 0.4, a: 1, drag: 2.5 }); }
+    G.sound.flame(this.far(x, z));
+    if (!o.ghost) { G.makeNoise(x, z, 15, true); G.crowd.alarm(x, z, 14, x, z); }
+  }
+  updateFires(dt) {
+    const G = this.game, P = G.player, S = G.gfx.soft, Gl = G.gfx.glow, coop = G.duel && G.duel.cfg.rules === 'coop';
+    for (let i = this.fires.length - 1; i >= 0; i--) {
+      const f = this.fires[i]; f.t -= dt;
+      if (f.t <= 0) { this.fires.splice(i, 1); continue; }
+      const k = Math.min(1, f.t / 1.5);                              // it dies down at the end
+      for (let n = 0; n < 3; n++) if (Math.random() < dt * 60 * k) {
+        const a = Math.random() * 6.283, r = Math.sqrt(Math.random()) * f.r;
+        Gl.spawn(f.x + Math.cos(a) * r, f.y + 0.1, f.z + Math.sin(a) * r, (Math.random() - 0.5) * 0.6, 1.5 + Math.random() * 2, (Math.random() - 0.5) * 0.6, { life: 0.35 + Math.random() * 0.35, s0: 0.45, s1: 0.08, r: 4, g: 1.5 + Math.random() * 0.8, b: 0.3, a: 1, drag: 1.5, grav: -1 });
+      }
+      if (Math.random() < dt * 8 * k) S.spawn(f.x + (Math.random() - 0.5) * 3, f.y + 1.2, f.z + (Math.random() - 0.5) * 3, (Math.random() - 0.5) * 0.8, 1.5 + Math.random(), (Math.random() - 0.5) * 0.8, { life: 2.5 + Math.random() * 1.5, s0: 0.8, s1: 3, r: 0.12, g: 0.1, b: 0.09, a: 0.55, grav: -0.4, drag: 0.8 });
+      if (Math.random() < dt * 2.5) G.sound.crackle(this.far(f.x, f.z));
+      f.tick -= dt; if (f.tick > 0) continue;
+      f.tick = 0.3;
+      const inside = (x, y, z, h = 2) => Math.hypot(x - f.x, z - f.z) < f.r && y > f.y - 1 && y < f.y + h;
+      if (!P.dead && inside(P.pos.x, P.pos.y, P.pos.z) && !(f.ghost && coop)) G.hurtPlayer(7, { x: f.x, z: f.z }, false);
+      for (const e of G.enemies) {
+        if (!e.alive || e.remote || e.puppet || e.state === 'hidden' || !inside(e.pos.x, e.pos.y, e.pos.z)) continue;
+        G.hitEnemy(e, 9, false, e.pos.x, e.pos.y + 0.5, e.pos.z, f.x, f.z, true);
+        if (e.alive && e.flee) e.flee(f.x, f.z);                     // nobody stays in a fire
+      }
+      for (const w of G.crowd.list) if (!w.dead && inside(w.px, w.py, w.pz)) G.crowd.hit(w, 6, w.px, w.py + 0.5, w.pz, !f.ghost, !f.ghost);
+      if (!f.ghost) for (const q of G.world.pieces) {
+        if (q.broken || (q.kind !== 'wood' && q.kind !== 'straw' && q.kind !== 'cloth' && q.kind !== 'paper')) continue;
+        if (Math.hypot(q.x - f.x, q.z - f.z) < f.r + q.r * 0.5 && q.y < f.y + 1.5 && q.top > f.y - 0.5) this.damage(q, q.wall ? 14 : 9);
+      }
+    }
+  }
+
+  // ---- small things (trinkets): no collider, found by their bounding spheres in a grid of 2 m cells ------------------
+  grid() {
+    if (this.tgrid) return this.tgrid;
+    const m = (this.tgrid = new Map());
+    for (const p of this.game.world.trinkets) {
+      if (p.broken) continue;
+      for (let i = Math.floor((p.x - p.r) / 2); i <= Math.floor((p.x + p.r) / 2); i++) for (let j = Math.floor((p.z - p.r) / 2); j <= Math.floor((p.z + p.r) / 2); j++) {
+        const k = i * 65536 + j; let a = m.get(k); if (!a) m.set(k, (a = [])); a.push(p);
+      }
+    }
+    return m;
+  }
+  /** Every small thing a ray from o along d meets before distance max: they break, and the shot goes on (a bottle does not stop a bullet). */
+  trinketsAlong(o, d, max, send = true) {
+    if (!this.game.world.trinkets.length) return;
+    const m = this.grid(), seen = new Set(), lim = Math.min(max, 160);
+    for (let s = 0; s <= lim + 1; s += 1) {
+      const k = Math.floor((o.x + d.x * s) / 2) * 65536 + Math.floor((o.z + d.z * s) / 2);
+      if (seen.has(k)) continue; seen.add(k);
+      const a = m.get(k); if (!a) continue;
+      for (const p of a) {
+        if (p.broken) continue;
+        const ox = o.x - p.x, oy = o.y - p.cy, oz = o.z - p.z, b = ox * d.x + oy * d.y + oz * d.z, c = ox * ox + oy * oy + oz * oz - p.r * p.r, disc = b * b - c;
+        if (disc < 0) continue;
+        const t = -b - Math.sqrt(disc);
+        if (t > -p.r && t < max) this.breakPiece(p, send);
+      }
+    }
+  }
 
   /** A hit on a piece at (x, y, z): chips fly off in its colour, and it breaks when its strength is used up. */
   damage(p, amount, x, y, z) {
@@ -83,17 +156,19 @@ export class Havoc {
     if (p.broken) return;
     const G = this.game, W = G.world;
     p.broken = true;
+    if (G.makeNoise) G.makeNoise(p.x, p.z, p.trinket ? 5 : p.wall ? 14 : 9, false);      // something breaking: those near look, the clever go to see
     for (const r of p.ranges) {                     // its shapes collapse to a point inside the merged mesh: they no longer draw
       const a = r.mesh.geometry.attributes.position, arr = a.array, i0 = r.start * 3, x = arr[i0], y = arr[i0 + 1], z = arr[i0 + 2];
       for (let i = i0; i < (r.start + r.count) * 3; i += 3) { arr[i] = x; arr[i + 1] = y; arr[i + 2] = z; }
       a.addUpdateRange(i0, r.count * 3); a.needsUpdate = true;
     }
-    W.removeCols(p);
+    if (p.cols.length) W.removeCols(p);
     if (p.sweep) this.sweep(p);
-    if (G.nav) G.nav.refresh(p.x - p.r, p.z - p.r, p.x + p.r, p.z + p.r);
+    if (G.nav && p.cols.length) G.nav.refresh(p.x - p.r, p.z - p.r, p.x + p.r, p.z + p.r);
+    if (p.seat) G.crowd.seatGone(p);                         // whoever sat on it gets up in a hurry
     // splinters or shards, and a puff of dust
-    const soft = p.kind === 'straw' || p.kind === 'cloth', big = Math.min(1, p.r / 1.2);
-    const n = Math.round((p.kind === 'clay' ? 7 : 10) + big * 8), h = Math.max(0.2, p.top - p.y), floor = W.groundAt(p.x, p.z, p.y + 0.05), cs = Math.min(p.r, 0.7);
+    const soft = p.kind === 'straw' || p.kind === 'cloth' || p.kind === 'paper', big = Math.min(1, p.r / 1.2);
+    const n = p.trinket ? 3 : Math.round((p.kind === 'clay' ? 7 : 10) + big * 8 + (p.wall ? 6 : 0)), h = Math.max(0.2, p.top - p.y), floor = W.groundAt(p.x, p.z, p.y + 0.05), cs = Math.min(p.r, 0.7);
     for (let i = 0; i < n; i++) {
       const s = cs * (p.kind === 'clay' ? 0.45 : soft ? 0.5 : 0.55) * (0.5 + Math.random() * 0.6);
       const mesh = new THREE.Mesh(this.chunk, this.mat(p.color, i % 3 === 0));
@@ -153,6 +228,7 @@ export class Havoc {
   }
 
   update(dt) {
+    if (this.fires.length) this.updateFires(dt);
     for (let i = this.queue.length - 1; i >= 0; i--) {
       const q = this.queue[i]; q.t -= dt;
       if (q.t > 0) continue;

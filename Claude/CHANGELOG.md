@@ -16,6 +16,67 @@ Each version is a Git tag named `lone-hand-vX.Y.Z` and a
 game as one downloadable file. The number is also shown in the bottom right corner of the
 title screen.
 
+## [2.0.0] - 2026-11-23
+
+### Added
+
+- **The enemies' wits**, chosen on the hero screen beside the number of enemies (and by the
+  host in a game for two): *Low*, *Medium* or *Genius*.
+  - *Low*: they fight back when they see you or are hurt, but hear nothing, never climb a
+    ladder or crawl after you, and give up as soon as you are out of sight for a moment.
+  - *Medium*: those with a gun or a bow take up places with a view and something to hide
+    behind; they hear shots and fighting near them, go after you where they last saw or
+    heard you, up ladders and crouching into hiding places, search a while, and give up if
+    they find nothing or you got far away.
+  - *Genius*: they hear from almost twice as far, tell each other where you are, fight from
+    cover (crouched, rising to shoot), move to a new place after a few shots, come round
+    the sides, creep up unseen, throw their bombs at a hiding player, keep their distance
+    when badly hurt, and their marksmen take to the roofs.
+- **Noise.** Gunshots are heard about 35 m away, bows, slings and throws about 10 m,
+  running feet 11 m, walking feet 4 m; things breaking make those near look round. Blades,
+  fists and the blowgun are silent, and so is sneaking or crouching.
+- **The size of the map**, chosen on the hero screen (and by the host in a game for two):
+  *Small* keeps only the heart of the chapter, from where you come in to where the boss
+  stands, and ropes off the edge; *Medium* is the chapter as it was; *Large* makes it half
+  as wide again, with outskirts in the chapter's own style: hamlets of houses you can walk
+  into, furnished, with yards, fences, trees, people at work, horses and smoking chimneys,
+  boats at anchor where the new ground is water, and more enemies (up to 45).
+- **Every hero sets out with two weapons**: his own and a second one of the chapter (a
+  cavalry sabre in Dry Gulch, a blowgun at Kagemori and in Tenochtitlan, a sword in Uri, a
+  sling on Ithaca and at Che La, a seax at Jarnvik, a pistol or a rifle in chapters VI and
+  VII), and some with things in the bag: big stones to throw in Uri and Jarnvik, Molotov
+  cocktails in chapters VI and VII.
+- **New weapons**: knife, sword, sabre and halberd in hand (left button strikes, silent, no
+  ammunition); a sling; a blowgun with poisoned darts and a close view to aim like a
+  sniper (silent); big stones to throw; Molotov cocktails, which burst into a pool of fire
+  that burns for about seven seconds. Halberdiers, knights, swordsmen, rōnin and Red
+  Guards leave their blade when they fall.
+- **What you throw or shoot with a string can be picked up again**: arrows, bolts, stars,
+  javelins, axes, darts, stones and big stones lie where they fell or stick where they
+  struck, in a wall or in a body. You set out with fewer of them.
+- **A special skill for every hero**, used with `E`, shown under the health bar and on the
+  hero cards: Dash, Stand fast (wounds hurt five times less), Dead eye (every shot true and
+  80% harder), Second wind (50 health back), Vanish (the enemies lose sight of you), Fury
+  (blows twice as hard and quicker) or Eagle eye (every enemy within 90 m shown through
+  walls). Each lasts a few seconds and comes back after half a minute or so.
+- **Drop what you hold** with `G`: a weapon with the shots it has left, or one thing from the
+  bag. In a game for two the other player sees it and can take it.
+- **Two players online**: each player gives a name before playing; it shows in the scores
+  and the messages, and, together against the enemy, over your partner's head with his
+  distance and health, seen through walls and kept at the edge of the screen when he is out
+  of view.
+
+### Changed
+
+- **Everything breaks except stone.** Small things (bottles, lamps, pots, ornaments) break at
+  one shot or blow, furniture after two to four, wooden walls and doors after several;
+  stone and plaster walls stand.
+- **The fists** reach and break things, and hit bystanders and enemies within reach.
+- `G` drops what you hold during play; the graphics level is now changed with `G` in the
+  pause screen only (or in the *Graphics* list of the title screen).
+- The fists are the last of your weapons in the arsenal (no longer always `2`).
+- The enemy list on the hero screen goes up to 45 on a large map.
+
 ## [1.9.0] - 2026-11-22
 
 ### Added
