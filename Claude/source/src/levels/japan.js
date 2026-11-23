@@ -188,6 +188,33 @@ function build({ game, gfx, world, B, M, root, rand, shared }) {
     { const [px, pz] = P(2.1, 1.0), top = table(B, M, px, fy, pz, ry, { w: 0.9, d: 0.6, h: 0.3, c: 0x3a2618 }); B.cyl(M.flat, 0.09, 0.07, 0.13, px, top, pz, { c: 0x5a3a2a, seg: 9 }); for (const k of [-0.28, 0.26]) { const [bx, bz] = P(2.1 + k, 1.05); B.cyl(M.flat, 0.045, 0.03, 0.06, bx, top, bz, { c: 0xe8e0d0, seg: 8 }); } }
     { const [px, pz] = P(2.9, 2.15); andon(px, fy, pz, ry); }
   }
+  // ---- the deer scarer (shishi-odoshi) in the tea garden: water from the spout fills the bamboo, it tips, empties into the basin,
+  //      swings back and its tail knocks on the stone; see `update` for the movement and the sound -------------------------------
+  const scarer = { x: 15.2, z: 22.6, ry: 0.5, t: 2.6, phase: 0, rest: -0.42, down: 0.34 };
+  {
+    const K = scarer, y = world.height(K.x, K.z), c = Math.cos(K.ry), sn = Math.sin(K.ry), P = (lx, lz) => [K.x + lx * c + lz * sn, K.z - lx * sn + lz * c];
+    const BAM = 0xa8a24e, OLD = 0x847640, STONE = 0x6a6e66, Q = Math.PI / 2, mesh = (parts, m = M.flat) => { const o = new THREE.Mesh(merge(parts), m); o.castShadow = true; o.receiveShadow = true; return o; };
+    const G = new THREE.Group(); G.position.set(K.x, y, K.z); G.rotation.y = K.ry; root.add(G);                    // local frame: +z from the knocking stone to the spout
+    G.add(mesh([
+      gCyl(0.03, 0.036, 0.72, OLD, [0.1, 0.3, 0], [0, 0, 0], 1, 7), gCyl(0.03, 0.036, 0.72, OLD, [-0.1, 0.3, 0], [0, 0, 0], 1, 7), gCyl(0.012, 0.012, 0.3, INK, [0, 0.5, 0], [0, 0, Q], 1, 5),        // two posts and the axle
+      gCyl(0.045, 0.052, 1.2, BAM, [0, 0.5, 1.32], [0, 0, 0], 1, 8), gCyl(0.05, 0.05, 0.02, OLD, [0, 0.42, 1.32], [0, 0, 0], 1, 8), gCyl(0.05, 0.05, 0.02, OLD, [0, 0.8, 1.32], [0, 0, 0], 1, 8),      // the post of the spout
+      gCyl(0.022, 0.022, 0.72, BAM, [0, 0.985, 0.98], [Q - 0.1, 0, 0], 1, 6),                                                                                                           // the spout
+      gSph(0.24, STONE, [0, 0.09, -0.47], [1.15, 0.68, 0.9]),                                                                                                                           // the stone it knocks on
+      ...[[0.42, 0.62, 0.2], [0.3, 1.08, 0.17], [-0.36, 1.0, 0.19], [-0.44, 0.58, 0.16], [0.02, 0.4, 0.13]].map(([lx, lz, r]) => gSph(r, STONE, [lx, r * 0.3, lz], [1.1, 0.7, 0.95])),        // the basin: a ring of stones
+      gCyl(0.36, 0.36, 0.05, 0x14302e, [0, 0.03, 0.78], [0, 0, 0], 1, 12),                                                                                                               // and the water in it
+    ]));
+    const pivot = new THREE.Group(); pivot.position.set(0, 0.5, 0); pivot.rotation.x = K.rest; G.add(pivot);
+    pivot.add(mesh([gCyl(0.047, 0.047, 1.2, BAM, [0, 0, 0.1], [Q, 0, 0], 1, 9), gCyl(0.036, 0.036, 0.012, INK, [0, 0, 0.701], [Q, 0, 0], 1, 9),                                           // the bamboo: open at the front,
+      ...[-0.5, -0.22, 0.14, 0.48].map((lz) => gCyl(0.05, 0.05, 0.022, OLD, [0, 0, lz], [Q, 0, 0], 1, 9))]));                                                                            // closed at the tail, a ring at each node
+    const wet = new THREE.MeshBasicMaterial({ color: 0xbcdce6, transparent: true, opacity: 0.6, depthWrite: false });
+    const thread = new THREE.CylinderGeometry(1, 1, 1, 6); thread.translate(0, -0.5, 0);                           // hangs down from its origin
+    K.trickle = new THREE.Mesh(thread, wet); K.trickle.position.set(0, 0.945, 0.63); G.add(K.trickle);            // the thread of water from the spout
+    K.gush = new THREE.Mesh(thread, wet); K.gush.visible = false; G.add(K.gush);                                   // what the bamboo pours out
+    K.pivot = pivot; K.y = y; [K.bx, K.bz] = P(0, 0.78);
+    B.cyl(M.flat, 1.5, 1.56, 0.05, ...((q) => [q[0], y + 0.005, q[1]])(P(0, 0.4)), { c: 0x3c5a30, seg: 14 });      // a bed of moss
+    { const [ax, az] = P(0, 0.2); world.addCyl(ax, az, 0.55, y - 1, y + 0.7); } { const [ax, az] = P(0, 1.32); world.addCyl(ax, az, 0.09, y - 1, y + 1.1); }
+    { const [lx, lz] = P(-1.15, 1.2); lantern(lx, lz, true, 0.7); }
+  }
   { // west farmhouse: the sunken hearth with its pot hook and a woman tending it, a clay stove, water jars, rice bales, a straw coat and hat on the wall, hoes, bedding and a chest
     const { P, fy } = farmW, ry = 0.2;
     { const [ax, az] = P(-2.1, 0.1); B.box(M.woodH, 1.25, 0.1, 1.25, ax, fy, az, { ry, c: 0x2a1c14 }); B.box(M.flat, 1.0, 0.11, 1.0, ax, fy, az, { ry, c: 0x8a8478 }); B.box(M.glow, 0.36, 0.15, 0.3, ax, fy, az, { ry: ry + 0.6, c: 0xff7a30 });
@@ -619,6 +646,24 @@ function build({ game, gfx, world, B, M, root, rand, shared }) {
     makePickup: () => new THREE.Mesh(cake, M.flat),
     update(dt, t, g) {
       idle(people, t);
+      { // the deer scarer: 4.4 s filling, half a second tipping, three quarters pouring, a quick swing back, the knock and a small rebound
+        const K = scarer, a = K.rest, b = K.down; K.t += dt; if (K.t >= 6.3) { K.t -= 6.3; K.phase = 0; }
+        const u = K.t, ang = u < 4.4 ? a + (u > 3.8 ? Math.sin(u * 38) * 0.012 * (u - 3.8) / 0.6 : 0) : u < 4.9 ? a + (b - a) * ((u - 4.4) / 0.5) ** 2 * (3 - 2 * (u - 4.4) / 0.5) : u < 5.65 ? b : u < 5.93 ? b + (a - b) * ((u - 5.65) / 0.28) ** 2 : a + 0.07 * Math.sin((u - 5.93) / 0.37 * Math.PI) * (1 - (u - 5.93) / 0.37);
+        K.pivot.rotation.x = ang;
+        const my = 0.5 - 0.7 * Math.sin(ang), mz = 0.7 * Math.cos(ang), into = ang < -0.3;                         // the mouth of the bamboo; is it under the spout?
+        K.trickle.scale.set(0.007, into ? 0.945 - (0.5 - 0.63 * Math.tan(ang) + 0.04) : 0.9, 0.007);
+        const pouring = ang > 0.1 && u < 5.5; K.gush.visible = pouring; if (pouring) { K.gush.position.set(0, my, mz + 0.02); K.gush.scale.set(0.02 * (1 - (u - 4.7) / 0.9), my - 0.04, 0.02 * (1 - (u - 4.7) / 0.9)); }
+        const ph = u < 4.9 ? 0 : u < 5.93 ? 1 : 2;
+        if (ph !== K.phase) {
+          K.phase = ph;
+          const P = g.player.pos, d = Math.hypot(K.x - P.x, K.z - P.z);
+          if (d < 34 && g.state === 'play') {
+            const pan = Math.max(-1, Math.min(1, ((K.x - P.x) * Math.cos(g.player.yaw) - (K.z - P.z) * Math.sin(g.player.yaw)) / (d || 1)));
+            if (ph === 1) { g.sound.pour(d / 34, pan); for (let i = 0; i < 8; i++) g.gfx.soft.spawn(K.bx + (Math.random() - 0.5) * 0.3, K.y + 0.1, K.bz + (Math.random() - 0.5) * 0.3, (Math.random() - 0.5) * 0.9, 0.7 + Math.random() * 0.8, (Math.random() - 0.5) * 0.9, { life: 0.5, s0: 0.03, s1: 0.07, r: 0.75, g: 0.86, b: 0.9, a: 0.5, grav: 6, drag: 1 }); }
+            if (ph === 2) g.sound.tock(d / 34, pan);
+          }
+        }
+      }
       mt -= dt;
       if (mt <= 0) {                                                   // ground mist
         mt = 0.1;
