@@ -41,6 +41,11 @@ title screen.
   while the throw would land on nothing in particular, and red when it would strike an enemy
   or an animal (for a bomb: when one stands within its blast).
 
+### Fixed
+
+- **Games online reach the game server.** Version 2.2.0 looked for it at an address where it
+  was not, so no game could be created or joined.
+
 ## [2.2.0] - 2026-11-23
 
 ### Added

@@ -15,10 +15,10 @@ The server keeps nothing: no accounts, no scores, no record of the games.
 
 ## Putting it online
 
-The game looks for the server at `lonehand.raphfleury.workers.dev` (the `SERVER` line at the
-top of [../source/src/net.js](../source/src/net.js)). A Worker named `lonehand` in a
-Cloudflare account whose workers.dev subdomain is `raphfleury` has that address. With another
-subdomain, change that line and build the game again.
+The game looks for the server at `lonehand.cool-bird-201f.workers.dev` (the `SERVER` line at
+the top of [../source/src/net.js](../source/src/net.js)): the Worker `lonehand` in the
+Cloudflare account whose workers.dev subdomain is `cool-bird-201f`. For a server elsewhere,
+change that line and build the game again.
 
 **From GitHub, without installing anything.** In the Cloudflare dashboard, under *Workers &
 Pages*, create an application by importing a repository: connect GitHub, choose this
