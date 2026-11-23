@@ -23,6 +23,7 @@ import { dropsOf, lootOf, weaponName, weaponAlt, itemName, itemAlt, THROWN, NOIS
 import { SKILLS, skillOf } from './skills.js';
 import { resize } from './outskirts.js';
 import { Voices } from './voices.js';
+import { Fauna } from './fauna.js';
 import { rng, clamp, damp } from './util.js';
 import { west } from './levels/west.js';
 import { japan } from './levels/japan.js';
@@ -107,13 +108,21 @@ class Game {
     this._v = new THREE.Vector3(); this._v2 = new THREE.Vector3(); this._o = { x: 0, y: 0, z: 0 }; this._d = { x: 0, y: 0, z: 0 };
     this.duel = null;
     this.havoc = new Havoc(this); this.map = new MapView(this); this.voice = new Voice(this); this.bagShown = 0;
-    this.crowd = new Crowd(this); this.arc = new Arc(this); this.bars = []; this.life = new Life(this);
+    this.crowd = new Crowd(this); this.fauna = new Fauna(this); this.arc = new Arc(this); this.bars = []; this.life = new Life(this);
     this.sound.onchange = () => { this.voice.settings(); this.soundLabel(); };
     this.bindUI();
   }
 
   /** Online, another player on this player's side: nothing this player fires or swings can hurt him. */
   friend(e) { return !!(e.remote && this.duel && this.duel.cfg && this.duel.mateOf(e.pid)); }
+  /** The chapter's commonest kind of enemy on foot (no boss, dog, rider or gunner at a fixed post): what a bystander who fights back becomes. */
+  footType() {
+    if (this._foot && this._foot.level === this.level) return this._foot.type;
+    const n = {};
+    for (const [t, , , o] of this.level.enemies) { const c = TYPES[t]; if (!c || c.boss || c.dog || c.rider || (o && o.static) || /gunner|cannoneer/i.test(t)) continue; n[t] = (n[t] || 0) + 1; }
+    const type = Object.keys(n).sort((a, b) => n[b] - n[a])[0] || null;
+    this._foot = { level: this.level, type }; return type;
+  }
   /** The characters on offer: three heroes, and in a duel the chapter's villains as well. */
   roster() { const d = this.def; return this.duel && this.duel.active ? d.heroes.concat(VILLAINS[d.id] || []) : d.heroes; }
 
@@ -278,7 +287,7 @@ class Game {
     else { const t0 = performance.now(); this.world.roofsOn = false; this.nav = new Nav(this.world); this.world.roofsOn = true; this.navMs = performance.now() - t0; }   // walkable-area grid for enemy route finding (on the ground and floors, not on roofs)
     this.gfx.setEnvironment(L.env); this.gfx.applyDetail();
     this.spawnEnemies();
-    this.crowd.setup(this.world.people);
+    this.crowd.setup(this.world.people); this.fauna.setup(this.world.animals); this._foot = null;
     this.placeHeals(L);
     this.player.spawn(L.spawn.x, L.spawn.z, L.spawn.yaw, def.weapon);
     this.hero = null;
@@ -669,6 +678,7 @@ class Game {
     this.muzzle(m.x + d.x * 0.25, m.y + d.y * 0.25, m.z + d.z * 0.25, d.x, d.y, d.z, 1);
     if (target) this.hitEnemy(target, dmg, head, hx, hy, hz, o.x, o.z);
     else if (wh && wh.person) this.crowd.hit(wh.person, dmg * (hy > wh.person.py + 1.45 ? 2.5 : 1), hx, hy, hz, true);
+    else if (wh && wh.animal) this.fauna.hit(wh.animal, dmg, hx, hy, hz, true);
     else if (wh) { this.impact(hx, hy, hz, wh.nx, wh.ny, wh.nz, 'bullet'); if (wh.piece) this.havoc.damage(wh.piece, dmg, hx, hy, hz); }
     this.crowd.alarm(P.pos.x, P.pos.z, P.sneaking ? 14 : 26, P.pos.x, P.pos.z); this.crowd.alarm(hx, hz, 7, P.pos.x, P.pos.z);   // a shot frightens the people around, and more those near where it struck
     this.makeNoise(P.pos.x, P.pos.z, 34, true); this.makeNoise(hx, hz, 8, false);                  // a gunshot gives the shooter away; where it struck, they look
@@ -723,6 +733,11 @@ class Game {
       if (w.dead || reach(w.px, w.py + 1.1, w.pz, 0.36) < 0) continue;
       const dx = w.px - ex, dz = w.pz - ez, dl = Math.hypot(dx, dz) || 1;
       this.crowd.hit(w, dmg, w.px - dx / dl * 0.3, w.py + 1.2, w.pz - dz / dl * 0.3, true); any = true;
+    }
+    for (const a of this.fauna.list) {                          // an animal within reach
+      if (a.dead || reach(a.px, a.py + a.high * 0.6, a.pz, Math.min(0.6, a.wide * 0.5)) < 0) continue;
+      const dx = a.px - ex, dz = a.pz - ez, dl = Math.hypot(dx, dz) || 1;
+      this.fauna.hit(a, dmg, a.px - dx / dl * 0.3, a.py + a.high * 0.6, a.pz - dz / dl * 0.3, true); any = true;
     }
     for (const e of this.enemies) {
       if (!e.alive || e.state === 'hidden' || this.friend(e)) continue;
@@ -858,7 +873,7 @@ class Game {
     if (this.stepT <= 0 && this.state === 'play') { this.stepT = 0.5; const v = Math.hypot(P.vel.x, P.vel.z); if (P.onGround && !P.dead && v > 1 && !P.sneaking && !P.crouch) this.makeNoise(P.pos.x, P.pos.z, P.sprinting && v > 6 ? 11 : 4, true); }
     if (this.state === 'play' && this.input.mark && !P.dead) this.map.toggleMark();
     for (const e of this.enemies) e.update(dt);
-    this.crowd.update(dt);
+    this.crowd.update(dt); this.fauna.update(dt);
     this.life.update(dt, this.time);
     this.shots.update(dt);
     this.havoc.update(dt);

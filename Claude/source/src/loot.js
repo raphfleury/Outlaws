@@ -43,6 +43,7 @@ function chance(e, salt) {
 
 /** What this enemy drops when it falls: a list of { type: 'weapon', kind } or { type: 'item', id }. */
 export function dropsOf(e, chapter) {
+  if (e.cfg.beast) return [];                                                            // an animal that turned on the player leaves nothing
   const out = [], w = LOOT[e.type];
   if (w) out.push({ type: 'weapon', kind: w });
   else if (!e.cfg.dog && chance(e, 3) < 0.6) out.push({ type: 'ammo' });            // one who fought hand to hand may still carry ammunition

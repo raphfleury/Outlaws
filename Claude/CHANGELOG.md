@@ -16,6 +16,31 @@ Each version is a Git tag named `lone-hand-vX.Y.Z` and a
 game as one downloadable file. The number is also shown in the bottom right corner of the
 title screen.
 
+## [2.3.0] - 2026-11-23
+
+### Added
+
+- **Animals can be hurt and killed.** Horses, mules, ponies, cows, the ox, yaks, goats, pigs,
+  sheep, hens and the old dog Argos bleed when hit, fall on their side when killed, and run
+  a little way from shots and blasts. Left in peace they breathe and graze.
+- **Some animals fight back.** Hurt and still standing, about half the horses, oxen and
+  yaks, a third of the cows, mules and goats, a quarter of the pigs and nearly always the dog
+  turn on you: they charge and strike like an enemy fighting hand to hand, as strong as the
+  chapter's enemies and no more, and count among the foes that remain.
+- **Some bystanders fight back.** About one in four, hurt by you and still standing, draws
+  the weapon of the chapter's commonest enemy and becomes one of them, with his own looks.
+  Not in games online.
+
+### Changed
+
+- **No more bystanders standing still like statues**: the flute monks and geisha of
+  Kagemori and the monks of Che La walk, talk and can be hurt like the others; everyone who
+  stood idle now talks or looks about; those on the boats paddle or pole, can be hit, and
+  crouch where they are when frightened.
+- **The flight line of thrown weapons** is a fine line of small dots with a small ring, pale
+  while the throw would land on nothing in particular, and red when it would strike an enemy
+  or an animal (for a bomb: when one stands within its blast).
+
 ## [2.2.0] - 2026-11-23
 
 ### Added

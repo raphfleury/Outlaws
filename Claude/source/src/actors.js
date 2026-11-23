@@ -502,6 +502,42 @@ export function makeDog(M) {
   return { group, hips, armL, armR, legL, legR, mat, scale: 1 };
 }
 
+/**
+ * An animal that has turned on the player (see fauna.js): the same rig interface as the dog (hips with the body, legL the front legs,
+ * legR the hind legs), so the enemy code drives it like a dog. Faces +Z. kind: 'horse' | 'cow' | 'yak' | 'goat' | 'pig'; coat: its colour.
+ */
+const BEASTS = {
+  horse: { coat: 0x6a4428, hoof: 0x1a120c, hip: 1.0, legX: 0.2, front: 0.6, back: -0.65, legR: 0.075,
+    body: (c) => [gCap(0.36, 1.1, c, [0, 1.35, 0], [Math.PI / 2, 0, 0], [1, 1, 1.1]), gCap(0.17, 0.75, c, [0, 1.95, 0.85], [0.75, 0, 0]), gCap(0.14, 0.36, c, [0, 2.28, 1.3], [1.85, 0, 0]),
+      gBox(0.2, 0.2, 0.2, 0x2a1c14, [0, 2.17, 1.55]), gCone(0.05, 0.14, c, [0.09, 2.5, 1.12]), gCone(0.05, 0.14, c, [-0.09, 2.5, 1.12]), gBox(0.06, 0.7, 0.12, 0x1c120c, [0, 2.1, 0.72], [0.75, 0, 0]),
+      gCone(0.1, 0.9, 0x1c120c, [0, 1.1, -1.0], [-2.7, 0, 0])] },
+  cow: { coat: 0x7a4a2c, hoof: 0x2a2018, hip: 0.8, legX: 0.24, front: 0.6, back: -0.6, legR: 0.085,
+    body: (c) => [gCap(0.44, 1.15, c, [0, 1.12, 0], [Math.PI / 2, 0, 0], [1, 1, 1.1]), gSph(0.3, 0xf2ece0, [0.22, 1.3, 0.25], [1, 1, 1.5]), gCap(0.19, 0.3, c, [0, 1.2, 1.05], [1.3, 0, 0]),
+      gBox(0.26, 0.2, 0.2, 0xe8c8b8, [0, 1.02, 1.36]), gCone(0.045, 0.2, 0xf0ece0, [0.17, 1.42, 1.05], [0, 0, -0.6]), gCone(0.045, 0.2, 0xf0ece0, [-0.17, 1.42, 1.05], [0, 0, 0.6]),
+      gCap(0.03, 0.7, c, [0, 0.95, -0.98], [0.15, 0, 0])] },
+  yak: { coat: 0x1a1410, hoof: 0x1a1410, hip: 0.62, legX: 0.28, front: 0.55, back: -0.55, legR: 0.1,
+    body: (c) => [gCap(0.5, 1.2, c, [0, 1.05, 0], [Math.PI / 2, 0, 0], [1, 1, 1.1]), gBox(0.96, 0.5, 1.6, c, [0, 0.66, 0]), gSph(0.4, c, [0, 1.52, 0.45], [1, 1, 1.3]), gCap(0.23, 0.3, c, [0, 1.0, 1.15], [1.2, 0, 0]),
+      gBox(0.3, 0.22, 0.24, 0x4a3c30, [0, 0.8, 1.42]), gCone(0.05, 0.4, 0xd8d0c0, [0.3, 1.32, 1.12], [0, 0, -0.9]), gCone(0.05, 0.4, 0xd8d0c0, [-0.3, 1.32, 1.12], [0, 0, 0.9]), gBox(0.16, 0.75, 0.16, c, [0, 0.78, -0.98])] },
+  goat: { coat: 0xe8e0d0, hoof: 0x3a342c, hip: 0.42, legX: 0.09, front: 0.26, back: -0.26, legR: 0.032,
+    body: (c) => [gCap(0.16, 0.48, c, [0, 0.55, 0], [Math.PI / 2, 0, 0]), gCap(0.07, 0.2, c, [0, 0.75, 0.38], [0.7, 0, 0]), gSph(0.1, c, [0, 0.88, 0.5], [0.85, 0.95, 1.35]),
+      gCone(0.025, 0.22, 0x8a8478, [0.05, 1.03, 0.44], [-0.6, 0, 0], 1, 5), gCone(0.025, 0.22, 0x8a8478, [-0.05, 1.03, 0.44], [-0.6, 0, 0], 1, 5), gCone(0.03, 0.12, 0xe0e0e0, [0, 0.76, 0.58], [Math.PI, 0, 0], 1, 5),
+      gCap(0.025, 0.1, c, [0, 0.62, -0.36], [-0.8, 0, 0])] },
+  pig: { coat: 0xd8a898, hoof: 0x6a5048, hip: 0.22, legX: 0.12, front: 0.25, back: -0.25, legR: 0.045,
+    body: (c) => [gCap(0.24, 0.5, c, [0, 0.42, 0], [Math.PI / 2, 0, 0]), gSph(0.17, c, [0, 0.42, 0.5], [1, 1, 1.2]), gCyl(0.07, 0.085, 0.12, 0xd8b0a0, [0, 0.38, 0.72], [Math.PI / 2, 0, 0], 1, 8),
+      gCone(0.05, 0.1, c, [0.1, 0.58, 0.46]), gCone(0.05, 0.1, c, [-0.1, 0.58, 0.46])] },
+};
+export function makeBeast(M, kind, coat) {
+  const S = BEASTS[kind] || BEASTS.horse, c = coat ?? S.coat, h = S.hip;
+  const mat = M.flat.clone(); mat.userData.keep = false;
+  const mk = (g) => { const o = new THREE.Mesh(g, mat); o.castShadow = true; o.receiveShadow = true; return o; };
+  const legs = () => merge([-1, 1].flatMap((k) => [gCap(S.legR, Math.max(0.05, h - S.legR * 2 - 0.08), c, [k * S.legX, -h / 2 + 0.02, 0]), gBox(S.legR * 1.9, 0.09, S.legR * 2.2, S.hoof, [k * S.legX, -h + 0.045, 0.01])]));
+  const group = new THREE.Group(); group.rotation.order = 'YXZ';
+  const hips = new THREE.Group(); group.add(hips); hips.add(mk(merge(S.body(c))));
+  const armL = new THREE.Object3D(), armR = new THREE.Object3D(); hips.add(armL, armR);
+  const legL = mk(legs()), legR = mk(legs()); legL.position.set(0, h, S.front); legR.position.set(0, h, S.back); group.add(legL, legR);
+  return { group, hips, armL, armR, legL, legR, mat, scale: 1 };
+}
+
 // --- looks -------------------------------------------------------------------
 const SKINS = [0xd6a37c, 0xc68e63, 0xe0b48e, 0xb07a52];
 export function lookFor(type, r) {
@@ -770,6 +806,12 @@ export const TYPES = {
   officer: { hp: 60, speed: 3.8, ranged: true, range: 40, rMin: 7, rMax: 18, dmg: 9, cool: [0.8, 1.6], windup: 0.4, spread: 0.04, proj: 'bullet', pspeed: 80, sight: 46 },
   gunner: { hp: 80, speed: 3.0, ranged: true, range: 70, rMin: 10, rMax: 40, dmg: 8, cool: [2.2, 3.2], windup: 0.7, spread: 0.055, proj: 'bullet', pspeed: 95, sight: 62, burst: 5, twoHand: true },
   dog: { hp: 35, speed: 7.6, melee: true, reach: 1.7, dmg: 12, windup: 0.22, recover: 0.6, sight: 44, dog: true, hit: [[0.55, 0.42, false], [0.72, 0.3, true]] },
+  // animals that turned on the player (fauna.js): as strong as the chapters' enemies, no more; driven like a dog. hit: [height, radius, head, forward]
+  horseBeast: { hp: 90, speed: 7.2, melee: true, reach: 2.4, dmg: 20, windup: 0.32, recover: 0.8, sight: 50, dog: true, beast: 'horse', hit: [[1.35, 0.42, false, 0.45], [1.35, 0.42, false, -0.45], [2.15, 0.24, true, 1.25]] },
+  cowBeast: { hp: 110, speed: 5.8, melee: true, reach: 2.3, dmg: 22, windup: 0.4, recover: 0.9, sight: 40, dog: true, beast: 'cow', hit: [[1.12, 0.48, false, 0.4], [1.12, 0.48, false, -0.4], [1.2, 0.24, true, 1.1]] },
+  yakBeast: { hp: 120, speed: 5.6, melee: true, reach: 2.4, dmg: 24, windup: 0.4, recover: 0.9, sight: 40, dog: true, beast: 'yak', hit: [[1.05, 0.55, false, 0.4], [1.05, 0.55, false, -0.4], [1.0, 0.28, true, 1.2]] },
+  goatBeast: { hp: 40, speed: 6.4, melee: true, reach: 1.5, dmg: 12, windup: 0.25, recover: 0.6, sight: 36, dog: true, beast: 'goat', hit: [[0.55, 0.22, false, 0], [0.88, 0.13, true, 0.5]] },
+  pigBeast: { hp: 45, speed: 5.4, melee: true, reach: 1.4, dmg: 12, windup: 0.25, recover: 0.6, sight: 30, dog: true, beast: 'pig', hit: [[0.42, 0.28, false, 0], [0.44, 0.18, true, 0.5]] },
   warBoss: { hp: 460, speed: 3.9, ranged: true, range: 50, rMin: 8, rMax: 22, dmg: 9, cool: [1.2, 1.9], windup: 0.45, spread: 0.045, proj: 'bullet', pspeed: 85, sight: 60, burst: 4, boss: true, twoHand: true },
   hoplite: { hp: 100, speed: 3.8, melee: true, reach: 2.8, dmg: 22, windup: 0.5, recover: 0.8, sight: 40, thrust: true },
   peltast: { hp: 60, speed: 3.4, ranged: true, range: 40, rMin: 9, rMax: 22, dmg: 14, cool: [2.0, 3.0], windup: 0.7, spread: 0.03, proj: 'javelin', pspeed: 34, sight: 46, thrower: true },
@@ -825,7 +867,7 @@ export class Enemy {
   constructor(game, type, x, z, o = {}) {
     this.game = game; this.type = type; this.cfg = TYPES[type]; this.id = _uid++;
     const r = game.rand;
-    this.rig = this.cfg.dog ? makeDog(game.M) : this.cfg.rider ? makeRider(game.M, lookFor(o.look ?? type, r)) : makeHumanoid(game.M, lookFor(o.look ?? type, r));
+    this.rig = this.cfg.beast ? makeBeast(game.M, this.cfg.beast, o.coat) : this.cfg.dog ? makeDog(game.M) : this.cfg.rider ? makeRider(game.M, lookFor(o.look ?? type, r)) : makeHumanoid(game.M, { ...lookFor(o.look ?? type, r), ...o.over });   // o.over: a bystander who fights back keeps his look, with a weapon
     this.scale = this.rig.scale;
     this.pos = new THREE.Vector3(x, game.world.groundAt(x, z, o.up !== undefined ? game.world.height(x, z) + o.up : o.y ?? 2), z);   // o.up: floor of a building on a slope
     this.home = this.pos.clone();
@@ -862,7 +904,7 @@ export class Enemy {
     const G = this.game, P = this.tgt || G.player;
     this.state = 'combat'; this.mode = 'fight'; this.lostT = 0; this.react = (delay + 0.35 + G.rand() * 0.5) * this.wit.react;
     this.know = know ? { ...know } : { x: P.pos.x, y: P.pos.y, z: P.pos.z, t: G.time };
-    if (delay === 0) { if (G.voices) G.voices.shout(this); else if (this.cfg.dog) G.sound.bark(); else G.sound.shout(); }
+    if (delay === 0) { if (G.voices) G.voices.shout(this); else if (this.cfg.beast) G.sound.beast(this.cfg.beast); else if (this.cfg.dog) G.sound.bark(); else G.sound.shout(); }
     const R = Math.min(11, this.wit.share);
     for (const e of G.enemies) if (e !== this && e.state === 'idle' && !e.puppet && !e.remote && e.pos.distanceToSquared(this.pos) < R * R) e.alert(0.3 + G.rand() * 0.6, this.know);
   }
@@ -1014,15 +1056,16 @@ export class Enemy {
     if (this.state === 'dead' || this.state === 'hidden') return null;
     const s = this.scale, P = this.pos, low = 0.5 * this.duckK;                  // crouched behind cover, the body is half a metre lower
     let best = null;
-    const test = (cy, r, head) => {
-      const ox = o.x - P.x, oy = o.y - (P.y + (cy - low) * s), oz = o.z - P.z, rr = r * s;
+    const fx = Math.sin(this.yaw), fz = Math.cos(this.yaw);
+    const test = (cy, r, head, fwd = 0) => {                                     // fwd: along the body (a horse is long)
+      const ox = o.x - P.x - fx * fwd * s, oy = o.y - (P.y + (cy - low) * s), oz = o.z - P.z - fz * fwd * s, rr = r * s;
       const b = ox * d.x + oy * d.y + oz * d.z, c = ox * ox + oy * oy + oz * oz - rr * rr;
       const disc = b * b - c;
       if (disc < 0) return;
       const t = -b - Math.sqrt(disc);
       if (t > 0 && t < max && (!best || t < best.t)) best = { t, head };
     };
-    if (this.cfg.hit) for (const h of this.cfg.hit) test(h[0], h[1], h[2]);
+    if (this.cfg.hit) for (const h of this.cfg.hit) test(h[0], h[1], h[2], h[3]);
     else { test(1.68, 0.2, true); test(1.28, 0.31, false); test(0.92, 0.29, false); test(0.52, 0.25, false); test(0.18, 0.2, false); }
     return best;
   }
@@ -1229,7 +1272,7 @@ export class Enemy {
           if (this.strike > 0) {
             this.strike -= dt;
             if (this.strike <= 0) {
-              if (cfg.dog) G.sound.bark(); else G.sound.slash();
+              if (cfg.beast) G.sound.beast(cfg.beast); else if (cfg.dog) G.sound.bark(); else G.sound.slash();
               if (dist < cfg.reach + 0.5 && Math.abs(P.pos.y - this.pos.y) < 2 && G.world.clear(this.pos.x, this.pos.y + (cfg.dog ? 0.6 : 1.2), this.pos.z, P.pos.x, P.pos.y + 1.1, P.pos.z)) G.hurtTarget(P, cfg.dmg, this.pos, true);   // no blows through walls
               this.recover = cfg.recover;
             }
@@ -1504,6 +1547,13 @@ export class Shots {
         if (s.kind === 'bullet' || !wh.person.f) { s.mesh.removeFromParent(); this.list.splice(i, 1); }
         else if (HEAVY[s.kind]) this.drop(s);
         else { wh.person.f.hips.attach(s.mesh); s.stuck = 30; if (s.ret) G.keep(s); }
+        continue;
+      }
+      if (wh && wh.animal && !s.ghost) {                                             // an animal in the way
+        const a = wh.animal; G.fauna.hit(a, s.dmg, s.x, s.y, s.z, s.fromPlayer);
+        if (s.kind === 'bullet') { s.mesh.removeFromParent(); this.list.splice(i, 1); }
+        else if (HEAVY[s.kind] || a.gone) this.drop(s);
+        else { a.mesh.attach(s.mesh); s.stuck = 30; if (s.ret) G.keep(s); }
         continue;
       }
       if (wh) {

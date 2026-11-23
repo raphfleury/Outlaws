@@ -391,9 +391,9 @@ function build({ game, gfx, world, B, M, root, rand, shared }) {
   /** A canoe out on the lake with its crew: [look, place along the hull, 'pole' | 'paddle' | 'point', the way he or she faces]. Nobody in it is armed. */
   const afloat = (x, z, ry, crew) => { canoes.push({ x, z, ry }); const F = local(x, z, ry);
     for (const [look, lz, what, yaw] of crew) { const [px, pz] = F(0, lz), [hx, hz] = local(px, pz, yaw)(0.3, 0.3);
-      if (what === 'paddle') { who(look, px, -0.04, pz, yaw, { pose: 'sit', arms: [-0.9, -0.5], solid: false }); rod(B, M.wood, [hx, -0.5, hz], [px + (hx - px) * 0.7, 1.0, pz + (hz - pz) * 0.7], 0.022, 0x8a6a44); B.box(M.wood, 0.16, 0.5, 0.03, hx, -0.55, hz, { ry: yaw, c: 0x8a6a44 }); }
-      else if (what === 'pole') { who(look, px, -0.04, pz, yaw, { arms: [-0.95, -0.6], solid: false }); rod(B, M.wood, [hx + (hx - px) * 0.3, -3, hz + (hz - pz) * 0.3], [hx, 2.5, hz], 0.025, 0x8a6a44); }
-      else who(look, px, -0.04, pz, yaw, { pose: 'point', solid: false }); } };
+      if (what === 'paddle') { who(look, px, -0.04, pz, yaw, { pose: 'sit', arms: [-0.9, -0.5], solid: false, stay: true }); rod(B, M.wood, [hx, -0.5, hz], [px + (hx - px) * 0.7, 1.0, pz + (hz - pz) * 0.7], 0.022, 0x8a6a44); B.box(M.wood, 0.16, 0.5, 0.03, hx, -0.55, hz, { ry: yaw, c: 0x8a6a44 }); }
+      else if (what === 'pole') { who(look, px, -0.04, pz, yaw, { arms: [-0.95, -0.6], solid: false, stay: true }); rod(B, M.wood, [hx + (hx - px) * 0.3, -3, hz + (hz - pz) * 0.3], [hx, 2.5, hz], 0.025, 0x8a6a44); }
+      else who(look, px, -0.04, pz, yaw, { pose: 'point', solid: false, stay: true }); } };
   afloat(11.5, -31, 0.15, [['mexicaMan', 1.6, 'pole', 0.15], ['mexicaWoman', -1.1, 'paddle', 0.15]]); afloat(-19, -22, 0.3, [['mexicaMan', 1.5, 'pole', 0.3]]);
   afloat(11.5, -13, 0.12, [['mexicaMan', 1.3, 'point', -1.4]]); afloat(11, -70, -0.1, [['mexicaMan', -1.3, 'pole', -1.2]]);
 

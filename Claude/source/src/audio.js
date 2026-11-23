@@ -159,6 +159,29 @@ export class Sound {
   /** A car's engine going by: a low hum with a little rattle. */
   engine(far = 0) { if (!this.ctx) return; const v = Math.max(0.03, 1 - far); this.noise({ type: 'lowpass', f0: 380, f1: 220, dur: 0.22, vol: v * 0.18 }); this.tone({ type: 'sawtooth', f0: 52 + Math.random() * 6, dur: 0.2, vol: v * 0.06, lp: 300 }); }
   /** A dog's last whimper. */
+  /**
+   * An animal's cry: a horse neighs, cattle low, a yak grunts, a goat or a sheep bleats, a pig squeals, a hen clucks.
+   * hurt: the cry of a wounded or dying animal (higher, shorter).
+   */
+  beast(kind, far = 0, pan = 0, hurt = false) {
+    if (!this.ctx) return;
+    const v = Math.max(0.05, 1 - far), t = this.t, dest = this.side(pan, this.sfx), k = hurt ? 1.25 : 1;
+    const say = (o) => this.tone({ dest, rev: 0.12, ...o });
+    switch (kind) {
+      case 'horse': case 'pony': case 'mule':                // a neigh: high, shaking, falling away
+        for (let i = 0; i < 7; i++) say({ t: t + i * 0.09, type: 'sawtooth', f0: (950 - i * 70) * k, f1: (820 - i * 70) * k, dur: 0.11, vol: v * 0.13, lp: 2400 });
+        this.noise({ t: t + 0.66, type: 'bandpass', f0: 900, dur: 0.25, vol: v * 0.12, q: 0.8, dest });   // and a snort
+        break;
+      case 'cow': case 'ox': say({ type: 'sawtooth', f0: 150 * k, f1: 118 * k, dur: hurt ? 0.7 : 1.3, vol: v * 0.3, lp: 650, att: 0.12 }); break;
+      case 'yak': say({ type: 'sawtooth', f0: 105 * k, f1: 78 * k, dur: hurt ? 0.5 : 0.8, vol: v * 0.32, lp: 480, att: 0.06 }); break;
+      case 'goat': case 'sheep':                               // a bleat: a trembling voice
+        for (let i = 0; i < 6; i++) say({ t: t + i * 0.075, type: 'sawtooth', f0: (kind === 'goat' ? 560 : 430) * k, f1: (kind === 'goat' ? 520 : 400) * k, dur: 0.08, vol: v * 0.12, lp: 1800 });
+        break;
+      case 'pig': say({ type: 'square', f0: 820 * k, f1: 1250 * k, dur: 0.18, vol: v * 0.08, lp: 3000 }); say({ t: t + 0.18, type: 'square', f0: 1250 * k, f1: 700, dur: 0.25, vol: v * 0.08, lp: 3000 }); break;
+      case 'hen': for (let i = 0; i < 3; i++) say({ t: t + i * 0.13, type: 'triangle', f0: 720 * k, f1: 520, dur: 0.07, vol: v * 0.12 }); break;
+      case 'dog': if (hurt) this.whimper(far, pan); else this.bark(); break;
+    }
+  }
   whimper(far = 0, pan = 0) { if (!this.ctx) return; const v = Math.max(0.05, 1 - far) * 0.2; this.tone({ type: 'triangle', f0: 900, f1: 420, dur: 0.45, vol: v, dest: this.side(pan, this.voice) }); }
   bow() {
     this.tone({ type: 'sawtooth', f0: 210, f1: 80, dur: 0.16, vol: 0.35, lp: 1800 });

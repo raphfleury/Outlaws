@@ -3,10 +3,13 @@
 //    their heads, and when all has been quiet for a while walk back to where they were and take up their work again;
 //  - when the player stands near one of them for a moment without fighting, the bystander turns to him and talks, waves,
 //    nods or shrugs; aimed at, a bystander raises his hands;
-//  - they can be hurt (a wound, a flash, blood) and killed (they fall); the end of the chapter counts those the player killed.
+//  - they can be hurt (a wound, a flash, blood) and killed (they fall); the end of the chapter counts those the player killed;
+//  - about one in four, hurt by the player and still standing, fights back: he becomes an enemy of the chapter's commonest kind, with
+//    that enemy's weapon and strength, and his own looks (not online, where each browser has its own bystanders);
+//  - those who stay on a boat do not stroll or run: they crouch where they are.
 // Each browser of a duel has its own bystanders; a bystander killed by a player is reported to the other browser by its number.
 import * as THREE from 'three';
-import { stride, wound } from './actors.js';
+import { stride, wound, Enemy, lookFor } from './actors.js';
 import { damp } from './util.js';
 
 const HP = 30;
@@ -23,7 +26,8 @@ export class Crowd {
       for (const k of JOINTS) if (f[k]) saved[k] = f[k].rotation.clone();
       saved.pos = f.group.position.clone(); saved.rot = f.group.rotation.clone();
       f.busy = false;
-      return Object.assign(w, { i, hp: HP, state: 'idle', t: 0, dead: false, px: w.x, py: w.y, pz: w.z, dir: 0, walk: Math.random() * 6, moving: 0, flash: 0, saved, stuck: 0, gest: 'talk', gT: 0, away: 0, act: this.activityOf(w, i) });
+      const q = ((i * 4801 + 7) % 89) / 89;
+      return Object.assign(w, { fighter: !w.stay && q < 0.25, gone: false, i, hp: HP, state: 'idle', t: 0, dead: false, px: w.x, py: w.y, pz: w.z, dir: 0, walk: Math.random() * 6, moving: 0, flash: 0, saved, stuck: 0, gest: 'talk', gT: 0, away: 0, act: this.activityOf(w, i) });
     });
     this.calm = 9;
   }
@@ -35,13 +39,13 @@ export class Crowd {
    */
   activityOf(w, i) {
     const r = ((i * 7919 + 13) % 101) / 101;
+    if (w.stay) return { kind: w.pose === 'stand' ? 'chat' : 'work', ph: r * 6, soft: true };   // on a boat: paddling, poling, or talking
     if (w.pose === 'work') return { kind: 'work', ph: r * 6 };
     if (w.pose === 'talk') return { kind: 'chat', ph: r * 6 };
     if (w.pose === 'pray') return { kind: 'pray', ph: r * 6 };
-    if (w.sit) return r < 0.6 ? { kind: 'sip', t: 3 + r * 8 } : null;
+    if (w.sit) return { kind: 'sip', t: 3 + r * 8 };
     if ((w.pose === 'stand' || w.pose === 'hips' || w.pose === 'carry' || w.pose === 'point' || w.pose === 'custom') && r < 0.7) return { kind: 'stroll', phase: 'wait', t: 2 + r * 9 };
-    if (w.pose === 'stand' || w.pose === 'hips') return { kind: 'chat', ph: r * 6, soft: true };
-    return null;
+    return { kind: 'chat', ph: r * 6, soft: true };          // everyone else: talking, looking about (nobody stands like a statue)
   }
   /** One frame of what he does while left in peace (see activityOf). */
   activity(w, f, dt, t) {
@@ -55,8 +59,8 @@ export class Crowd {
         break;
       }
       case 'chat': {                       // talking with whoever is there, with the hands
-        f.busy = true; const ph = t + a.ph;
-        f.armR.rotation.x = damp(f.armR.rotation.x, S.armR.x + Math.sin(ph * 3.1) * 0.35, 6, dt); f.armL.rotation.x = damp(f.armL.rotation.x, S.armL.x + Math.sin(ph * 2.3 + 1) * 0.2, 6, dt);
+        f.busy = true; const ph = t + a.ph, k = a.soft ? 0.3 : 1;    // soft: one standing about, who mostly looks around
+        f.armR.rotation.x = damp(f.armR.rotation.x, S.armR.x + Math.sin(ph * 3.1) * 0.35 * k, 6, dt); f.armL.rotation.x = damp(f.armL.rotation.x, S.armL.x + Math.sin(ph * 2.3 + 1) * 0.2 * k, 6, dt);
         f.hips.rotation.y = damp(f.hips.rotation.y, S.hips.y + Math.sin(ph * 0.4) * 0.25, 3, dt);
         break;
       }
@@ -102,11 +106,13 @@ export class Crowd {
   alarm(x, z, r, sx = x, sz = z) {
     this.calm = 0;
     if (this.game.life) this.game.life.alarm(x, z, r * 1.5);           // the birds take wing too
+    if (this.game.fauna) this.game.fauna.alarm(x, z, r * 1.2, sx, sz);   // and the animals run
     for (const w of this.list) if (!w.dead && (w.px - x) ** 2 + (w.pz - z) ** 2 < r * r) this.frighten(w, sx, sz);
   }
   frighten(w, sx, sz) {
     if (w.dead) return;
     if (w.state === 'panic') { w.t = Math.max(w.t, 2.5); return; }
+    if (w.stay) { if (w.state !== 'cower') { this.standUp(w); w.state = 'cower'; } w.t = Math.max(w.t, 5 + Math.random() * 4); return; }   // on a boat: down where he is
     const dx = w.px - sx, dz = w.pz - sz, d = Math.hypot(dx, dz);
     w.dir = (d > 0.3 ? Math.atan2(dx, dz) : Math.random() * 6.283) + (Math.random() - 0.5) * 1.1;
     this.standUp(w);
@@ -123,7 +129,20 @@ export class Crowd {
     G.sound.thud();
     const P = G.player.pos;
     if (w.hp <= 0) this.die(w, byPlayer ? P.x : x, byPlayer ? P.z : z, byPlayer, send);
-    else this.frighten(w, byPlayer ? P.x : x, byPlayer ? P.z : z);
+    else if (!(w.fighter && byPlayer && this.recruit(w))) this.frighten(w, byPlayer ? P.x : x, byPlayer ? P.z : z);
+  }
+  /** One who fights back: in his place an enemy of the chapter's commonest kind, with his looks, that enemy's weapon, as hurt as he was. */
+  recruit(w) {
+    const G = this.game; if ((G.duel && G.duel.active) || G.state !== 'play') return false;
+    const type = G.footType(); if (!type) return false;
+    const W = G.world, P = G.player.pos, arms = lookFor(type, G.rand);
+    const e = new Enemy(G, type, w.px, w.pz, { look: w.look, over: { ...w.spec, weapon: arms.weapon ?? null, weapon2: null }, y: w.py + 0.6, yaw: Math.atan2(P.x - w.px, P.z - w.pz), patrol: false });
+    e.hp = Math.max(1, Math.round(e.cfg.hp * Math.max(0.35, w.hp / HP)));
+    w.dead = w.gone = true; w.state = 'gone'; w.f.group.removeFromParent();
+    if (w.cyl) W.cyls = W.cyls.filter((c) => c !== w.cyl);
+    G.enemies.push(e); e.alert(0); G.cache = {};
+    G.say('Someone you hurt fights back');
+    return true;
   }
   die(w, fromX, fromZ, byPlayer, send = true) {
     if (w.dead) return;
@@ -200,6 +219,7 @@ export class Crowd {
     for (const w of this.list) {
       const f = w.f, s = f.scale || 1;
       if (w.flash > 0) { w.flash = Math.max(0, w.flash - dt * 6); f.mat.emissive.setRGB(w.flash * 0.8, 0, 0); }
+      if (w.gone) continue;                                      // he became an enemy
       if (w.dead) { this.fallen(w, dt); continue; }
       const dx = P.pos.x - w.px, dz = P.pos.z - w.pz, dist = Math.hypot(dx, dz);
       let aimed = false;

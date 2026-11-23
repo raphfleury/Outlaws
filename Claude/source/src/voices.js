@@ -57,7 +57,9 @@ export class Voices {
   }
   /** An enemy has seen the player and calls out. */
   shout(e) {
-    const G = this.game; if (e.cfg.dog) { G.sound.bark(); return; }
+    const G = this.game;
+    if (e.cfg.beast) { const { pan, far } = this.place(e.pos.x, e.pos.z, 70); if (far < 1) G.sound.beast(e.cfg.beast, far, pan); return; }
+    if (e.cfg.dog) { G.sound.bark(); return; }
     const { pan, far } = this.place(e.pos.x, e.pos.z, 70); if (far >= 1) return;
     if (G.time - this.shoutT < 2.2) { G.sound.babble({ far, pan, loud: true, n: 2 }); return; }      // several at once: only one says it in words
     this.shoutT = G.time;
@@ -67,7 +69,7 @@ export class Voices {
   /** A fallen enemy's last cry (a man's; a dog whimpers). */
   cry(e) {
     const G = this.game, { pan, far } = this.place(e.pos.x, e.pos.z, 60); if (far >= 1) return;
-    if (e.cfg.dog) G.sound.whimper(far, pan); else G.sound.cry({ far, pan, female: false });
+    if (e.cfg.beast) G.sound.beast(e.cfg.beast, far, pan, true); else if (e.cfg.dog) G.sound.whimper(far, pan); else G.sound.cry({ far, pan, female: false });
   }
   /** A bystander who turns to the player says something to him. */
   greet(w) {

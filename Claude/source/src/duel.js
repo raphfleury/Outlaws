@@ -501,6 +501,7 @@ export class Duel {
       case 'drop': if (this.phase === 'play' && m.w && (m.w.type === 'weapon' || m.w.type === 'item')) G.addPickup(m.x, m.z, G.level, m.y, m.w); break;   // something another player put down
       case 'en': if (host && !this.isHost) m.e.forEach((a, i) => { const e = this.ai[i]; if (e) e.net = { x: a[0], y: a[1], z: a[2], yaw: a[3], st: a[4], pose: a[5], sn: a[6], hp: a[7], dk: a[8] || 0 }; }); break;
       case 'bk': G.crowd.killed(m.i); break;                    // a bystander another player killed
+      case 'ak': G.fauna.killed(m.i); break;                    // an animal another player killed
       case 'brk': { const p = G.world.pieces[m.i]; if (p) G.havoc.breakPiece(p, false); break; }   // a crate or a keg another player shot to pieces
       case 'ehit': if (this.isHost) { const e = this.ai[m.i]; if (e) { this.guestHit = from; e.damage(m.d, !!m.h, m.x, m.z); this.guestHit = -1; } } break;
       case 'pk': {                       // another player took something: the nearest of that kind goes here too (a drop lies where the enemy fell, which can differ a little)
