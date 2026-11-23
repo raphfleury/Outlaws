@@ -94,7 +94,7 @@ function weaponParts(kind, flat, metal) {
 }
 
 /** A weapon lying on the ground, to be picked up: the same shapes the enemies carry, laid flat and centred. */
-const DROP_PARTS = { revolver: 'revolver', carbine: 'rifle', rifle: 'rifle', sten: 'smg', bow: 'bow', crossbow: 'crossbow', javelin: 'javelin', axe: 'axe', dart: 'javelin' };
+const DROP_PARTS = { revolver: 'revolver', carbine: 'rifle', rifle: 'rifle', sten: 'smg', bow: 'bow', crossbow: 'crossbow', javelin: 'javelin', axe: 'axe', dart: 'javelin', sword: 'sword', sabre: 'katana', halberd: 'halberd', knife: 'xiphos', blowgun: 'spear' };
 export function dropMesh(kind, M) {
   const flat = [], metal = [], g = new THREE.Group();
   if (DROP_PARTS[kind]) weaponParts(DROP_PARTS[kind], flat, metal);
@@ -793,6 +793,24 @@ export const TYPES = {
 const _o = { x: 0, y: 0, z: 0 }, _d = { x: 0, y: 0, z: 0 };
 let _uid = 1;
 
+/**
+ * How the enemies think: the level of their wits is chosen before the game (and by the host in a game for two).
+ *  - low: they fight back when they see the player or are hurt, but hear nothing, never climb or crawl after him, and give up as
+ *    soon as he is out of sight for a moment, going back to where they stood;
+ *  - medium: they take up places with a view and something to hide behind, hear what goes on near them, go after the player where
+ *    they last saw or heard him (up ladders, crouching into a hiding place), search a while, and give up if they find nothing;
+ *  - genius: they hear from much further, tell each other where the player is, fight from cover (crouched, rising to shoot), move
+ *    to a new place after a few shots, come round the sides, creep up unseen, throw their bombs at a player who hides, fall back
+ *    when badly hurt, and their marksmen take to the roofs.
+ */
+export const WITS = {
+  low: { sight: 0.85, react: 1.4, spread: 1.35, share: 8, search: 0, giveUp: 2.5, far: 45, climb: false },
+  medium: { sight: 1, react: 1, spread: 1, share: 20, search: 12, giveUp: 25, far: 70, climb: true },
+  genius: { sight: 1.15, react: 0.6, spread: 0.65, share: 60, search: 20, giveUp: 40, far: 90, climb: true },
+};
+const BOMB_OF = { west: 'dynamite', japan: 'hbomb', war: 'grenade', russia: 'grenade', tibet: 'grenade' };
+const BOMBERS = { bandit: 1, cowboy: 1, ninja: 1, soldier: 1, gunner: 1, officer: 1, militia: 1, agent: 1, pla: 1, plaGunner: 1 };
+
 export class Enemy {
   constructor(game, type, x, z, o = {}) {
     this.game = game; this.type = type; this.cfg = TYPES[type]; this.id = _uid++;
@@ -812,24 +830,57 @@ export class Enemy {
     this.wanderT = 2 + r() * 4; this.wander = null; this.throwT = 2 + r() * 2; this.deathT = 0; this.react = 0;
     this.armPose = 0; this.name = o.name; this.path = null; this.pathI = 0; this.pathT = r() * 0.6; this.slump = false;
     this.maxHp = this.cfg.hp; this.hurtT = 99; this.runK = 0;      // hurtT: seconds since the last hit (the health bar shows for a while after one)
+    // what he knows and means to do: where the target was last seen or heard, how long ago, and what he is about
+    this.know = null; this.lostT = 0; this.mode = null; this.duckK = 0; this.duckWant = 0; this.climb = null; this.cover = null; this.coverT = 0;
+    this.shotsHere = 0; this.hitsHere = 0; this.bombT = 5 + (this.id % 7); this.fleeT = 0; this.homeYaw = this.yaw; this.flank = this.id % 2 ? 1 : -1; this.searchT = 0; this.seek = null;
     game.gfx.root.add(this.rig.group);
     this.rig.group.visible = this.state !== 'hidden';
     this.sync();
   }
   get alive() { return this.state !== 'dead'; }
-  get eyeY() { return this.pos.y + 1.6 * this.scale; }
+  get eyeY() { return this.pos.y + (1.6 - 0.7 * this.duckK) * this.scale; }
+  get wit() { return WITS[this.game.wits] || WITS.medium; }
 
   sync() {
     const g = this.rig.group;
     g.position.copy(this.pos); g.rotation.y = this.yaw;
   }
 
-  alert(delay = 0) {
+  /** He has seen (or been told of, or heard) the target: to arms. know: where the target is thought to be (by default, where it is). */
+  alert(delay = 0, know) {
     if (this.state !== 'idle') return;
-    this.state = 'combat'; this.react = delay + 0.35 + this.game.rand() * 0.5;
-    if (delay === 0) { if (this.cfg.dog) this.game.sound.bark(); else this.game.sound.shout(); }
-    for (const e of this.game.enemies) if (e !== this && e.state === 'idle' && e.pos.distanceToSquared(this.pos) < 11 * 11) e.alert(0.3 + this.game.rand() * 0.6);
+    const G = this.game, P = this.tgt || G.player;
+    this.state = 'combat'; this.mode = 'fight'; this.lostT = 0; this.react = (delay + 0.35 + G.rand() * 0.5) * this.wit.react;
+    this.know = know ? { ...know } : { x: P.pos.x, y: P.pos.y, z: P.pos.z, t: G.time };
+    if (delay === 0) { if (this.cfg.dog) G.sound.bark(); else G.sound.shout(); }
+    const R = Math.min(11, this.wit.share);
+    for (const e of G.enemies) if (e !== this && e.state === 'idle' && !e.puppet && !e.remote && e.pos.distanceToSquared(this.pos) < R * R) e.alert(0.3 + G.rand() * 0.6, this.know);
   }
+  /** He sees the target: the others near enough are told (a clever band passes it on far, and keeps each other up to date). */
+  share() {
+    const G = this.game, R = this.wit.share, genius = G.wits === 'genius'; this.sharedT = G.time;
+    for (const e of G.enemies) {
+      if (e === this || !e.alive || e.puppet || e.remote || e.state === 'hidden' || e.cfg.sight === 0) continue;
+      if (e.pos.distanceToSquared(this.pos) > R * R) continue;
+      if (e.state === 'idle') e.alert(0.4 + G.rand() * 0.8, this.know);
+      else if (genius && !e.los) { e.know = { ...this.know }; e.lostT = Math.min(e.lostT, 1); if (e.mode === 'search' || e.mode === 'home') e.mode = 'chase'; }
+    }
+  }
+  /** A noise heard at (x, z); near = 0 right by him, 1 at the edge of his hearing. byPlayer: it came from the player (a shot, a throw, his feet). */
+  hear(x, z, near, byPlayer) {
+    const G = this.game; if (!this.alive || this.puppet) return;
+    const P = this.tgt || G.player, y = Math.abs(x - P.pos.x) + Math.abs(z - P.pos.z) < 1.5 ? P.pos.y : G.world.groundAt(x, z, this.pos.y + 1);
+    if (byPlayer) {
+      if (this.state === 'idle') { this.alert(0.3 + near * 0.8, { x, y, z, t: G.time }); this.mode = 'chase'; this.lostT = 0.7; }
+      else if (this.state === 'combat' && !this.los) { this.know = { x, y, z, t: G.time }; this.lostT = Math.min(this.lostT, 1); if (this.mode === 'search' || this.mode === 'home') this.mode = 'chase'; }
+    } else if (this.state === 'idle') {
+      this.look = { x, z, t: 2.5 };                                                // something broke: he looks that way
+      if (G.wits === 'genius' && !this.static) { this.wander = { x: x + (G.rand() - 0.5) * 3, z: z + (G.rand() - 0.5) * 3 }; this.wanderT = 0; this.patrolK = 1; }   // and a clever one goes to see
+    }
+  }
+  /** Out of a fire, at once. */
+  flee(x, z) { this.fleeT = 1.6; this.fleeFrom = { x, z }; }
+  goHome() { this.mode = 'home'; this.path = null; this.cover = null; this.seek = null; this.duckWant = 0; }
 
   /** True if every navigation cell on the straight line to (x, z) is walkable. */
   straightFree(x, z) {
@@ -837,27 +888,110 @@ export class Enemy {
     for (let i = 1; i <= n; i++) { const k = nav.idx(this.pos.x + dx * i / n, this.pos.z + dz * i / n); if (k < 0 || !nav.free[k]) return false; }
     return true;
   }
-  /** Unit direction of the next step toward the player: straight if the way is open, otherwise along a route. */
-  toward(dx, dz, dist, dt) {
-    const G = this.game, P = this.tgt || G.player, nav = G.nav;
+  /**
+   * Unit direction of the next step toward (tx, ty, tz): straight if the way is open, otherwise along a route; up or down a ladder
+   * when the place is on another floor (not for the dull, nor for dogs and riders). Off the walking grid (on a roof, a deck), straight on.
+   */
+  toward(tx, tz, ty, dt) {
+    const G = this.game, nav = G.nav, dx = tx - this.pos.x, dz = tz - this.pos.z, dist = Math.hypot(dx, dz) || 0.001;
     if (!nav) return [dx / dist, dz / dist];
     this.pathT -= dt;
-    if (this.los && dist < 16 && this.straightFree(P.pos.x, P.pos.z)) { this.path = null; return [dx / dist, dz / dist]; }
-    if (!this.path || this.pathT <= 0) { this.pathT = 0.7 + G.rand() * 0.6; this.path = nav.path(this.pos.x, this.pos.z, P.pos.x, P.pos.z, 30000, this.pos.y, P.pos.y); this.pathI = 0; }
+    if (this.climb) return this.climb.ph === 'go' ? this.toLadder(dt) : [0, 0];      // on the rungs, the climb moves him
+    if (this.wit.climb && ty !== undefined && Math.abs(ty - this.pos.y) > 1.8 && !this.cfg.dog && !this.cfg.rider && !this.static && dist < 60) {
+      const L = this.ladderTo(tx, ty, tz);
+      if (L) { this.climb = { L, up: ty > this.pos.y, ph: 'go', t: 0, T: 0 }; this.path = null; return this.toLadder(dt); }
+    }
+    const k = nav.near(this.pos.x, this.pos.z, this.pos.y), onNav = k >= 0 && Math.abs(nav.hgt[k] - this.pos.y) < 0.9;
+    if (!onNav) return [dx / dist, dz / dist];
+    return this.route(tx, tz, ty, dist, dt);
+  }
+  route(tx, tz, ty, dist, dt) {
+    const G = this.game, nav = G.nav, dx = tx - this.pos.x, dz = tz - this.pos.z;
+    if (dist < 16 && (ty === undefined || Math.abs(ty - this.pos.y) < 1.2) && this.straightFree(tx, tz)) { this.path = null; return [dx / dist, dz / dist]; }
+    if (!this.path || this.pathT <= 0 || Math.hypot(this.pathTo[0] - tx, this.pathTo[1] - tz) > 2.5) { this.pathT = 0.7 + G.rand() * 0.6; this.path = nav.path(this.pos.x, this.pos.z, tx, tz, 30000, this.pos.y, ty); this.pathI = 0; this.pathTo = [tx, tz]; }
     const path = this.path;
     if (!path) return [dx / dist, dz / dist];
     while (this.pathI < path.length - 1 && Math.hypot(path[this.pathI][0] - this.pos.x, path[this.pathI][1] - this.pos.z) < 0.75) this.pathI++;
     const n = path[this.pathI], ex = n[0] - this.pos.x, ez = n[1] - this.pos.z, el = Math.hypot(ex, ez) || 1;
     return [ex / el, ez / el];
   }
+  /** The ladder that leads from his floor to the floor of (tx, ty, tz), the shortest way round; or null. */
+  ladderTo(tx, ty, tz) {
+    const up = ty > this.pos.y; let best = null, bd = 1e9;
+    for (const L of this.game.world.ladders) {
+      const f = this.foot(L), ox = L.x - L.nx * 0.55, oz = L.z - L.nz * 0.55;
+      const [ax, az, ay, bx, bz, by] = up ? [f[0], f[1], L.y0, ox, oz, L.y1] : [ox, oz, L.y1, f[0], f[1], L.y0];
+      if (Math.abs(ay - this.pos.y) > 1.6 || Math.abs(by - ty) > 2.2) continue;            // from this floor to that one
+      const d = Math.hypot(ax - this.pos.x, az - this.pos.z) + Math.hypot(bx - tx, bz - tz) * 1.2;
+      if (d < bd && d < 80) { bd = d; best = L; }
+    }
+    return best;
+  }
+  foot(L) { const out = 0.5 + (L.lean || 0) * (L.y1 - L.y0); return [L.x + L.nx * out, L.z + L.nz * out]; }
+  /** On the way to a ladder: to its foot (going up) or to the edge at its top (going down). When there, the climb itself begins. */
+  toLadder(dt) {
+    const c = this.climb, L = c.L, [px, pz] = c.up ? this.foot(L) : [L.x - L.nx * 0.55, L.z - L.nz * 0.55];
+    c.T += dt; if (c.T > 25) { this.climb = null; return [0, 0]; }                // could not get there: forget it
+    const dx = px - this.pos.x, dz = pz - this.pos.z, d = Math.hypot(dx, dz) || 0.001;
+    if (d < 0.5) { c.ph = c.up ? 'up' : 'on'; c.t = 0; c.x0 = this.pos.x; c.z0 = this.pos.z; return [0, 0]; }
+    if (c.up) return this.route(px, pz, L.y0, d, dt);
+    return [dx / d, dz / d];
+  }
+  /** On the rungs: up, off at the top, or onto the ladder and down. Returns true while it goes on. */
+  climbStep(dt) {
+    const c = this.climb, L = c.L, lean = L.lean || 0, out = () => 0.47 + lean * Math.max(0, L.y1 - this.pos.y);
+    this.yawTo = Math.atan2(-L.nx, -L.nz); this.walk += dt * 6;
+    if (c.ph === 'up') {
+      this.pos.y = Math.min(L.y1 + 0.02, this.pos.y + 2.4 * dt); this.pos.x = L.x + L.nx * out(); this.pos.z = L.z + L.nz * out();
+      if (this.pos.y >= L.y1) { c.ph = 'off'; c.t = 0; c.x0 = this.pos.x; c.z0 = this.pos.z; }
+    } else if (c.ph === 'off') {
+      c.t = Math.min(1, c.t + dt / 0.3); this.pos.x = c.x0 + (L.x - L.nx * 0.55 - c.x0) * c.t; this.pos.z = c.z0 + (L.z - L.nz * 0.55 - c.z0) * c.t;
+      if (c.t >= 1) { this.climb = null; this.path = null; return false; }
+    } else if (c.ph === 'on') {
+      c.t = Math.min(1, c.t + dt / 0.3); this.pos.x = c.x0 + (L.x + L.nx * out() - c.x0) * c.t; this.pos.z = c.z0 + (L.z + L.nz * out() - c.z0) * c.t;
+      if (c.t >= 1) c.ph = 'down';
+    } else if (c.ph === 'down') {
+      this.pos.y = Math.max(L.y0, this.pos.y - 2.6 * dt); this.pos.x = L.x + L.nx * out(); this.pos.z = L.z + L.nz * out();
+      if (this.pos.y <= L.y0 + 0.05) { const f = this.foot(L); this.pos.x = f[0]; this.pos.z = f[1]; this.climb = null; this.path = null; return false; }
+    } else return false;
+    return true;
+  }
+  /** (Clever ones) a place within a dozen metres where, crouched, he is hidden from the target and, standing, sees it. far: well away from it. */
+  findCover(tx, ty, tz, far) {
+    const G = this.game, W = G.world, nav = G.nav, cfg = this.cfg, r = G.rand; if (!nav) return null;
+    const want = far ? cfg.rMax * 1.2 : (cfg.rMin + cfg.rMax) / 2;
+    let best = null, bs = -1e9;
+    for (let i = 0; i < 22; i++) {
+      const a = r() * TAU, d = 2 + r() * 12, x = this.pos.x + Math.sin(a) * d, z = this.pos.z + Math.cos(a) * d;
+      const k = nav.idx(x, z); if (k < 0 || !nav.free[k]) continue;
+      const y = nav.hgt[k]; if (Math.abs(y - this.pos.y) > 1.2) continue;
+      const dp = Math.hypot(tx - x, tz - z); if (dp < cfg.rMin * 0.7 || dp > cfg.range * 0.9) continue;
+      if (W.clear(x, y + 0.85, z, tx, ty + 1.1, tz)) continue;                         // crouched: hidden
+      if (!W.clear(x, y + 1.62, z, tx, ty + 1.4, tz)) continue;                        // standing: in sight
+      let sc = -Math.abs(dp - want) * 0.25 - d * 0.35 + r() * 0.5;
+      for (const e of G.enemies) if (e !== this && e.cover && Math.hypot(e.cover.x - x, e.cover.z - z) < 3) sc -= 6;   // not where another one hides
+      if (this.cover && Math.hypot(this.cover.x - x, this.cover.z - z) < 4) sc -= 5;                                     // somewhere new
+      if (sc > bs) { bs = sc; best = { x, y, z }; }
+    }
+    return best;
+  }
+  /** (Clever bombers) a bomb lobbed at where the target hides. */
+  throwBomb(k) {
+    const G = this.game, kind = BOMB_OF[G.def && G.def.id]; if (!kind) return;
+    const x = this.pos.x, y = this.pos.y + 1.6 * this.scale, z = this.pos.z, dx = k.x - x, dz = k.z - z, dy = k.y + 0.3 - y, d = Math.hypot(dx, dz);
+    const t = clamp(d / 13, 0.6, 1.7), vx = dx / t, vz = dz / t, vy = (dy + 0.5 * 9.8 * t * t) / t, sp = Math.hypot(vx, vy, vz);
+    G.shots.spawn(kind, x, y, z, vx / sp, vy / sp, vz / sp, sp, false, 0, 9.8);
+    if (G.duel) G.duel.enemyShot(kind, x, y, z, vx / sp, vy / sp, vz / sp, sp, 9.8);
+    this.shotAt = G.time; this.throwPose = 0.5; G.sound.whiz();
+  }
 
   /** Ray vs. the body's hit spheres. Returns {t, head} or null. */
   rayHit(o, d, max) {
     if (this.state === 'dead' || this.state === 'hidden') return null;
-    const s = this.scale, P = this.pos;
+    const s = this.scale, P = this.pos, low = 0.5 * this.duckK;                  // crouched behind cover, the body is half a metre lower
     let best = null;
     const test = (cy, r, head) => {
-      const ox = o.x - P.x, oy = o.y - (P.y + cy * s), oz = o.z - P.z, rr = r * s;
+      const ox = o.x - P.x, oy = o.y - (P.y + (cy - low) * s), oz = o.z - P.z, rr = r * s;
       const b = ox * d.x + oy * d.y + oz * d.z, c = ox * ox + oy * oy + oz * oz - rr * rr;
       const disc = b * b - c;
       if (disc < 0) return;
@@ -878,7 +1012,14 @@ export class Enemy {
       const dx = this.pos.x - fromX, dz = this.pos.z - fromZ, d = Math.hypot(dx, dz) || 1, k = Math.min(0.25, amount / 250);
       this.pos.x += dx / d * k; this.pos.z += dz / d * k; this.game.world.collide(this.pos, 0.38, 1.7);
     }
-    if (this.state === 'idle') { this.state = 'combat'; this.react = 0.25; for (const e of this.game.enemies) if (e.state === 'idle' && e.pos.distanceToSquared(this.pos) < 144) e.alert(0.4); }
+    const G = this.game, T = this.tgt || G.player, ky = Math.abs(T.pos.x - fromX) + Math.abs(T.pos.z - fromZ) < 2 ? T.pos.y : this.pos.y;
+    if (this.state === 'idle') {                                   // hurt: he turns on whoever did it (and, if he lives, his cry is heard around)
+      this.state = 'combat'; this.mode = 'fight'; this.react = 0.25; this.lostT = 0; this.know = { x: fromX, y: ky, z: fromZ, t: G.time };
+      if (this.hp > 0) for (const e of G.enemies) if (e.state === 'idle' && !e.puppet && !e.remote && e.pos.distanceToSquared(this.pos) < 144) e.alert(0.4, this.know);
+    } else if (this.state === 'combat') {
+      if (!this.los) { this.know = { x: fromX, y: ky, z: fromZ, t: G.time }; this.lostT = Math.min(this.lostT, 1); if (this.mode === 'search' || this.mode === 'home') this.mode = 'chase'; }
+      if (this.cover) this.hitsHere++;
+    }
     if (this.hp <= 0) {
       this.state = 'dead'; this.deathT = 0;
       this.yaw = Math.atan2(fromX - this.pos.x, fromZ - this.pos.z);   // face the shot, fall away from it
@@ -934,82 +1075,170 @@ export class Enemy {
     }
 
     let mvx = 0, mvz = 0, speed = 0, wantYaw = this.yaw, pose = 0;   // pose: 0 rest, 1 aim/ready
-    if (this.state === 'idle') {
-      if (!P.dead && !G.peace) {
-        const facing = Math.cos(this.yaw - Math.atan2(dx, dz));
-        const sneak = !!P.sneaking, st = (P.mods.stealth ?? 1) * (1 - 0.4 * duck) * (sneak ? 0.65 : 1);   // a spy is noticed later, and so is anyone who crouches or sneaks
-        if (this.los && dist < cfg.sight * st && (facing > -0.2 || dist < (sneak ? 3 : 10) * st)) this.alert();
-        else if (G.noise > 0 && dist < (cfg.sight * 0.55 + 8) * st) this.alert(0.2);
-        else if (P.sprinting && P.onGround && dist < 12 && Math.hypot(P.vel.x, P.vel.z) > 6) this.alert(0.4);   // running feet are heard, even from behind a wall
-      }
-      if (this.patrol) {
+    const wit = this.wit, genius = G.wits === 'genius', smart = G.wits !== 'low';
+    this.duckWant = 0; this.yawTo = null;
+    if (P.cloak) this.los = false;                                          // the Vanish skill: he is not to be seen
+    /** Head for (tx, ty, tz) at k times his speed. */
+    const go = (tx, tz, ty, k = 1) => { const v = this.toward(tx, tz, ty, dt); mvx = v[0]; mvz = v[1]; speed = cfg.speed * k; if (v[0] || v[1]) wantYaw = Math.atan2(v[0], v[1]); };
+    /** Does he see the target? A spy is noticed later, and so is anyone who crouches or sneaks; the clever see further. */
+    const detect = () => {
+      if (P.dead || G.peace || !this.los) return false;
+      const facing = Math.cos(this.yaw - Math.atan2(dx, dz));
+      const sneak = !!P.sneaking, st = (P.mods.stealth ?? 1) * (1 - 0.4 * duck) * (sneak ? 0.65 : 1) * wit.sight;
+      if (!(dist < cfg.sight * st && (facing > -0.2 || dist < (sneak ? 3 : 10) * st))) return false;
+      if (this.state === 'idle') this.alert(); else { this.mode = 'fight'; this.lostT = 0; }
+      return true;
+    };
+    if (this.fleeT > 0) {                                                    // out of a fire, first of all
+      this.fleeT -= dt; const fx = this.pos.x - this.fleeFrom.x, fz = this.pos.z - this.fleeFrom.z, fl = Math.hypot(fx, fz) || 1;
+      mvx = fx / fl; mvz = fz / fl; speed = cfg.speed * 1.3; wantYaw = Math.atan2(mvx, mvz);
+    } else if (this.state === 'idle') {
+      detect();
+      if (this.look) { this.look.t -= dt; wantYaw = Math.atan2(this.look.x - this.pos.x, this.look.z - this.pos.z); if (this.look.t <= 0) this.look = null; }
+      if ((this.patrol || this.wander) && !this.static) {
         this.wanderT -= dt;
         if (this.wander) {
           const wx = this.wander.x - this.pos.x, wz = this.wander.z - this.pos.z, wd = Math.hypot(wx, wz);
           if (wd < 0.4 || this.wanderT < -6) { this.wander = null; this.wanderT = 2 + r() * 5; }
           else { mvx = wx / wd; mvz = wz / wd; speed = 1.2; wantYaw = Math.atan2(wx, wz); }
-        } else if (this.wanderT <= 0) this.wander = { x: this.home.x + (r() - 0.5) * 7, z: this.home.z + (r() - 0.5) * 7 };
-      }
+        } else if (this.wanderT <= 0 && this.patrol) this.wander = { x: this.home.x + (r() - 0.5) * 7, z: this.home.z + (r() - 0.5) * 7 };
+      } else if (!this.look && this.post) wantYaw = this.homeYaw;
     } else if (!P.dead) {
       // ---- combat ----
-      wantYaw = Math.atan2(dx, dz);
       this.react -= dt;
-      const tx = dx / dist, tz = dz / dist, px = -tz, pz = tx;
-      if (cfg.ranged) {
-        pose = this.aim > 0 || this.burst > 0 ? 1 : 0.35;
-        this.strafeT -= dt;
-        if (this.strafeT <= 0) { this.strafeT = 0.8 + r() * 2.2; this.strafe = r() < 0.25 ? 0 : r.sign(); }
-        if (!this.static && this.aim <= 0) {
-          let fwd = 0;
-          if (!this.los || dist > cfg.rMax) fwd = 1; else if (dist < cfg.rMin) fwd = -0.8;
-          const go = fwd > 0 ? this.toward(dx, dz, dist, dt) : [tx, tz];
-          const side = fwd > 0 && this.path ? 0 : this.strafe * 0.8;            // no side-stepping while following a route
-          mvx = go[0] * fwd + px * side; mvz = go[1] * fwd + pz * side;
-          speed = cfg.speed * (fwd > 0 && !this.los ? 1.25 : 1);
+      const seen = this.los && (this.mode !== 'home' || dist < cfg.sight * wit.sight);   // on his way back, only what is near enough brings him round
+      if (seen) {
+        this.know = { x: P.pos.x, y: P.pos.y, z: P.pos.z, t: G.time }; this.lostT = 0;
+        if (this.mode !== 'fight') this.mode = 'fight';
+        if (G.time - (this.sharedT ?? -9) > 1.2) this.share();
+      } else this.lostT += dt;
+      if (!this.know) this.know = { x: P.pos.x, y: P.pos.y, z: P.pos.z, t: G.time };
+      const K = this.know, kx = K.x - this.pos.x, kz = K.z - this.pos.z, kd = Math.hypot(kx, kz) || 0.001;
+      // out of reach for the dull: up a ladder, on a roof
+      this.unreachT = !smart && P.pos.y - this.pos.y > 1.8 && !(cfg.ranged && this.los) ? (this.unreachT || 0) + dt : 0;
+      // giving up, or going after him
+      if (this.mode !== 'home') {
+        const lostFor = this.cover ? Math.max(0, this.lostT - 5) : this.lostT;      // crouched behind cover he does not see the target, and does not mind
+        if (this.static) { if (this.lostT > wit.giveUp + 6) { this.state = 'idle'; this.mode = null; this.know = null; } else this.mode = 'fight'; }
+        else if (!smart && (lostFor > wit.giveUp || (dist > wit.far && !this.los) || this.unreachT > 2.5)) this.goHome();
+        else if (smart && !this.los && (this.lostT > wit.giveUp || (dist > wit.far && this.lostT > 2))) this.goHome();
+        else if (smart && this.mode === 'fight' && lostFor > (cfg.ranged ? 1.2 : 0.5)) { this.mode = 'chase'; this.cover = null; }
+      }
+      if (this.state !== 'combat') { /* gave up where he stands */ }
+      else if (this.mode === 'home') {
+        if (!detect()) {
+          const hx = this.home.x - this.pos.x, hz = this.home.z - this.pos.z;
+          if (Math.hypot(hx, hz) < 0.9 && Math.abs(this.home.y - this.pos.y) < 1.5) { this.state = 'idle'; this.mode = null; this.know = null; this.wander = null; this.climb = null; }
+          else go(this.home.x, this.home.z, this.home.y, 0.55);
         }
-        if (this.react <= 0) {
-          this.cool -= dt;
-          if (this.aim > 0) {
-            this.aim -= dt;
-            if (this.aim <= 0) { this.fire(dx, dy, dz, dist); if (cfg.burst) { this.burst = cfg.burst - 1; this.burstT = 0.16; } }
-          } else if (this.burst > 0) {
-            this.burstT -= dt;
-            if (this.burstT <= 0) { this.fire(dx, dy, dz, dist); this.burst--; this.burstT = 0.16; }
-          } else if (this.cool <= 0 && this.los && dist < cfg.range) {
-            this.aim = cfg.windup; this.cool = cfg.cool[0] + r() * (cfg.cool[1] - cfg.cool[0]);
+      } else if (this.mode === 'chase' || this.mode === 'search') {
+        pose = cfg.melee ? 1 : 0.35;
+        if (this.mode === 'chase') {
+          if (kd < 1.6 && Math.abs(K.y - this.pos.y) < 1.6) { this.mode = 'search'; this.searchT = wit.search; this.seek = null; }
+          else {
+            go(K.x, K.z, K.y, genius && kd < 35 ? 0.8 : 1.15);
+            if (kd < 6 && !this.climb && Math.abs(K.y - this.pos.y) < 1 && !this.straightFree(K.x, K.z)) this.duckWant = 1;   // into a low hiding place: crouching
+          }
+        }
+        if (this.mode === 'search') {                     // where the target was: he looks about, here and there
+          this.searchT -= dt;
+          if (this.searchT <= 0) this.goHome();
+          else {
+            if (!this.seek || Math.hypot(this.seek.x - this.pos.x, this.seek.z - this.pos.z) < 0.8 || (this.seek.t -= dt) <= 0) {
+              const nav = G.nav, a = r() * TAU, d = 2 + r() * 7;
+              let x = K.x + Math.sin(a) * d, z = K.z + Math.cos(a) * d;
+              if (nav) { const q = nav.near(x, z, K.y); if (q >= 0) { x = nav.x0 + ((q % nav.nx) + 0.5) * nav.cell; z = nav.z0 + (((q / nav.nx) | 0) + 0.5) * nav.cell; } }
+              this.seek = { x, z, t: 5 };
+            }
+            go(this.seek.x, this.seek.z, K.y, 0.6);
           }
         }
       } else {
-        // melee: close in, wind up, strike
-        pose = 1;
-        if (this.strike > 0) {
-          this.strike -= dt;
-          if (this.strike <= 0) {
-            if (cfg.dog) G.sound.bark(); else G.sound.slash();
-            if (dist < cfg.reach + 0.5 && Math.abs(P.pos.y - this.pos.y) < 2 && G.world.clear(this.pos.x, this.pos.y + (cfg.dog ? 0.6 : 1.2), this.pos.z, P.pos.x, P.pos.y + 1.1, P.pos.z)) G.hurtTarget(P, cfg.dmg, this.pos, true);   // no blows through walls
-            this.recover = cfg.recover;
+        // ---- fight: he sees the target, or has only just lost sight of it ----
+        wantYaw = Math.atan2(dx, dz);
+        const tx = dx / dist, tz = dz / dist, px = -tz, pz = tx;
+        if (cfg.ranged) {
+          pose = this.aim > 0 || this.burst > 0 ? 1 : 0.35;
+          this.strafeT -= dt;
+          if (this.strafeT <= 0) { this.strafeT = 0.8 + r() * 2.2; this.strafe = r() < 0.25 ? 0 : r.sign(); }
+          const hurt = genius && this.hp < this.maxHp * 0.35 && !cfg.boss;
+          if (genius && !this.static && !cfg.boss) {               // from cover: crouched, up to shoot, and somewhere new after a few shots
+            this.coverT -= dt;
+            const stale = !this.cover || this.coverT <= 0 || this.shotsHere >= 3 + (this.id % 3) || this.hitsHere >= 2 || Math.hypot(this.cover.x - P.pos.x, this.cover.z - P.pos.z) < cfg.rMin * 0.6;
+            if (stale && this.aim <= 0 && this.burst <= 0 && (this.coverLookT = (this.coverLookT || 0) - dt) <= 0) {
+              this.cover = this.findCover(K.x, K.y, K.z, hurt); this.coverT = 7 + r() * 5; this.shotsHere = 0; this.hitsHere = 0; this.atCover = false; this.coverLookT = this.cover ? 0 : 1.5;
+            }
+          } else this.cover = null;
+          if (this.cover && this.aim <= 0 && this.burst <= 0) {
+            const cd = Math.hypot(this.cover.x - this.pos.x, this.cover.z - this.pos.z);
+            if (cd > 0.45) { go(this.cover.x, this.cover.z, this.cover.y, 1.25); this.atCover = false; if (cd < 3) wantYaw = Math.atan2(kx, kz); }
+            else { this.atCover = true; wantYaw = Math.atan2(kx, kz); }
+          } else if (!this.cover && !this.static && this.aim <= 0) {
+            let fwd = 0;
+            if (!this.los || dist > cfg.rMax) fwd = 1; else if (dist < cfg.rMin) fwd = -0.8;
+            if (hurt) fwd = this.los && dist < cfg.rMax ? -0.9 : 0;                     // badly hurt: he keeps his distance
+            if (!smart && !this.los) fwd = 0;                                           // the dull do not go looking: they wait, then give up
+            const v = fwd > 0 ? (this.los ? this.toward(P.pos.x, P.pos.z, P.pos.y, dt) : this.toward(K.x, K.z, K.y, dt)) : [tx, tz];
+            const side = fwd > 0 && this.path ? 0 : this.strafe * 0.8;            // no side-stepping while following a route
+            mvx = v[0] * fwd + px * side; mvz = v[1] * fwd + pz * side;
+            speed = cfg.speed * (fwd > 0 && !this.los ? 1.25 : 1);
+            if (!smart && fwd > 0 && Math.hypot(this.pos.x - this.home.x, this.pos.z - this.home.z) > 25) speed = 0;   // the dull keep to their ground
           }
-        } else if (this.recover > 0) this.recover -= dt;
-        else if (dist < cfg.reach * 0.85 && this.react <= 0) this.strike = cfg.windup;
-        else {
-          let zig = 0;
-          if (cfg.zigzag && dist > 5) zig = Math.sin(G.time * 3.1 + this.id * 1.7) * 0.9;
-          const go = this.toward(dx, dz, dist, dt); if (this.path) zig = 0;
-          mvx = go[0] + px * zig; mvz = go[1] + pz * zig; speed = cfg.speed * (dist > 4 ? 1 : 0.75);
-          if (cfg.throws && this.los && dist > 7 && dist < 26 && this.react <= 0) {
-            this.throwT -= dt;
-            if (this.throwT <= 0) { this.throwT = (cfg.boss ? 1.6 : 2.6) + r() * 2; this.throwStar(dx, dy, dz, dist); }
+          if (this.cover && this.atCover) this.duckWant = this.aim > 0 || this.burst > 0 || this.cool < 0.35 ? 0 : 1;   // up to shoot, down again
+          if (this.sniper && genius) this.duckWant = this.aim > 0 || this.burst > 0 || this.cool < 0.5 ? 0 : 0.7;
+          if (this.react <= 0) {
+            this.cool -= dt;
+            if (this.aim > 0) {
+              this.aim -= dt;
+              if (this.aim <= 0) { this.fire(dx, dy, dz, dist); this.shotsHere++; if (this.atCover) this.cool += 0.6; if (cfg.burst) { this.burst = cfg.burst - 1; this.burstT = 0.16; } }   // from cover: longer down between shots
+            } else if (this.burst > 0) {
+              this.burstT -= dt;
+              if (this.burstT <= 0) { this.fire(dx, dy, dz, dist); this.burst--; this.burstT = 0.16; }
+            } else if (this.cool <= 0 && this.los && dist < cfg.range && this.duckK < 0.4) {
+              this.aim = cfg.windup; this.cool = cfg.cool[0] + r() * (cfg.cool[1] - cfg.cool[0]);
+            }
+          }
+        } else {
+          // melee: close in, wind up, strike
+          pose = 1;
+          if (this.strike > 0) {
+            this.strike -= dt;
+            if (this.strike <= 0) {
+              if (cfg.dog) G.sound.bark(); else G.sound.slash();
+              if (dist < cfg.reach + 0.5 && Math.abs(P.pos.y - this.pos.y) < 2 && G.world.clear(this.pos.x, this.pos.y + (cfg.dog ? 0.6 : 1.2), this.pos.z, P.pos.x, P.pos.y + 1.1, P.pos.z)) G.hurtTarget(P, cfg.dmg, this.pos, true);   // no blows through walls
+              this.recover = cfg.recover;
+            }
+          } else if (this.recover > 0) this.recover -= dt;
+          else if (dist < cfg.reach * 0.85 && this.react <= 0 && this.los) this.strike = cfg.windup;
+          else {
+            let zig = 0, ax = this.los ? P.pos.x : K.x, az = this.los ? P.pos.z : K.z;
+            if (cfg.zigzag && dist > 5) zig = Math.sin(G.time * 3.1 + this.id * 1.7) * 0.9;
+            if (genius && this.los && dist > 8 && !cfg.boss) { const off = Math.min(7, dist * 0.45) * this.flank; ax += px * off; az += pz * off; zig = 0; }   // round the side
+            const v = this.toward(ax, az, this.los ? P.pos.y : K.y, dt); if (this.path) zig = 0;
+            mvx = v[0] + px * zig; mvz = v[1] + pz * zig; speed = cfg.speed * (dist > 4 ? 1 : 0.75);
+            if (!smart && Math.hypot(this.pos.x - this.home.x, this.pos.z - this.home.z) > 30 && dist > 6) speed = 0;   // the dull keep to their ground
+            if (cfg.throws && this.los && dist > 7 && dist < 26 && this.react <= 0) {
+              this.throwT -= dt;
+              if (this.throwT <= 0) { this.throwT = (cfg.boss ? 1.6 : 2.6) + r() * 2; this.throwStar(dx, dy, dz, dist); }
+            }
           }
         }
       }
+      // a clever one with a bomb throws it where the target hides
+      if (genius && this.state === 'combat' && BOMBERS[this.type] && BOMB_OF[G.def && G.def.id] && !this.los && this.lostT > 2 && this.lostT < 15 && kd > 7 && kd < 28 && this.mode !== 'home' && !G.peace) {
+        this.bombT -= dt; if (this.bombT <= 0) { this.bombT = 12 + r() * 8; this.throwBomb(K); }
+      }
     }
 
-    // closing in on a target that cannot see him, an enemy goes slowly and quietly: then he does not show on the player's map
-    this.sneaking = this.state === 'combat' && !cfg.dog && !cfg.rider && !this.los && dist < 28 && speed > 0;
-    if (this.sneaking) speed *= 0.6;
+    // closing in on a target that cannot see him, an enemy goes slowly and quietly: then he does not show on the player's map (a clever one crouches)
+    const knowD = this.know ? Math.hypot(this.know.x - this.pos.x, this.know.z - this.pos.z) : dist;
+    this.sneaking = this.state === 'combat' && !cfg.dog && !cfg.rider && !this.los && speed > 0 && this.mode !== 'home' && (genius ? knowD < 35 : dist < 28);
+    if (this.sneaking) { speed *= genius ? 0.7 : 0.6; if (genius) this.duckWant = Math.max(this.duckWant, 0.45); }
     const limp = this.hp < this.maxHp * 0.4 && !cfg.dog && !cfg.rider ? 1 : 0;       // badly hurt: he limps, and goes slower
     if (limp) speed *= 0.78;
     // ---- movement ----
+    const climbing = !!this.climb && this.climb.ph !== 'go' && this.climbStep(dt), bh = this.duckK > 0.6 ? 1.05 : 1.7;   // crouched, he fits under lower things
+    if (climbing) { speed = 0; wantYaw = this.yawTo; }
     if (speed > 0) {
       const ml = Math.hypot(mvx, mvz) || 1; mvx /= ml; mvz /= ml;
       if (this.detour > 0) { this.detour -= dt; const ox = mvx; mvx = -mvz * this.detourDir * 0.9 + ox * 0.3; mvz = ox * this.detourDir * 0.9 + mvz * 0.3; }
@@ -1018,7 +1247,7 @@ export class Enemy {
       for (let q = 0; q < steps; q++) {
         const sx = this.pos.x, sz = this.pos.z, nx = sx + mvx * speed * dt / steps, nz = sz + mvz * speed * dt / steps;
         if (G.world.walkable(sx, sz, nx, nz, this.pos.y)) { this.pos.x = nx; this.pos.z = nz; }
-        G.world.collide(this.pos, 0.38, 1.7);
+        G.world.collide(this.pos, 0.38, bh);
       }
       for (const e of G.enemies) {            // keep some distance from each other
         if (e === this || !e.alive || e.state === 'hidden') continue;
@@ -1029,15 +1258,14 @@ export class Enemy {
         const ex = this.pos.x - P.pos.x, ez = this.pos.z - P.pos.z, d2 = ex * ex + ez * ez, rr = cfg.dog ? 0.7 : 0.8;
         if (d2 < rr * rr && d2 > 1e-6 && Math.abs(P.pos.y - this.pos.y) < 1.6) { const d = Math.sqrt(d2); this.pos.x = P.pos.x + ex / d * rr; this.pos.z = P.pos.z + ez / d * rr; }
       }
-      G.world.collide(this.pos, 0.38, 1.7);
+      G.world.collide(this.pos, 0.38, bh);
       const moved = Math.hypot(this.pos.x - bx, this.pos.z - bz);
       if (moved < speed * dt * 0.35) this.stuck += dt; else this.stuck = Math.max(0, this.stuck - dt * 2);
       if (this.stuck > 0.35) { this.stuck = 0; this.detour = 0.7 + r() * 0.6; this.detourDir = r.sign(); if (this.wander) this.wander = null; }
       this.moving = damp(this.moving, Math.min(1, moved / dt / 3), 10, dt); this.runK = damp(this.runK, clamp((moved / dt - 2.4) / 3, 0, 1), 6, dt);
       this.walk += moved * 2.6;
     } else { this.moving = damp(this.moving, 0, 10, dt); this.runK = damp(this.runK, 0, 6, dt); }
-    const gy = G.world.groundAt(this.pos.x, this.pos.z, this.pos.y);
-    this.pos.y = gy > this.pos.y ? gy : Math.max(gy, this.pos.y - 12 * dt);
+    if (!climbing) { const gy = G.world.groundAt(this.pos.x, this.pos.z, this.pos.y); this.pos.y = gy > this.pos.y ? gy : Math.max(gy, this.pos.y - 12 * dt); }
     if (this.pos.y < G.world.waterY - 1.2) { this.wetT = (this.wetT || 0) + dt; if (this.wetT > 1.5) { this.pos.copy(this.home); this.path = null; this.wetT = 0; } } else this.wetT = 0;   // fallen into deep water: back to where he started
 
     // ---- pose / animation ----
@@ -1069,6 +1297,21 @@ export class Enemy {
     }
     rig.armR.rotation.x = ax; rig.armR.rotation.z = az;
     rig.armL.rotation.x = lx; rig.armL.rotation.z = lz;
+    this.duckK = damp(this.duckK, cfg.dog || cfg.rider ? 0 : this.duckWant, 7, dt);
+    this.crouchPose(this.duckK);
+    if (climbing) {                                          // hand over hand on the rungs
+      const c = Math.sin(this.walk * 1.3);
+      rig.armR.rotation.x = -2.5 + c * 0.35; rig.armL.rotation.x = -2.5 - c * 0.35; rig.armR.rotation.z = -0.1; rig.armL.rotation.z = 0.1;
+      rig.legL.rotation.x = -0.5 + c * 0.45; rig.legR.rotation.x = -0.5 - c * 0.45;
+    }
+  }
+  /** Down on his heels behind cover (dk from 0, standing, to 1). */
+  crouchPose(dk) {
+    if (dk < 0.01) return;
+    const rig = this.rig;
+    rig.group.position.y -= 0.5 * dk * this.scale; rig.hips.rotation.x += 0.25 * dk;
+    rig.legL.rotation.x = rig.legL.rotation.x * (1 - dk) - 1.35 * dk; rig.legR.rotation.x = rig.legR.rotation.x * (1 - dk) + 0.9 * dk;
+    if (rig.shinL) { rig.shinL.rotation.x = rig.shinL.rotation.x * (1 - dk) + 1.35 * dk; rig.shinR.rotation.x = rig.shinR.rotation.x * (1 - dk) + 1.6 * dk; }
   }
 
   /** Duel guest: this enemy is simulated on the host; here it only follows the host's reports. */
@@ -1090,6 +1333,7 @@ export class Enemy {
     this.armPose = damp(this.armPose, n.pose, 12, dt);
     rig.armR.rotation.x = (this.cfg.melee ? -1.25 : -Math.PI / 2) * this.armPose + sw * 0.5 * (1 - this.armPose);
     rig.armL.rotation.x = this.cfg.twoHand ? -1.25 * this.armPose : sw * -0.7;
+    this.duckK = damp(this.duckK, n.dk || 0, 8, dt); this.crouchPose(this.duckK);
   }
 
   fire(dx, dy, dz, dist) {
@@ -1102,7 +1346,7 @@ export class Enemy {
     let ax = P.pos.x + P.vel.x * tt - mx, ay = P.pos.y + 1.15 - 0.5 * (P.duck || 0) - my, az = P.pos.z + P.vel.z * tt - mz;
     if (cfg.proj !== 'bullet') ay += dist * dist / (cfg.pspeed * cfg.pspeed) * 4.5;   // arc compensation
     const l = Math.hypot(ax, ay, az); ax /= l; ay /= l; az /= l;
-    const sp = cfg.spread * (0.6 + r());
+    const sp = cfg.spread * (0.6 + r()) * this.wit.spread;
     ax += (r() - 0.5) * 2 * sp; ay += (r() - 0.5) * 1.4 * sp; az += (r() - 0.5) * 2 * sp;
     G.shots.spawn(cfg.proj, mx, my, mz, ax, ay, az, cfg.pspeed, false, cfg.dmg);
     if (G.duel) G.duel.enemyShot(cfg.proj, mx, my, mz, ax, ay, az, cfg.pspeed);
@@ -1143,8 +1387,13 @@ export class Shots {
     const dynamite = merge([0, 1, 2].map((i) => gCyl(0.019, 0.019, 0.2, 0xb02a1c, [(i - 1) * 0.036, 0, 0], [Math.PI / 2, 0, 0], 1, 8)).concat([gBox(0.11, 0.045, 0.025, 0xd8c8a0, [0, 0, 0])]));
     const grenade = merge([gCyl(0.017, 0.017, 0.24, 0x6a4a2a, [0, 0, -0.06], [Math.PI / 2, 0, 0], 1, 8), gCyl(0.04, 0.04, 0.09, 0x4a5236, [0, 0, 0.1], [Math.PI / 2, 0, 0], 1, 10)]);
     const hbomb = merge([gSph(0.075, 0x1c1a18, [0, 0, 0]), gCyl(0.03, 0.03, 0.03, 0x5a3a22, [0, 0.075, 0], [0, 0, 0], 1, 8)]);
-    this.geo = { arrow, bolt, star, bullet: streak, javelin, axe, ball, dart, stone, dynamite, grenade, hbomb };
-    this.mat = { arrow: M.flat, bolt: M.flat, star: M.metal, bullet: M.glow, javelin: M.flat, axe: M.flat, ball: M.metal, dart: M.flat, stone: M.flat, dynamite: M.flat, grenade: M.flat, hbomb: M.flat };
+    // the sling's stone, the blowgun's dart, a big stone, a Molotov cocktail
+    const sstone = xf(new THREE.IcosahedronGeometry(0.035, 0), [0, 0, 0], [0.3, 0.2, 0], 1, 0x9a948a);
+    const bdart = merge([gCyl(0.004, 0.004, 0.32, 0xe8dcc0, [0, 0, -0.12], [Math.PI / 2, 0, 0], 1, 4), gCone(0.008, 0.05, 0x2a2a2a, [0, 0, 0.05], [Math.PI / 2, 0, 0], 1, 4), gSph(0.022, 0xf0ece0, [0, 0, -0.28])]);
+    const boulder = xf(new THREE.IcosahedronGeometry(0.17, 0), [0, 0, 0], [0.4, 0.2, 0], [1, 0.85, 1.1], 0x8a8478);
+    const molotov = merge([gCyl(0.035, 0.04, 0.18, 0x3a6a3a, [0, 0, 0], [Math.PI / 2, 0, 0], 1, 8), gCyl(0.014, 0.022, 0.07, 0x3a6a3a, [0, 0, 0.12], [Math.PI / 2, 0, 0], 1, 6), gSph(0.022, 0xffa030, [0, 0, 0.18])]);
+    this.geo = { arrow, bolt, star, bullet: streak, javelin, axe, ball, dart, stone, dynamite, grenade, hbomb, sstone, bdart, boulder, molotov };
+    this.mat = { arrow: M.flat, bolt: M.flat, star: M.metal, bullet: M.glow, javelin: M.flat, axe: M.flat, ball: M.metal, dart: M.flat, stone: M.flat, dynamite: M.flat, grenade: M.flat, hbomb: M.flat, sstone: M.flat, bdart: M.flat, boulder: M.flat, molotov: M.flat };
     this.tracerGeo = merge([gBox(1, 1, 1, 0xffe2a0, [0, 0, 0.5])]);
     this.tracerMat = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
     this.tracers = [];
@@ -1184,8 +1433,9 @@ export class Shots {
     for (let i = this.list.length - 1; i >= 0; i--) {
       const s = this.list[i];
       if (s.bomb) { if (this.bomb(s, dt)) { s.mesh.removeFromParent(); this.list.splice(i, 1); } continue; }
-      if (s.stuck > 0) {                       // arrow lodged somewhere: fade out later
-        s.stuck -= dt;
+      if (s.stuck > 0) {                       // arrow lodged somewhere: fade out later (the player's own stay, to be taken back: see Game.keep)
+        if (s.taken) { s.mesh.removeFromParent(); this.list.splice(i, 1); continue; }
+        if (!s.ret) s.stuck -= dt;
         if (s.stuck <= 0) { s.mesh.removeFromParent(); this.list.splice(i, 1); }
         continue;
       }
@@ -1208,40 +1458,51 @@ export class Shots {
           if (d2 < 2.2 && !s.near && s.kind === 'bullet') { s.near = true; G.sound.whiz(); }
         }
       }
+      if (!s.ghost) G.havoc.trinketsAlong(_o, _d, tMax);         // small things on the way break
       s.x += _d.x * tMax; s.y += _d.y * tMax; s.z += _d.z * tMax;
       s.mesh.position.set(s.x, s.y, s.z);
       if (s.kind === 'star') { s.mesh.rotation.y += dt * 30; } else { s.mesh.lookAt(s.x + _d.x, s.y + _d.y, s.z + _d.z); if (s.spin) s.mesh.rotateX((5 - s.life) * s.spin); }
       if (hitPlayer) { G.hurtPlayer(s.dmg, this._v.set(s.x - _d.x * 5, s.y, s.z - _d.z * 5), false); s.mesh.removeFromParent(); this.list.splice(i, 1); continue; }
       if (hitRemote) { G.duel.send({ t: 'hit', d: s.dmg, x: s.x - _d.x * 5, z: s.z - _d.z * 5 }); s.mesh.removeFromParent(); this.list.splice(i, 1); continue; }
+      if (s.kind === 'molotov' && (hitEnemy || hitPlayer || wh || s.life <= 0)) { G.havoc.fire(s.x - _d.x * 0.2, s.y, s.z - _d.z * 0.2, { ghost: s.ghost }); s.mesh.removeFromParent(); this.list.splice(i, 1); continue; }
       if (hitEnemy) {
         G.hitEnemy(hitEnemy, s.dmg, head, s.x, s.y, s.z, P.pos.x, P.pos.z);
-        if (s.kind === 'dart' && hitEnemy.alive) hitEnemy.poison = 5;                       // the dart was poisoned
+        if ((s.kind === 'dart' || s.kind === 'bdart') && hitEnemy.alive) hitEnemy.poison = s.kind === 'bdart' ? 4 : 5;     // the dart was poisoned
         if (s.kind === 'bullet') { s.mesh.removeFromParent(); this.list.splice(i, 1); }
-        else { hitEnemy.rig.hips.attach(s.mesh); s.stuck = 30; }
+        else if (HEAVY[s.kind]) this.drop(s);
+        else { hitEnemy.rig.hips.attach(s.mesh); s.stuck = 30; if (s.ret) G.keep(s); }
         continue;
       }
       if (wh && wh.person && !s.ghost) {                                             // a bystander in the way
         G.crowd.hit(wh.person, s.dmg, s.x, s.y, s.z, s.fromPlayer);
         if (s.kind === 'bullet' || !wh.person.f) { s.mesh.removeFromParent(); this.list.splice(i, 1); }
-        else { wh.person.f.hips.attach(s.mesh); s.stuck = 30; }
+        else if (HEAVY[s.kind]) this.drop(s);
+        else { wh.person.f.hips.attach(s.mesh); s.stuck = 30; if (s.ret) G.keep(s); }
         continue;
       }
       if (wh) {
         if (s.fromPlayer && !s.ghost) G.crowd.alarm(s.x, s.z, 6, s.x - _d.x * 20, s.z - _d.z * 20);   // a missile landing near people frightens them
         if (wh.piece && !s.ghost) G.havoc.damage(wh.piece, s.dmg * (s.kind === 'ball' ? 3 : 1), s.x, s.y, s.z);   // crates, barrels and jars are shot to pieces
         G.impact(s.x, s.y, s.z, wh.nx, wh.ny, wh.nz, s.kind);
-        if (s.kind === 'bullet' || (wh.piece && wh.piece.broken)) { s.mesh.removeFromParent(); this.list.splice(i, 1); }
-        else { s.stuck = s.fromPlayer ? 40 : 12; s.mesh.position.set(s.x - _d.x * 0.05, s.y - _d.y * 0.05, s.z - _d.z * 0.05); }
+        if (s.kind === 'bullet' || (wh.piece && wh.piece.broken && !s.ret)) { s.mesh.removeFromParent(); this.list.splice(i, 1); }
+        else if (HEAVY[s.kind] || (wh.piece && wh.piece.broken)) this.drop(s);
+        else { s.stuck = s.fromPlayer ? 40 : 12; s.mesh.position.set(s.x - _d.x * 0.05, s.y - _d.y * 0.05, s.z - _d.z * 0.05); if (s.ret) G.keep(s); }
         continue;
       }
       if (s.life <= 0) { s.mesh.removeFromParent(); this.list.splice(i, 1); }
     }
   }
+  /** A stone (or anything whose support has gone) falls to the ground where it struck, and lies there to be taken back. */
+  drop(s) {
+    const G = this.game, y = G.world.groundAt(s.x, s.z, s.y + 0.2);
+    s.y = y + (s.kind === 'boulder' ? 0.15 : 0.04); s.mesh.position.set(s.x, s.y, s.z); s.stuck = s.fromPlayer ? 40 : 12;
+    if (s.ret) G.keep(s);
+  }
   /** A thrown bomb: it flies, bounces off whatever it meets, rolls to a stop, and goes off when its fuse has burnt down. Returns true when it is gone. */
   bomb(s, dt) {
     const G = this.game, W = G.world;
     s.fuse -= dt;
-    if (s.fuse <= 0) { G.havoc.explode(s.x, s.y + 0.15, s.z, { ghost: s.ghost }); return true; }
+    if (s.fuse <= 0) { G.havoc.explode(s.x, s.y + 0.15, s.z, { ghost: s.ghost && !s.foe }); return true; }
     if (Math.random() < dt * 40) G.gfx.glow.spawn(s.x, s.y + 0.08, s.z, (Math.random() - 0.5) * 1.5, 1 + Math.random(), (Math.random() - 0.5) * 1.5, { life: 0.25, s0: 0.03, s1: 0.005, r: 3, g: 1.8, b: 0.6, a: 1, grav: 4 });   // the burning fuse
     if (!s.rest) {
       s.vy -= s.g * dt;
@@ -1267,3 +1528,7 @@ export class Shots {
 }
 /** The bombs, and how long their fuse burns (seconds). */
 const BOMB_KINDS = { dynamite: 2.4, grenade: 2.2, hbomb: 2.0 };
+/** Missiles that drop where they strike rather than stick in it. */
+const HEAVY = { stone: 1, sstone: 1, boulder: 1 };
+/** What the player throws or shoots can be picked up again where it lies: missile -> the weapon (or bag item) it goes back to. */
+export const RETURNS = { arrow: 'bow', bolt: 'crossbow', star: 'shuriken', javelin: 'javelin', axe: 'axe', dart: 'dart', stone: 'stone', sstone: 'sling', bdart: 'blowgun', boulder: 'boulder' };

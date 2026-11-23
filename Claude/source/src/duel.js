@@ -21,13 +21,16 @@ const r2 = (v) => Math.round(v * 100) / 100, r3 = (v) => Math.round(v * 1000) / 
 export class RemotePlayer extends Enemy {
   constructor(game, hero) {
     super(game, 'duelist', 0, 0, { look: hero.look, patrol: false, static: true });
-    this.remote = true; this.name = hero.name; this.mods = { stealth: 1, ...hero.mods };
+    this.remote = true; this.hero = hero.name; this.name = (game.duel && game.duel.theirName) || hero.name; this.mods = { stealth: 1, ...hero.mods };   // the name the other player gave, or his hero's
     this.vel = new THREE.Vector3(); this.net = null; this.aimF = 0; this.swing = 0; this.duck = 0;
     this.rig.group.visible = false;                    // until the first report arrives
   }
   get dead() { return !this.alive; }
   /** The other player sneaks (X): enemies notice him later, and he does not show on the map. */
   get sneaking() { return !!this.net && !!(this.net.f & 16); }
+  /** The other player has used his Vanish skill: enemies lose sight of him, and he is hardly to be seen. */
+  get cloak() { return !!this.net && !!(this.net.f & 32); }
+  skillOn(id) { return id === 'vanish' && this.cloak; }
   /** In the game together, the other player is a team-mate: what this player throws or shoots passes him by (see Game.friend). */
   /** A crouching opponent is hit where the figure is drawn: half a metre lower. */
   rayHit(o, d, max) { const k = 0.5 * this.duck; this.pos.y -= k; const h = super.rayHit(o, d, max); this.pos.y += k; return h; }
@@ -53,6 +56,11 @@ export class RemotePlayer extends Enemy {
     if (!n) return;
     if (n.h !== undefined) { this.hp = n.h; this.maxHp = n.mh || 100; }          // the other player's health, as his browser reports it
     rig.group.visible = true;
+    const ghost = !!(n.f & 32);
+    if (ghost !== !!this.ghostly) {                    // vanished: the figure all but fades away (what he carries, made of shared materials, is hidden)
+      this.ghostly = ghost; const m = rig.mat; m.transparent = ghost; m.opacity = ghost ? (this.game.duel.cfg.rules === 'coop' ? 0.45 : 0.12) : 1; m.depthWrite = !ghost; m.needsUpdate = true;
+      rig.group.traverse((o) => { if (o.material && o.material !== m) o.visible = !ghost; });
+    }
     const bx = this.pos.x, bz = this.pos.z, k = Math.min(1, dt * 14), inv = 1 / Math.max(dt, 1e-3);
     if (Math.hypot(n.x - bx, n.z - bz) > 6) this.pos.set(n.x, n.y, n.z);                    // a respawn: jump, do not slide
     else { this.pos.x += (n.x - bx) * k; this.pos.y += (n.y - this.pos.y) * k; this.pos.z += (n.z - bz) * k; }
@@ -87,6 +95,7 @@ export class Duel {
 
   connected() {
     this.game.voice.attach(this.link);
+    this.send({ t: 'name', n: this.game.myName || '' });
     if (this.isHost) { this.send({ t: 'setup', c: this.cfg }); this.enterPick(); }
     else this.game.duelStatus('Connected. Waiting for the host…');
   }
@@ -282,7 +291,7 @@ export class Duel {
     if (this.isHost && this.cfg.rules === 'coop' && this.ai.length && this.ai.every((e) => !e.alive) && this.next !== 'over') { this.send({ t: 'over' }); this.wait = 2.5; this.next = 'over'; }   // the last enemy has fallen
     if (this.isHost && this.ai.length) {
       this.enT -= dt;
-      if (this.enT <= 0) { this.enT = 0.1; this.send({ t: 'en', e: this.ai.map((e) => [r2(e.pos.x), r2(e.pos.y), r2(e.pos.z), r2(e.yaw), e.state === 'dead' ? 2 : e.state === 'combat' ? 1 : e.state === 'hidden' ? 3 : 0, e.armPose > 0.5 ? 1 : 0, e.sneaking ? 1 : 0, r2(Math.max(0, e.hp) / e.maxHp)]) }); }
+      if (this.enT <= 0) { this.enT = 0.1; this.send({ t: 'en', e: this.ai.map((e) => [r2(e.pos.x), r2(e.pos.y), r2(e.pos.z), r2(e.yaw), e.state === 'dead' ? 2 : e.state === 'combat' ? 1 : e.state === 'hidden' ? 3 : 0, e.armPose > 0.5 ? 1 : 0, e.sneaking ? 1 : 0, r2(Math.max(0, e.hp) / e.maxHp), r2(e.duckK)]) }); }
     }
     if (this.cfg.rules === 'timed' || this.cfg.rules === 'ctf') {
       this.clock -= dt;
@@ -294,14 +303,16 @@ export class Duel {
     }
   }
   sendState() {
-    const P = this.game.player, w = P.weapon, m = { t: 's', x: r2(P.pos.x), y: r2(P.pos.y), z: r2(P.pos.z), yaw: r3(P.yaw), pitch: r3(P.pitch), f: (P.aim > 0.5 ? 1 : 0) | (w && w.meleeT > 0 ? 2 : 0) | (P.dead ? 4 : 0) | (P.crouch ? 8 : 0) | (P.sneaking ? 16 : 0), h: Math.max(0, Math.round(P.hp)), mh: P.maxHp };
+    const P = this.game.player, w = P.weapon, m = { t: 's', x: r2(P.pos.x), y: r2(P.pos.y), z: r2(P.pos.z), yaw: r3(P.yaw), pitch: r3(P.pitch), f: (P.aim > 0.5 ? 1 : 0) | (w && w.meleeT > 0 ? 2 : 0) | (P.dead ? 4 : 0) | (P.crouch ? 8 : 0) | (P.sneaking ? 16 : 0) | (P.cloak ? 32 : 0), h: Math.max(0, Math.round(P.hp)), mh: P.maxHp };
     if (this.isHost && (this.cfg.rules === 'timed' || this.cfg.rules === 'ctf')) m.c = Math.ceil(this.clock);
     this.send(m);
   }
   // what this player fires, shown in the other browser
   tracer(ax, ay, az, bx, by, bz) { this.send({ t: 'tr', a: [r2(ax), r2(ay), r2(az), r2(bx), r2(by), r2(bz)] }); }
+  /** This player used his skill: the other one hears it (a vanishing is shown through the state flags). */
+  skill(id) { this.send({ t: 'sk', k: id }); }
   shot(kind, x, y, z, dx, dy, dz, speed, grav) { this.send({ t: 'sh', k: kind, a: [r2(x), r2(y), r2(z), r3(dx), r3(dy), r3(dz), speed], g: grav }); }
-  enemyShot(kind, x, y, z, dx, dy, dz, speed) { if (this.isHost) this.send({ t: 'esh', k: kind, a: [r2(x), r2(y), r2(z), r3(dx), r3(dy), r3(dz), speed] }); }
+  enemyShot(kind, x, y, z, dx, dy, dz, speed, grav) { if (this.isHost) this.send({ t: 'esh', k: kind, a: [r2(x), r2(y), r2(z), r3(dx), r3(dy), r3(dz), speed], g: grav }); }
   /** Host: a computer enemy turns on whichever player is nearer. */
   targetFor(e) {
     const P = this.game.player, R = this.remote;
@@ -321,7 +332,7 @@ export class Duel {
     const G = this.game, P = G.player;
     const ghost = () => {
       if (!G.shots.geo[m.k]) return;
-      const s = G.shots.spawn(m.k, m.a[0], m.a[1], m.a[2], m.a[3], m.a[4], m.a[5], m.a[6], false, 0, m.g ?? undefined); s.ghost = true;
+      const s = G.shots.spawn(m.k, m.a[0], m.a[1], m.a[2], m.a[3], m.a[4], m.a[5], m.a[6], false, 0, m.g ?? undefined); s.ghost = true; s.foe = m.t === 'esh';   // foe: an enemy's (its bomb hurts both players)
       const d = Math.hypot(m.a[0] - P.pos.x, m.a[2] - P.pos.z);
       if (m.k === 'bullet') { G.muzzle(m.a[0], m.a[1], m.a[2], m.a[3], m.a[4], m.a[5], 0.7); G.sound.gun(Math.max(0.15, 0.8 - d / 90), Math.min(1, d / 70)); } else if (d < 40) G.sound.bow();
     };
@@ -351,7 +362,10 @@ export class Duel {
         break;
       }
       case 'sh': case 'esh': ghost(); break;
-      case 'en': if (!this.isHost) m.e.forEach((a, i) => { const e = this.ai[i]; if (e) e.net = { x: a[0], y: a[1], z: a[2], yaw: a[3], st: a[4], pose: a[5], sn: a[6], hp: a[7] }; }); break;
+      case 'sk': G.sound.skill(m.k); break;      // the other player's skill: heard
+      case 'drop': if (this.phase === 'play' && m.w && (m.w.type === 'weapon' || m.w.type === 'item')) G.addPickup(m.x, m.z, G.level, m.y, m.w); break;   // something the other player put down
+      case 'name': this.theirName = String(m.n || '').slice(0, 16); if (this.remote) this.remote.name = this.theirName || this.remote.hero; if (this.phase === 'pick') G.duelPickInfo(); break;
+      case 'en': if (!this.isHost) m.e.forEach((a, i) => { const e = this.ai[i]; if (e) e.net = { x: a[0], y: a[1], z: a[2], yaw: a[3], st: a[4], pose: a[5], sn: a[6], hp: a[7], dk: a[8] || 0 }; }); break;
       case 'bk': G.crowd.killed(m.i); break;                    // a bystander the other player killed
       case 'brk': { const p = G.world.pieces[m.i]; if (p) G.havoc.breakPiece(p, false); break; }   // a crate or a keg the other player shot to pieces
       case 'ehit': if (this.isHost) { const e = this.ai[m.i]; if (e) { this.guestHit = true; e.damage(m.d, !!m.h, m.x, m.z); this.guestHit = false; } } break;
@@ -371,14 +385,23 @@ export class Duel {
 export function bindDuelUI(G) {
   const $ = (s) => document.querySelector(s);
   G.duelStatus = (t) => { $('#dstatus').textContent = t; };
-  const cfg = () => { const rules = $('#drules').value; return { level: +$('#dlevel').value, rules, foes: rules === 'coop' ? Math.max(3, +$('#dfoes').value) : +$('#dfoes').value, seed: (Math.random() * 2 ** 31) | 0 }; };
+  const cfg = () => { const rules = $('#drules').value; return { level: +$('#dlevel').value, rules, foes: rules === 'coop' ? Math.max(3, +$('#dfoes').value) : +$('#dfoes').value, seed: (Math.random() * 2 ** 31) | 0, wits: $('#dwits').value, size: $('#dsize').value }; };
   const fresh = (host) => { if (G.duel) G.duel.link.close(); const d = (G.duel = new Duel(G)); d.isHost = host; d.link.onerror = fail; return d; };
   const fail = (e) => G.duelStatus('Could not connect (' + ((e && (e.type || e.message)) || 'unknown error') + '). Check the code and try again; if it still fails, create a new duel.');
   const copy = (text, done) => { const p = navigator.clipboard && navigator.clipboard.writeText(text); if (p) p.then(() => G.duelStatus(done), () => {}); };
   // no letter or digit that is easily taken for another one: no 0/O/Q, 1/I, 2/Z, 5/S, 8/B, G, and neither U nor V
   const code5 = () => { const a = 'ACDEFHJKLMNPRTWXY34679'; let s = ''; for (let i = 0; i < 5; i++) s += a[Math.floor(Math.random() * a.length)]; return s; };
+  /** Each player gives a name before playing: the other one sees it (scores, messages, the tag over a partner's head). */
+  const needName = () => {
+    const n = ($('#dname').value || '').trim().replace(/\s+/g, ' ').slice(0, 16);
+    if (!n) { G.duelStatus('Write your name first: the other player will see it.'); $('#dname').focus(); return null; }
+    try { localStorage.setItem('outlaws.name', n); } catch (e) { /* for this visit */ }
+    G.myName = n; return n;
+  };
+  try { $('#dname').value = localStorage.getItem('outlaws.name') || ''; } catch (e) { /* no storage */ }
   const join = async (code) => {
     code = String(code || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); if (!code) return;
+    if (!needName()) return;
     const d = fresh(false); G.duelStatus('Connecting…');
     try { await d.link.join(code); } catch (e) { fail(e); }
   };
@@ -387,6 +410,7 @@ export function bindDuelUI(G) {
   $('#dback').addEventListener('click', () => G.closeDuel());
   $('#dcreate').addEventListener('click', async (e) => {
     e.currentTarget.blur();
+    if (!needName()) return;
     const d = fresh(true), code = code5(); d.cfg = cfg(); G.duelStatus('Creating the duel…');
     try {
       await d.link.host(code);

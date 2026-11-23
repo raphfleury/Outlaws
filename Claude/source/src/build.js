@@ -122,14 +122,39 @@ export function rockGeo(seed = 1, detail = 1) {
 // ---------------------------------------------------------------------------
 
 export class Builder {
-  constructor(world) { this.world = world; this.parts = new Map(); this.cur = null; this.stack = []; }
+  constructor(world) { this.world = world; this.parts = new Map(); this.cur = null; this.stack = []; this.order = []; this.noTrinkets = 0; }
 
   add(mat, geo) {
     let a = this.parts.get(mat);
     if (!a) this.parts.set(mat, (a = []));
     a.push(geo);
     if (this.cur) geo.userData.piece = this.cur;
+    else if (!this.noTrinkets && !mat.userData.noTrinket) this.order.push({ geo, mat });     // may turn out to be a small thing that breaks at a touch (see trinkets)
     return this;
+  }
+  /**
+   * Small things the levels put about (bottles, cups, lamps, books, tools, signs, ornaments), merged into the world like everything
+   * else: every shape no bigger than about 30 cm across that has no collider of its own becomes a breakable "trinket", grouped with the
+   * shapes added just before it that touch it (the parts of one lamp). A trinket has no collider: shots, blows and blasts find it by its
+   * bounding sphere (see Havoc.trinketsAlong), and it breaks at the first touch.
+   */
+  trinkets() {
+    const W = this.world, groups = [];
+    let g = null;
+    for (const { geo, mat } of this.order) {
+      if (geo.userData.piece || geo.userData.solid) { g = null; continue; }
+      geo.computeBoundingSphere(); const bs = geo.boundingSphere;
+      if (!bs || bs.radius > 0.32 || bs.radius < 0.01) { g = null; continue; }
+      if (g && g.c.distanceTo(bs.center) < g.r + bs.radius + 0.05 && g.r < 0.42) { g.list.push(geo); const d = g.c.distanceTo(bs.center); g.r = Math.max(g.r, d + bs.radius); g.wood = g.wood || mat.userData.breakable === 'wood'; }
+      else { g = { list: [geo], c: bs.center.clone(), r: bs.radius, wood: mat.userData.breakable === 'wood' }; groups.push(g); }
+    }
+    for (const t of groups) {
+      const col = t.list[0].attributes.color, cc = col ? new THREE.Color(col.array[0], col.array[1], col.array[2]) : new THREE.Color(0x888888);
+      const p = { id: W.pieces.length, hp: 1, hp0: 1, kind: t.wood ? 'wood' : 'clay', boom: false, color: cc.getHex(), x: t.c.x, y: t.c.y - t.r, z: t.c.z, r: t.r, top: t.c.y + t.r, cy: t.c.y, ranges: [], cols: [], broken: false, trinket: true };
+      W.pieces.push(p); W.trinkets.push(p);
+      for (const q of t.list) q.userData.piece = p;
+    }
+    this.order = [];
   }
   /**
    * A thing that can be shot to pieces (a crate, a barrel, a jar). Everything added until endPiece() belongs to it: its shapes still go into
@@ -147,9 +172,14 @@ export class Builder {
   endPiece() { this.cur = this.world.curPiece = this.stack.pop() || null; }
   /** Box with (x,y,z) = centre of its BASE. o: {ry, rx, rz, c (colour), solid} */
   box(mat, w, h, d, x, y, z, o = {}) {
-    const g = boxGeo(w, h, d, mat.userData.tile || 1);
-    this.add(mat, xf(g, [x, y + h / 2, z], [o.rx || 0, o.ry || 0, o.rz || 0], 1, o.c ?? 0xffffff));
+    // a wall or a door of wood, paper or bamboo (upright, thin, solid) can be broken through: it is a piece of its own. Stone and plaster stand.
+    const wall = o.solid && !this.cur && mat.userData.breakable && h >= 1.0 && Math.min(w, d) <= 0.5 && Math.max(w, d) >= 0.5 && !o.rx && !o.rz;
+    if (wall) { const paper = mat.userData.breakable === 'paper'; this.piece({ hp: paper ? 25 : clamp(Math.max(w, d) * h * 28, 110, 230), kind: paper ? 'paper' : 'wood', color: o.c ?? 0xb08a5a, x, y, z, r: Math.max(w, d) / 2, top: y + h, wall: true }); }
+    const g = xf(boxGeo(w, h, d, mat.userData.tile || 1), [x, y + h / 2, z], [o.rx || 0, o.ry || 0, o.rz || 0], 1, o.c ?? 0xffffff);
+    if (o.solid) g.userData.solid = true;
+    this.add(mat, g);
     if (o.solid) this.world.addBox(x, z, w, d, o.ry || 0, y, y + h);
+    if (wall) this.endPiece();
     return this;
   }
   /** Vertical cylinder/cone standing on (x,y,z). */
@@ -157,7 +187,9 @@ export class Builder {
     const g = new THREE.CylinderGeometry(rt, rb, h, o.seg || 10, 1, !!o.open);
     const t = mat.userData.tile || 1, uv = g.attributes.uv;
     for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * Math.max(1, Math.round(6.28 * Math.max(rt, rb) / t)), uv.getY(i) * h / t);
-    this.add(mat, xf(g, [x, y + h / 2, z], [o.rx || 0, o.ry || 0, o.rz || 0], 1, o.c ?? 0xffffff));
+    const q = xf(g, [x, y + h / 2, z], [o.rx || 0, o.ry || 0, o.rz || 0], 1, o.c ?? 0xffffff);
+    if (o.solid) q.userData.solid = true;
+    this.add(mat, q);
     if (o.solid) this.world.addCyl(x, z, Math.max(rt, rb), y, y + h);
     return this;
   }
@@ -166,6 +198,7 @@ export class Builder {
 
   build(parent) {
     const out = [];
+    this.trinkets();
     for (const [mat, list] of this.parts) {
       const mesh = new THREE.Mesh(merge(list), mat);
       let at = 0;
@@ -185,7 +218,7 @@ export class Builder {
 /** Regular grid of terrain heights with smooth (bilinear) lookup. */
 export class Heightfield {
   constructor(size, segs, fn) {
-    this.size = size; this.segs = segs; this.n = segs + 1; this.cell = size / segs;
+    this.size = size; this.segs = segs; this.n = segs + 1; this.cell = size / segs; Heightfield.last = this;   // the chapter's ground (how far it reaches limits how large its map can be)
     this.data = new Float32Array(this.n * this.n);
     const half = size / 2;
     for (let j = 0; j < this.n; j++) for (let i = 0; i < this.n; i++)
@@ -233,6 +266,7 @@ export class World {
     this.maxSlope = 1.15;          // steeper terrain cannot be climbed
     this.waterY = -Infinity;       // terrain below this is too deep to enter
     this.pieces = []; this.curPiece = null;   // things that can be shot to pieces (see Builder.piece)
+    this.trinkets = [];                        // the small ones among them, which have no collider (see Builder.trinkets)
   }
   addBox(x, z, w, d, ry, y0, y1) {
     const b = { x, z, hw: w / 2, hd: d / 2, c: Math.cos(ry), s: Math.sin(ry), y0, y1, r: Math.hypot(w, d) / 2 };
@@ -258,6 +292,11 @@ export class World {
   }
 
   /** The ladder that a body at p stands in front of and faces (fx, fz = the way it looks), or null. */
+  /** Is (x, z) within the bounds of the map, m metres in from the edge? */
+  inside(x, z, m = 0) {
+    const B = this.bounds; if (!B) return true;
+    return B.r ? Math.hypot(x - (B.x || 0), z - (B.z || 0)) < B.r - m : x > B.x0 + m && x < B.x1 - m && z > B.z0 + m && z < B.z1 - m;
+  }
   ladderFor(p, fx, fz) {
     for (const L of this.ladders) {
       const k = (L.lean || 0) * Math.max(0, L.y1 - p.y), dx = p.x - L.x - L.nx * k, dz = p.z - L.z - L.nz * k, out = dx * L.nx + dz * L.nz, lat = dz * L.nx - dx * L.nz;   // (a leaning ladder stands further out the lower you are)
@@ -297,6 +336,7 @@ export class World {
     if (d < 1e-6) return true;
     const px = x0 + (dx / d) * 0.6, pz = z0 + (dz / d) * 0.6;
     const h0 = this.height(x0, z0), h1 = this.height(px, pz);
+    if (feetY !== undefined && feetY > Math.max(h0, this.waterY) + 0.4) return this.groundAt(px, pz, feetY + 0.5) - feetY < 0.55;   // up on a deck or a roof: the slope of the ground below does not matter
     if (h1 < this.waterY) {
       if (feetY !== undefined && this.groundAt(px, pz, feetY) >= this.waterY) return true;   // a bridge, a jetty or a deck carries the walker over deep water
       if (h1 < h0) return false;

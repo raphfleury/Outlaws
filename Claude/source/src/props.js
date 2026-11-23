@@ -41,7 +41,7 @@ export function fence(B, M, x0, z0, x1, z1, o = {}) {
   for (let i = 0; i <= n; i++) {
     const t = i / n, x = x0 + (x1 - x0) * t, z = z0 + (z1 - z0) * t, y = W.height(x, z);
     { const t2 = Math.min(n, i + 0.5) / n, cx = x0 + (x1 - x0) * t2, cz = z0 + (z1 - z0) * t2;      // each bay (its post and its rails) breaks on its own
-      B.piece({ hp: 55, kind: 'wood', color: c, x: cx, y, z: cz, r: i < n ? len / n / 2 + 0.1 : 0.12, top: y + h }); }
+      B.piece({ hp: 50, kind: 'wood', color: c, x: cx, y, z: cz, r: i < n ? len / n / 2 + 0.1 : 0.12, top: y + h }); }
     B.box(M.wood, 0.14, h + 0.15, 0.14, x, y - 0.05, z, { ry: ry + (i % 3) * 0.1, c });
     if (i < n) {
       const xb = x0 + (x1 - x0) * (i + 1) / n, zb = z0 + (z1 - z0) * (i + 1) / n, yb = W.height(xb, zb);
@@ -61,7 +61,7 @@ const KEGS = { west: 1, japan: 1, war: 1, russia: 1, tibet: 1, aztec: 1 };
 export function barrel(B, M, x, y, z, c = 0x8a623a) {
   const W = B.world, n = (W.barrelN = (W.barrelN || 0) + 1), keg = !!KEGS[W.chapter] && n % 3 === 2;
   if (keg) c = 0x8e2a1c;
-  B.piece({ hp: keg ? 15 : 45, kind: 'wood', boom: keg, color: c, x, y, z, r: 0.37, top: y + 0.95, loot: keg ? null : 'barrel' });
+  B.piece({ hp: keg ? 15 : 50, kind: 'wood', boom: keg, color: c, x, y, z, r: 0.37, top: y + 0.95, loot: keg ? null : 'barrel' });
   B.cyl(M.wood, 0.36, 0.33, 0.95, x, y, z, { c, solid: true, seg: 12 });
   B.cyl(M.metal, 0.372, 0.372, 0.05, x, y + 0.2, z, { c: keg ? 0x141416 : 0x3a3a3e, seg: 12, open: true });
   B.cyl(M.metal, 0.372, 0.372, 0.05, x, y + 0.7, z, { c: keg ? 0x141416 : 0x3a3a3e, seg: 12, open: true });
@@ -70,7 +70,7 @@ export function barrel(B, M, x, y, z, c = 0x8a623a) {
 }
 
 export function crate(B, M, x, y, z, s = 0.8, ry = 0, c = 0xa07a4a) {
-  B.piece({ hp: 30 + s * 30, kind: 'wood', color: c, x, y, z, r: s * 0.71, top: y + s, loot: 'crate' });
+  B.piece({ hp: s <= 0.75 ? 50 : 80, kind: 'wood', color: c, x, y, z, r: s * 0.71, top: y + s, loot: 'crate' });
   B.box(M.wood, s, s, s, x, y, z, { ry, c, solid: true });
   B.box(M.woodH, s + 0.04, 0.1, s + 0.04, x, y + s - 0.1, z, { ry, c: 0x6a4a2a });
   B.box(M.woodH, s + 0.04, 0.1, s + 0.04, x, y, z, { ry, c: 0x6a4a2a });
@@ -354,7 +354,7 @@ export function rubble(B, M, x, y, z, r = 1.2, c = 0x9a9488, n = 7) {
 /** Shelves against a wall, with goods on them. (x, z) = centre, w along local X. */
 export function shelf(B, M, x, y, z, ry, w = 3, h = 2.2, o = {}) {
   const c = Math.cos(ry), s = Math.sin(ry), cols = o.goods || [0xb83a2a, 0x3a5a8a, 0xd8c060, 0x5a7a4a];
-  B.piece({ hp: 100, kind: 'wood', color: o.c ?? 0x5a4028, x, y, z, r: w / 2, top: y + h, spot: { x: x + 0.22 * s, y: y + 0.8, z: z + 0.22 * c, hw: w / 2 - 0.3, hd: 0.08, ry } });   // the second shelf from the floor
+  B.piece({ hp: 105, kind: 'wood', color: o.c ?? 0x5a4028, x, y, z, r: w / 2, top: y + h, spot: { x: x + 0.22 * s, y: y + 0.8, z: z + 0.22 * c, hw: w / 2 - 0.3, hd: 0.08, ry } });   // the second shelf from the floor
   B.box(M.woodH, w, h, 0.45, x, y, z, { ry, c: o.c ?? 0x5a4028, solid: true });
   for (let k = 0; k < Math.floor(h / 0.6); k++) for (let i = 0; i < Math.floor(w / 0.42); i++) { if ((i * 7 + k * 3) % 5 === 0) continue; const lx = -w / 2 + 0.25 + i * 0.42; B.box(M.flat, 0.26, 0.3, 0.2, x + lx * c + 0.24 * s, y + 0.2 + k * 0.6, z - lx * s + 0.24 * c, { ry, c: cols[(i + k) % cols.length] }); }
   B.endPiece();
@@ -417,6 +417,7 @@ export function butte(B, M, x, z, o = {}) {
  */
 export function ladder(B, M, x, z, nx, nz, y0, y1, o = {}) {
   const { c = 0x8a6a44, lean = 0 } = o, ry = Math.atan2(nx, nz), top = y1 + 0.95;
+  B.noTrinkets++;                                           // a ladder's rungs are not small things to shoot away
   if (!lean) {
     const px = x + nx * 0.14, pz = z + nz * 0.14;
     for (const k of [-1, 1]) B.box(M.wood, 0.07, top - y0 + 0.2, 0.07, px + nz * k * 0.3, y0 - 0.2, pz - nx * k * 0.3, { ry, c });
@@ -427,6 +428,7 @@ export function ladder(B, M, x, z, nx, nz, y0, y1, o = {}) {
     for (let yy = y0 + 0.3; yy < top - 0.1; yy += 0.32) B.geo(M.wood, new THREE.BoxGeometry(0.62, 0.05, 0.05), at(yy, 0), rot, 1, c);
   }
   B.world.ladders.push({ x, z, nx, nz, y0, y1, lean });
+  B.noTrinkets--;
 }
 
 /** A raised hide: a deck on four posts with a low wall on three sides (open on the local +Z side) and a light roof, with a ladder up to it. */
@@ -526,7 +528,7 @@ export const local = (x, z, ry = 0) => { const cs = Math.cos(ry), sn = Math.sin(
 /** A table: a top on four legs. o: { w, d, h, c, top (colour of the top), solid (false = no collider) }. Returns the height of its top. */
 export function table(B, M, x, y, z, ry = 0, o = {}) {
   const { w = 1.6, d = 0.8, h = 0.78, c = 0x6a4a2e, solid = true } = o, P = local(x, z, ry);
-  B.piece({ hp: 60, kind: 'wood', color: c, x, y, z, r: Math.hypot(w, d) / 2, top: y + h, sweep: { hw: w / 2, hd: d / 2, ry }, spot: 'top' });
+  B.piece({ hp: 80, kind: 'wood', color: c, x, y, z, r: Math.hypot(w, d) / 2, top: y + h, sweep: { hw: w / 2, hd: d / 2, ry }, spot: 'top' });
   B.box(M.woodH, w, 0.07, d, x, y + h - 0.07, z, { ry, c: o.top ?? c });
   for (const [a, b] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { const [px, pz] = P(a * (w / 2 - 0.08), b * (d / 2 - 0.08)); B.box(M.wood, 0.08, h - 0.07, 0.08, px, y, pz, { ry, c }); }
   if (solid) B.world.addBox(x, z, w, d, ry, y, y + h);
@@ -537,20 +539,24 @@ export function table(B, M, x, y, z, ry = 0, o = {}) {
 /** A bench or a stool (w about 0.4). o: { w, d, h, c, back (height of a back rest, on the local -Z side) } */
 export function bench(B, M, x, y, z, ry = 0, o = {}) {
   const { w = 1.6, d = 0.36, h = 0.45, c = 0x6a4a2e, back = 0 } = o, P = local(x, z, ry);
+  B.piece({ hp: 50, kind: 'wood', color: c, x, y, z, r: Math.hypot(w, d) / 2, top: y + h, seat: true });
   B.box(M.woodH, w, 0.06, d, x, y + h - 0.06, z, { ry, c });
   for (const a of w > 0.7 ? [-1, 1] : [0]) { const [px, pz] = P(a * (w / 2 - 0.12), 0); B.box(M.wood, w > 0.7 ? 0.07 : w * 0.6, h - 0.06, d - 0.08, px, y, pz, { ry, c }); }
   if (back) { const [px, pz] = P(0, -d / 2 + 0.03); B.box(M.woodH, w, back, 0.05, px, y + h, pz, { ry, c }); }
   B.world.addBox(x, z, w, d, ry, y, y + h);
+  B.endPiece();
 }
 
 /** A bed: frame, mattress, blanket and pillow; the head is on the local -Z side. o: { w, l, h, c, blanket, pillow, head (height of a headboard, 0 = none) } */
 export function bed(B, M, x, y, z, ry = 0, o = {}) {
   const { w = 0.95, l = 2.0, h = 0.45, c = 0x5a4028, blanket = 0x8a3a2a, pillow = 0xe6e0d0, head = 0.45 } = o, P = local(x, z, ry);
+  B.piece({ hp: 80, kind: 'wood', color: c, x, y, z, r: Math.hypot(w, l) / 2, top: y + h, seat: true });
   B.box(M.woodH, w, h - 0.14, l, x, y, z, { ry, c }); B.box(M.cloth, w - 0.06, 0.14, l - 0.08, x, y + h - 0.14, z, { ry, c: 0xd8d0c0 });
   { const [px, pz] = P(0, l * 0.17); B.box(M.cloth, w - 0.02, 0.05, l * 0.62, px, y + h, pz, { ry, c: blanket }); }
   { const [px, pz] = P(0, -l / 2 + 0.26); B.box(M.cloth, w * 0.62, 0.1, 0.3, px, y + h, pz, { ry, c: pillow }); }
   if (head) { const [px, pz] = P(0, -l / 2 + 0.03); B.box(M.woodH, w, h + head, 0.06, px, y, pz, { ry, c }); }
   B.world.addBox(x, z, w, l, ry, y, y + h);
+  B.endPiece();
 }
 
 /** A chest with a lid and two iron bands. o: { w, h, d, c, band } */
@@ -568,7 +574,7 @@ export function pots(B, M, x, y, z, o = {}) {
   const { n = 4, s = 1, c = [0xb0683c, 0x9a5a34, 0xc07a48], spread = 0.5 * s + 0.15, solid = true } = o;
   for (let i = 0; i < n; i++) {
     const a = i * 2.4, r = i ? spread * (0.6 + (i % 3) * 0.25) : 0, k = s * (0.8 + (i % 3) * 0.2), px = x + Math.cos(a) * r, pz = z + Math.sin(a) * r, col = c[i % c.length];
-    B.piece({ hp: 8 + 6 * k, kind: 'clay', color: col, x: px, y, z: pz, r: 0.2 * k, top: y + 0.55 * k });
+    B.piece({ hp: k < 1.6 ? 15 : 50, kind: 'clay', color: col, x: px, y, z: pz, r: 0.2 * k, top: y + 0.55 * k });
     B.cyl(M.flat, 0.2 * k, 0.11 * k, 0.34 * k, px, y, pz, { c: col, seg: 9 }); B.cyl(M.flat, 0.09 * k, 0.2 * k, 0.16 * k, px, y + 0.34 * k, pz, { c: col, seg: 9 }); B.cyl(M.flat, 0.11 * k, 0.09 * k, 0.05 * k, px, y + 0.5 * k, pz, { c: col, seg: 9 });
     if (solid) B.world.addCyl(px, pz, 0.2 * k, y - 0.5, y + 0.55 * k);
     B.endPiece();
@@ -578,7 +584,7 @@ export function pots(B, M, x, y, z, o = {}) {
 /** A heap of sacks, two layers deep: the lower layer is a step, the upper one cover to crouch behind. o: { c, w (length of the heap) } */
 export function sacks(B, M, x, y, z, ry = 0, o = {}) {
   const { c = 0xb8a47c, w = 1.8 } = o, P = local(x, z, ry), n = Math.max(2, Math.round(w / 0.6));
-  B.piece({ hp: 110, kind: 'cloth', color: c, x, y, z, r: Math.hypot(w, 1.45) / 2, top: y + 0.78 });
+  B.piece({ hp: 105, kind: 'cloth', color: c, x, y, z, r: Math.hypot(w, 1.45) / 2, top: y + 0.78 });
   const sack = (lx, yy, lz, turn, col) => { const [px, pz] = P(lx, lz); B.geo(M.cloth, new THREE.CapsuleGeometry(0.21, 0.36, 3, 8), [px, yy + 0.19, pz], [Math.PI / 2, 0, -(ry + turn)], [1.2, 1, 0.82], col); };
   for (let i = 0; i < n; i++) { sack(-w / 2 + (i + 0.5) * w / n, y, -0.2, 0.08 * (i % 3 - 1), c); sack(-w / 2 + (i + 0.5) * w / n, y, 0.48, 0.1 * ((i + 1) % 3 - 1), i % 2 ? c : 0xa8946c); }
   for (let i = 0; i < n - 1; i++) sack(-w / 2 + (i + 1) * w / n, y + 0.36, -0.14, 0.12 * (i % 2 ? 1 : -1), i % 2 ? 0xa8946c : c);
@@ -610,7 +616,7 @@ export function hearth(B, M, x, y, z, o = {}) {
  */
 export function cart(B, M, x, y, z, ry = 0, o = {}) {
   const { w = 1.7, l = 3.2, clear = 1.2, c = 0x6a4a2e, wheel = 0x3a2a1e, load = null, shafts = true } = o, P = local(x, z, ry), R = clear - 0.42, top = y + clear + 0.14;
-  B.piece({ hp: 160, kind: 'wood', color: c, x, y, z, r: Math.hypot(w + 0.4, l) / 2, top });
+  B.piece({ hp: 105, kind: 'wood', color: c, x, y, z, r: Math.hypot(w + 0.4, l) / 2, top });
   B.box(M.woodH, w, 0.14, l, x, y + clear, z, { ry, c, solid: true });
   for (const a of [-1, 1]) { const [px, pz] = P(a * (w / 2 - 0.04), 0); B.box(M.wood, 0.07, 0.42, l, px, top, pz, { ry, c, solid: true }); }
   for (const b of [-1, 1]) { const [px, pz] = P(0, b * (l / 2 - 0.04)); B.box(M.wood, w, 0.42, 0.07, px, top, pz, { ry, c, solid: b < 0 }); }
@@ -653,7 +659,7 @@ export function deck(B, M, x, y, z, ry = 0, o = {}) {
 export function stall(B, M, x, y, z, ry = 0, o = {}) {
   const { w = 3, d = 2.2, h = 2.3, c = 0x6a4a2e, cloth = 0xb83a2a, cloth2 = 0xe6dcc0, goods = [0xb83a2a, 0xd8b23a, 0x5a8a3a, 0xc86a2a, 0x8a5a8a] } = o, P = local(x, z, ry), n = Math.max(2, Math.round(w / 0.5));
   { const [cx, cz] = P(0, d / 2 - 0.3);                   // the counter: where something can be laid
-    B.piece({ hp: 130, kind: 'wood', color: c, x, y, z, r: Math.hypot(w, d) / 2, top: y + h, sweep: { hw: w / 2 + 0.2, hd: d / 2 + 0.3, ry, y0: 0.85, y1: 1.5 }, spot: { x: cx, y: y + 0.9, z: cz, hw: w / 2 - 0.3, hd: 0.15, ry } }); }
+    B.piece({ hp: 105, kind: 'wood', color: c, x, y, z, r: Math.hypot(w, d) / 2, top: y + h, sweep: { hw: w / 2 + 0.2, hd: d / 2 + 0.3, ry, y0: 0.85, y1: 1.5 }, spot: { x: cx, y: y + 0.9, z: cz, hw: w / 2 - 0.3, hd: 0.15, ry } }); }
   { const [px, pz] = P(0, d / 2 - 0.3); B.box(M.woodH, w, 0.9, 0.6, px, y, pz, { ry, c, solid: true }); }
   for (const [a, b] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { const [px, pz] = P(a * (w / 2 - 0.06), b * (d / 2 - 0.06)); B.box(M.wood, 0.1, h, 0.1, px, y, pz, { ry, c }); B.world.addCyl(px, pz, 0.08, y - 0.5, y + h); }
   for (let i = 0; i < n; i++) { const [px, pz] = P(-w / 2 - 0.15 + (i + 0.5) * (w + 0.3) / n, 0); B.box(M.cloth, (w + 0.3) / n, 0.04, d + 0.5, px, y + h, pz, { ry, c: i % 2 ? cloth2 : cloth }); }
@@ -673,7 +679,7 @@ export function crawlway(B, M, x, y, z, ry = 0, o = {}) {
 /** A stack of firewood or timber: cover as high as h, logs lying along local Z. o: { w, h, d, c } */
 export function woodpile(B, M, x, y, z, ry = 0, o = {}) {
   const { w = 2.4, h = 1.1, d = 0.9, c = 0x7a5a3a } = o, P = local(x, z, ry), r = 0.13, cols = Math.max(2, Math.floor(w / (r * 2))), rows = Math.max(1, Math.floor(h / (r * 1.75)));
-  B.piece({ hp: 150, kind: 'wood', color: c, x, y, z, r: Math.hypot(w, d) / 2, top: y + rows * r * 1.75 });
+  B.piece({ hp: 105, kind: 'wood', color: c, x, y, z, r: Math.hypot(w, d) / 2, top: y + rows * r * 1.75 });
   for (let k = 0; k < rows; k++) for (let i = 0; i < cols - (k % 2); i++) { const [px, pz] = P(-w / 2 + r + (i + (k % 2) * 0.5) * (w - 2 * r) / (cols - 1), 0);
     B.geo(M.wood, new THREE.CylinderGeometry(r, r, d, 6), [px, y + r + k * r * 1.75, pz], [Math.PI / 2, 0, -ry], 1, (i + k) % 3 ? c : 0x8a6a48); }
   for (const a of [-1, 1]) { const [px, pz] = P(a * (w / 2 + 0.05), 0); B.box(M.wood, 0.1, h + 0.2, 0.1, px, y, pz, { ry, c: 0x4a3420 }); }
@@ -684,7 +690,7 @@ export function woodpile(B, M, x, y, z, ry = 0, o = {}) {
 /** A haystack. o: { r, h, c } */
 export function haystack(B, M, x, y, z, o = {}) {
   const { r = 1.5, h = 2.3, c = 0xc8a850 } = o;
-  B.piece({ hp: 70, kind: 'straw', color: c, x, y, z, r, top: y + h });
+  B.piece({ hp: 80, kind: 'straw', color: c, x, y, z, r, top: y + h });
   B.cyl(M.thatch, r * 0.86, r, h * 0.45, x, y - 0.1, z, { c, seg: 12 }); B.geo(M.thatch, new THREE.ConeGeometry(r * 0.92, h * 0.65, 12), [x, y + h * 0.45 - 0.1 + h * 0.325, z], [0, 0, 0], 1, c);
   B.world.addCyl(x, z, r * 0.88, y - 1, y + h * 0.8);
   B.endPiece();

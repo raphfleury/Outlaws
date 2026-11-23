@@ -99,6 +99,24 @@
   #vital .lab, #arms .lab { font-size:13px; letter-spacing:.24em; text-transform:uppercase; color:var(--dim); }
   #hpbar { width:230px; height:9px; background:rgba(0,0,0,.5); border:1px solid rgba(244,234,212,.35); margin-top:6px; }
   #hpbar i { display:block; height:100%; width:100%; background:linear-gradient(90deg,var(--danger),var(--accent)); transition:width .25s; }
+  /* the hero's special skill (E): its name, ready or how long until it is, and a bar */
+  #skill { display:flex; align-items:center; gap:7px; margin-top:7px; font-size:13px; letter-spacing:.08em; color:var(--dim); }
+  #skill kbd { font-size:11px; padding:0 5px; }
+  #skill b { display:block; width:70px; height:4px; background:rgba(0,0,0,.5); border:1px solid rgba(244,234,212,.25); }
+  #skill b i { display:block; height:100%; width:0; background:var(--dim); }
+  #skill.ready { color:var(--ink); } #skill.ready b i { background:var(--accent); }
+  #skill.on { color:var(--accent); } #skill.on b i { background:#fff; }
+  #skillfx { position:absolute; inset:0; pointer-events:none; opacity:0; transition:opacity .35s; background:radial-gradient(ellipse at center, transparent 55%, var(--tint, rgba(255,255,255,.3)) 100%); }
+  body.skillfx #skillfx { opacity:1; }
+  /* the partner's tag, together against the enemy */
+  #mate { position:absolute; display:none; transform:translate(-50%,-100%); text-align:center; pointer-events:none; white-space:nowrap; text-shadow:0 1px 3px rgba(0,0,0,.9); }
+  #mate b { display:block; font-family:var(--display); font-weight:normal; font-size:19px; color:#9fe08a; letter-spacing:.03em; }
+  #mate span { font-size:12px; color:var(--ink); opacity:.85; letter-spacing:.08em; }
+  #mate i { display:block; width:64px; height:4px; margin:3px auto 0; background:rgba(0,0,0,.6); border:1px solid rgba(159,224,138,.5); }
+  #mate u { display:block; height:100%; background:#7ad86a; text-decoration:none; }
+  #mate.off { opacity:.8; transform:translate(-50%,-50%) scale(.85); } #mate.down b { color:#d8a050; }
+  #bars .hb.eg { width:14px; height:14px; margin-top:-2px; background:none; border:2px solid #ff5a3a; transform:translate(-50%,-100%) rotate(45deg); box-shadow:0 0 6px rgba(255,90,58,.8); }
+  #bars .hb.eg i { display:none; }
   #arms { right:3.4vw; text-align:right; flex-direction:column; align-items:flex-end; gap:6px; }
   #arms .name { font-family:var(--display); font-size:26px; }
   #pips { display:flex; gap:6px; height:26px; align-items:flex-end; }
@@ -151,7 +169,10 @@
   kbd { font-family:var(--font); font-size:13px; letter-spacing:.08em; border:1px solid rgba(244,234,212,.45); border-radius:3px; padding:1px 7px 2px; margin-right:4px; color:var(--ink); background:rgba(0,0,0,.3); }
   #foes { display:flex; align-items:center; gap:14px; margin-top:2vh; font-size:14px; letter-spacing:.34em; text-transform:uppercase; color:var(--accent); }
   #foes select { font:inherit; font-size:15px; letter-spacing:.04em; text-transform:none; color:var(--ink); background:rgba(0,0,0,.45); border:1px solid rgba(244,234,212,.35); padding:4px 8px; cursor:pointer; } #foes select option { background:#1a1410; }
-  #intro.duelpick #foes { display:none; }
+  #intro.duelpick #foes, #intro.duelpick #setup .opt { display:none; }
+  #setup { display:flex; align-items:center; gap:30px; }
+  #setup .opt { display:flex; align-items:center; gap:14px; margin-top:2vh; font-size:14px; letter-spacing:.34em; text-transform:uppercase; color:var(--accent); cursor:help; }
+  #setup .opt select { font:inherit; font-size:15px; letter-spacing:.04em; text-transform:none; color:var(--ink); background:rgba(0,0,0,.45); border:1px solid rgba(244,234,212,.35); padding:4px 8px; cursor:pointer; } #setup .opt select option { background:#1a1410; }
   #intro .pick { margin-top:2vh; font-size:14px; letter-spacing:.34em; text-transform:uppercase; color:var(--accent); }
   #heroes { display:flex; gap:14px; margin-top:1.3vh; }
   #heroes.many { flex-wrap:wrap; gap:8px 10px; max-width:92vw; }
@@ -173,6 +194,8 @@
   #duelbtn { margin-top:2.4vh; cursor:pointer; padding:9px 26px; font-size:15px; letter-spacing:.3em; text-transform:uppercase; color:var(--ink); border:1px solid rgba(244,234,212,.4); background:rgba(14,10,8,.5); backdrop-filter:blur(7px); transition:border-color .25s, background .25s; }
   #duelbtn:hover { border-color:var(--danger); background:rgba(60,14,8,.7); }
   #duel .big { font-size:clamp(40px,min(6vw,9vh),90px); }
+  #duel #dnamebox { justify-content:center; gap:14px; margin:2vh 0 0; font-size:17px; color:var(--accent); letter-spacing:.06em; } #duel #dname { width:220px; }
+  #duel.linked #dnamebox { display:none; }
   #duel .dpanel { display:flex; gap:18px; margin-top:2.2vh; text-align:left; }
   #duel .dcol { width:min(40vw,400px); padding:14px 18px 16px; background:rgba(14,10,8,.72); border:1px solid rgba(244,234,212,.28); backdrop-filter:blur(7px); }
   #duel h3 { font-family:var(--display); font-weight:normal; font-size:24px; margin:0 0 10px; color:var(--accent); }
@@ -198,6 +221,8 @@
   .hero .hn { font-family:var(--display); font-size:23px; line-height:1.12; }
   .hero .hw { font-style:italic; font-size:15px; color:var(--dim); margin:5px 0 9px; line-height:1.3; }
   .hero .ht { font-size:14.5px; line-height:1.35; } .hero .ht b { color:var(--accent); font-weight:normal; }
+  .hero .hs { font-size:13px; line-height:1.3; margin-top:5px; color:var(--dim); } .hero .hs b { color:var(--ink); font-weight:normal; } .hero .hs kbd { font-size:10px; padding:0 4px; }
+  #heroes.many .hs, #heroes.lots .hs { font-size:11.5px; margin-top:3px; }
   .go { margin-top:3vh; font-size:16px; letter-spacing:.34em; text-transform:uppercase; color:var(--ink); animation:pulse 1.8s ease-in-out infinite; }
   @keyframes pulse { 50% { opacity:.35; } }
   .mid .veil { background:rgba(0,0,0,.5); }
@@ -224,11 +249,13 @@
     <div id="boss"><span></span><div><i></i></div></div>
   </div>
   <div id="msg"></div>
-  <div id="vital" class="panel"><div class="num">100</div><div><div class="lab">Health</div><div id="hpbar"><i></i></div><div id="stance">crouching</div></div></div>
+  <div id="vital" class="panel"><div class="num">100</div><div><div class="lab">Health</div><div id="hpbar"><i></i></div><div id="skill"><kbd>E</kbd><span class="sn"></span><b><i></i></b></div><div id="stance">crouching</div></div></div>
+  <div id="skillfx"></div>
   <div id="arms" class="panel"><div id="bag"></div><div id="pips"></div><div class="name"></div><div class="alt"></div></div>
   <canvas id="minimap" width="200" height="200"></canvas>
   <div id="pins"></div>
   <div id="bars"></div>
+  <div id="mate"></div>
   <div id="voice"></div>
 </div>
 <canvas id="bigmap" width="700" height="700"></canvas>
@@ -274,12 +301,15 @@
   <div class="veil"></div>
   <div class="kicker">Two players &nbsp;·&nbsp; online</div>
   <div class="big">Two players</div>
+  <label id="dnamebox">Your name <input id="dname" maxlength="16" autocomplete="nickname" spellcheck="false" placeholder="seen by the other player"></label>
   <div class="dpanel">
     <div class="dcol">
       <h3 id="dhosttitle">Create a game</h3>
       <label>Chapter <select id="dlevel"><option value="0">I · Dry Gulch</option><option value="1">II · Kagemori</option><option value="2">III · Uri</option><option value="3">IV · Ithaca</option><option value="4">V · Jarnvik</option><option value="5">VI · Sainte-Aubine</option><option value="6">VII · Stalnogorsk</option><option value="7">VIII · Che La</option><option value="8">IX · Tenochtitlan</option></select></label>
       <label>Game <select id="drules"><option value="rounds">Duel · first to 5 rounds</option><option value="timed">Duel · 7 minutes, most kills</option><option value="ctf">Capture the flag</option><option value="coop">Together against the enemy</option></select></label>
       <label><span id="dfoeslab">Computer enemies, hostile to both</span> <select id="dfoes"><option value="0">None</option><option value="3">3</option><option value="6">6</option><option value="9">9</option><option value="12">12</option><option value="15">15</option><option value="18">18</option><option value="21">21</option><option value="24">24</option></select></label>
+      <label>Enemies' wits <select id="dwits"><option value="low">Low</option><option value="medium" selected>Medium</option><option value="genius">Genius</option></select></label>
+      <label>Map <select id="dsize"><option value="small">Small</option><option value="medium" selected>Medium</option><option value="large">Large</option></select></label>
       <button id="dcreate">Create and get the invite link</button>
       <button id="dagain">Start the next game</button>
       <p id="dguestnote">The host chooses the next duel. You stay connected: no new code is needed.</p>
@@ -303,7 +333,9 @@
   <h2></h2>
   <div class="story"></div>
   <div class="keys"></div>
-  <label id="foes">Enemies <select id="foesel"></select></label>
+  <div id="setup"><label id="foes">Enemies <select id="foesel"></select></label>
+    <label class="opt" title="How the enemies think: low — they fight back but never go after you; medium — they hold good places, hear what goes on near them and hunt for you; genius — they take cover, call each other, come round the sides and climb after you">Wits <select id="witsel"><option value="low">Low</option><option value="medium">Medium</option><option value="genius">Genius</option></select></label>
+    <label class="opt" title="How large the chapter is: small — only its heart; medium — as it was made; large — with outskirts round it">Map <select id="sizesel"><option value="small">Small</option><option value="medium">Medium</option><option value="large">Large</option></select></label></div>
   <div class="pick">Choose your hero</div>
   <div id="heroes"></div>
 </div>
