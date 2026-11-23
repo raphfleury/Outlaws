@@ -270,6 +270,9 @@ export class Sound {
   /** The train: a steam whistle, the bell, and the beat of the engine. */
   whistle(far = 0) { if (!this.ctx) return; const v = Math.max(0.06, 1 - far) * 0.16; for (const f of [587, 740, 880]) this.tone({ type: 'triangle', f0: f, dur: 1.3, vol: v, att: 0.08, rev: 0.6 }); this.noise({ type: 'bandpass', f0: 2400, dur: 1.3, vol: v * 0.6, q: 3, att: 0.08 }); }
   bell(far = 0) { if (!this.ctx) return; const v = Math.max(0.05, 1 - far) * 0.12; for (const f of [1046, 1568, 2637]) this.tone({ type: 'triangle', f0: f, dur: 0.9, vol: v * (f > 2000 ? 0.4 : 1), rev: 0.5 }); }
+  /** The deer scarer of a Japanese garden: its hollow bamboo knocks on a stone (tock), and before that empties its water into the basin (pour). far 0..1, pan -1 (left)..1. */
+  tock(far = 0, pan = 0) { if (!this.ctx) return; const v = Math.max(0, 1 - far) ** 1.5, d = this.side(pan, this.sfx); this.tone({ type: 'triangle', f0: 560, f1: 430, dur: 0.12, vol: 0.6 * v, att: 0.002, rev: 0.5, dest: d }); this.tone({ f0: 1180, f1: 900, dur: 0.05, vol: 0.22 * v, att: 0.001, dest: d }); this.noise({ type: 'bandpass', f0: 1700, dur: 0.03, vol: 0.45 * v, q: 2.5, att: 0.001, dest: d }); }
+  pour(far = 0, pan = 0) { if (!this.ctx) return; const v = Math.max(0, 1 - far) ** 2; this.noise({ type: 'bandpass', f0: 2600, f1: 1300, dur: 0.7, vol: 0.12 * v, q: 0.9, att: 0.08, dest: this.side(pan, this.sfx) }); }
   chuff(far = 0) { if (!this.ctx) return; this.noise({ type: 'lowpass', f0: 1400 - far * 900, f1: 300, dur: 0.22, vol: Math.max(0.04, 1 - far) * 0.35, att: 0.01 }); }
   /** The tank: the engine's growl and the clatter of the tracks. */
   rumble(far = 0) { if (!this.ctx) return; const v = Math.max(0.04, 1 - far); this.noise({ type: 'lowpass', f0: 260, f1: 140, dur: 0.18, vol: v * 0.32 }); if (Math.random() < 0.5) this.noise({ type: 'bandpass', f0: 1800, dur: 0.04, vol: v * 0.08, q: 4 }); }
