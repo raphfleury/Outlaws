@@ -405,6 +405,7 @@ export function makeHumanoid(M, sp) {
     A.push(gCap(S.armR ?? 0.062, 0.5, S.sleeve, [0, -0.27, 0]), gSph(0.06, S.glove ?? S.skin, [0, -0.6, 0]));
     if (S.wideSleeve) A.push(gBox(0.11, 0.3, 0.2, S.sleeve, [0, -0.36, -0.03]));
     if (S.cuff) A.push(gCyl(0.07, 0.066, 0.1, S.cuff, [0, -0.5, 0]));
+    if (S.handBoards) A.push(gBox(0.12, 0.25, 0.03, S.handBoards, [0, -0.6, -0.075]), gBox(0.135, 0.045, 0.1, 0x3a2616, [0, -0.6, -0.03]));      // a pilgrim's boards: a slab of wood under each palm, held by a strap
   }
   if (S.armband) AL.push(gCyl(0.07, 0.07, 0.08, S.armband, [0, -0.16, 0]));
   // each leg in two parts, thigh and shin, jointed at the knee (0.45 below the hip): the walk bends the knee
@@ -743,6 +744,8 @@ export function lookFor(type, r) {
       return { skin: nep ? pick([0xb8845c, 0xa87048, 0xc0875c]) : pick([0xc89468, 0xb8845c, 0xd0a078]), hair: 0x0c0c0c, shirt: d, sleeve: b, pants: d, dress: nep && r() < 0.4 ? pick([0x1c5a6a, 0x5a1c3a]) : d, hem: 0x15151a, boots: 0x4a2c14, belt: 0xe0c060, hat: null,
         lip: 0xa8483c, face: [r() < 0.5 ? 'plaits' : 'longhair'], tie: 0x2ac8c0, collar: b, extras: ['dress', 'apron', 'collar'], apron: 0xd8d0c0, scale: 0.94,
         stripes: pick([[0xb83a2a, 0x2a5a8a, 0xe0a82a, 0x3a7a4a, 0xd85a8a, 0x2a5a8a, 0xe0a82a, 0xb83a2a], [0x3a7a4a, 0xe0a82a, 0xb83a2a, 0x2a5a8a, 0xd8d0c0, 0xb83a2a, 0x3a7a4a, 0x9a4ab0], [0x2a5a8a, 0xd85a8a, 0xe0a82a, 0x15151a, 0xb83a2a, 0x3a7a4a, 0xe0a82a, 0x2a5a8a]]) }; }
+    case 'pilgrimWoman': return { skin: pick([0xb8845c, 0xa87048]), hair: 0x0c0c0c, shirt: 0x3a2420, sleeve: 0x7a2a26, pants: 0x3a2420, dress: 0x3a2420, hem: 0x15151a, boots: 0x4a2c14, belt: 0x3a2616, hat: null,      // a pilgrim on her way by prostrations:
+      lip: 0xa8483c, face: ['plaits'], tie: 0x2ac8c0, collar: 0x7a2a26, extras: ['dress', 'apron', 'collar'], apron: 0x664428, bib: true, handBoards: 0xa8845a, scale: 0.94 };                                          // a dusty dress, a leather apron from chest to shin, boards under the hands
     case 'tibetMan': return { skin: pick([0xc0875c, 0xb07a52]), hair: 0x0c0c0c, shirt: 0xb82a22, sleeve: pick([0xb82a22, 0x6a1c22]), pants: pick([0x3a4a5a, 0x3a2a20]), boots: 0x4a2c14, bootTop: true,                                   // a Khampa: wine-red chuba, red shirt, a broad felt hat
       hat: r() < 0.7 ? 'cowboy' : null, hatC: pick([0xb89a70, 0x8a7a6a, 0xd8c8a8]), hatBand: 0x3a2a20, face: r() < 0.4 ? ['longhair', 'moustache'] : ['longhair'], extras: ['chuba'], coat: pick([0x6a1c22, 0x5a1a24, 0x4a2a2a]), fur2: 0x4a1418, accent: pick([0xb01c1c, 0xd9a020]) };
     case 'nun': return { skin: pick([0xc89468, 0xd0a078, 0xe0b890]), hair: null, shirt: pick([0xe0a82a, 0xb82a22, 0x7a1c22]), sleeve: 0x7a1c22, pants: 0x7a1c22, boots: 0x4a2c14, hat: null, lip: 0xa8483c, face: r() < 0.3 ? ['glasses'] : [],
