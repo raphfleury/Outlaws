@@ -4,7 +4,7 @@ import { Heightfield, prismGeo, rockGeo } from '../build.js';
 import { makeAmbient, windify } from '../gfx.js';
 import { signTexture } from '../tex.js';
 import { instanced, room, steps, crate, tuftGeo, horseGeo, gBox, gCyl, gCone, gSph, gCap, xf, merge, stand, den, beast, ladder, boulder, shelf, barrel, rubble, table, bench, bed, chest, pots, sacks, rug, hearth, woodpile, haystack, deck, person, idle, animal } from '../props.js';
-import { fbm, ridged, smooth } from '../util.js';
+import { fbm, ridged, smooth, damp } from '../util.js';
 
 export const tibet = {
   id: 'tibet', theme: 'theme-tibet', chapter: 'Chapter VIII', title: 'Che La', place: 'The road south of Lhasa · Tibet · March 1959',
@@ -45,7 +45,7 @@ function build({ game, gfx, world, B, M, root, rand, shared }) {
     let h = 3 + (30 - z) * 0.035 + (fbm(x * 0.022 + 5, z * 0.022, 4, 31) - 0.5) * 4.2 * calm;
     const vil = 1 - smooth(22, 34, Math.hypot(x - 14, z - 26)); h = h * (1 - vil * 0.85) + 3.3 * vil * 0.85;       // the village terrace
     h -= (1 - smooth(9, 22, Math.hypot(x + 58, z - 4))) * 3.2;                                                      // the lake
-    h -= inGully(x, z) * 2.4;                                                                                       // the dry stream bed that runs from the lake to the foot of the hill
+    h -= inGully(x, z) * (2.4 + 2.2 * (1 - smooth(5, 14, Math.hypot(x + 47.5, z + 35))));   // (deeper under the iron bridge)                                                                                       // the dry stream bed that runs from the lake to the foot of the hill
     let hill = 1 - smooth(25, 43, Math.hypot(x - HILL.x, z - HILL.z));
     if (Math.abs(x) < 5.2 && z > -54 && z < -29) hill = smooth(-30, -53, z);                                        // the stairway
     h = h * (1 - hill) + HILL.top * hill;
@@ -237,12 +237,82 @@ function build({ game, gfx, world, B, M, root, rand, shared }) {
   figure('dalai', -4.6, 95.2, 0.65, (f) => { f.armR.rotation.x = -1.35; f.armR.rotation.z = 0.25; f.armL.rotation.x = -0.4; });
   figure('khampa', -7.4, 93.6, 0.5, (f) => { f.armR.rotation.x = -1.25; f.armR.rotation.z = 0.12; }); figure('khampa', -2.4, 92.4, 0.9, (f) => { f.armR.rotation.x = -1.25; f.armR.rotation.z = 0.12; });
   figure('monk', -6.4, 96.8, 0.8, (f) => { f.armR.rotation.x = -0.9; f.armL.rotation.x = -0.9; f.armR.rotation.z = 0.5; f.armL.rotation.z = -0.5; }); figure('monk', -3.4, 97.6, 0.4);
+  /**
+   * A pilgrim who goes round a shrine by prostrations, keeping it on her right: the joined hands to the crown, the face and the heart, down
+   * on the knees, the hands slide out on their boards until she lies flat, up again, then as many steps as her body is long, and again.
+   * (cx, cz), r: the shrine and how far from it she goes round; a0: where on the round she starts. She stays a bystander like the others
+   * (crowd.js): she gets up to answer the player, raises her hands when aimed at, runs from shots; left in peace she takes up her round
+   * where she stands. Each row of BOW: time, pitch of the body, of the thighs, of the shins (from the upright; the feet stay where they
+   * are), arms forward, arms inward, 1 = lying along the ground.
+   */
+  const Q = PI / 2, BOW = [[0, 0, 0, 0, 0, -0.06, 0], [1.0, 0, 0, 0, -2.95, 0.47, 0], [1.5, 0, 0, 0, -2.95, 0.47, 0], [2.1, 0, 0, 0, -2.15, 0.49, 0], [2.4, 0, 0, 0, -2.15, 0.49, 0], [3.0, 0.06, 0, 0, -1.35, 0.5, 0], [3.4, 0.06, 0, 0, -1.35, 0.5, 0],
+    [4.6, 0.6, -0.25, 1.5, -1.0, 0.1, 0], [5.3, 0.95, 0.6, Q, -1.5, 0.08, 0], [6.2, Q, Q, Q, -2.95, 0.08, 1], [6.8, Q, Q, Q, -2.95, 0.44, 1], [7.6, Q, Q, Q, -2.95, 0.44, 1], [8.0, Q, Q, Q, -2.95, 0.08, 1],
+    [8.8, 0.95, 0.6, Q, -1.5, 0.08, 0], [9.6, 0.6, -0.25, 1.5, -1.0, 0.1, 0], [10.8, 0, 0, 0, -1.35, 0.5, 0], [11.5, 0, 0, 0, 0, -0.06, 0]];
+  const rounds = [];
+  const pilgrim = (cx, cz, r, a0 = 0) => {
+    const x0 = cx + Math.cos(a0) * r, z0 = cz + Math.sin(a0) * r, f = who('pilgrimWoman', x0, world.height(x0, z0), z0, -a0), s = f.scale;
+    const S = { t: 0, walk: 0, stuck: 0, yaw: -a0, p: 0, th: 0, sh: 0, slope: 0, tx: 0, tz: 0, gone: false, w: null };
+    f.base.still = true;                                                                  // `idle` leaves her alone
+    const turn = (to, k, dt) => { const d = to - f.group.rotation.y; f.group.rotation.y += Math.atan2(Math.sin(d), Math.cos(d)) * Math.min(1, dt * k); };
+    const place = (w) => {                                                                // the body, from the three angles; returns how far ahead of the feet the hips are
+      const hz = 0.47 * Math.sin(S.sh) + 0.45 * Math.sin(S.th), hy = 0.47 * Math.cos(S.sh) + 0.45 * Math.cos(S.th);
+      const oz = (hz - 0.92 * Math.sin(S.p)) * s, oy = (hy - 0.92 * Math.cos(S.p) + 0.2 * Math.sin(S.p) ** 2) * s;
+      f.group.position.set(w.px + Math.sin(S.yaw) * oz, w.py + oy, w.pz + Math.cos(S.yaw) * oz); f.group.rotation.x = S.p;
+      f.legL.rotation.x = f.legR.rotation.x = S.th - S.p; f.shinL.rotation.x = f.shinR.rotation.x = S.sh - S.th;
+      return hz * s;
+    };
+    const here = (w) => { w.x = w.px; w.y = w.py; w.z = w.pz; w.saved.pos.set(w.px, w.py, w.pz); w.saved.rot.y = f.group.rotation.y; };      // where she is now is her place
+    const off = (w) => Math.abs(Math.hypot(w.px - cx, w.pz - cz) - r) > 1;                // away from her round (she fled): she walks back to it first
+    const next = (w, step) => { const a = Math.atan2(w.pz - cz, w.px - cx) + step / r; S.walk = 1; S.stuck = 0; S.tx = cx + Math.cos(a) * r; S.tz = cz + Math.sin(a) * r; S.p = S.th = S.sh = 0; f.group.rotation.x = 0; };
+    rounds.push((dt, g) => {
+      const C = g.crowd, w = S.w && C.list[S.w.i] === S.w ? S.w : (S.w = C.list.find((q) => q.f === f));
+      if (!w || w.dead) return;
+      w.act = null; w.fighter = false;                                                    // her round is all she does; hurt, she runs like the others and never takes up arms
+      if (w.state !== 'idle') {                                                           // spoken to or aimed at: she gets up; frightened: she is up at once
+        const k = w.state === 'greet' || w.state === 'hands' ? 9 : 1e3;
+        S.gone = true; S.p = damp(S.p, 0, k, dt); S.th = damp(S.th, 0, k, dt); S.sh = damp(S.sh, 0, k, dt);
+        if (k < 100) place(w);
+        if (w.state !== 'stand') return;
+        here(w); C.restore(w);                                                            // she fled and found no straight way back: she goes on from where she stands
+      }
+      if (S.gone) { S.gone = false; S.t = 0; S.walk = 0; S.p = S.th = S.sh = 0; S.yaw = -Math.atan2(w.pz - cz, w.px - cx); if (off(w)) next(w, 0); }
+      f.busy = true;
+      const c = w.cyl;
+      if (S.walk) {                                                                       // a body length further on the round
+        const hx = S.tx - w.px, hz = S.tz - w.pz, hd = Math.hypot(hx, hz);
+        if (S.walk === 1 && hd > 0.12 && S.stuck < 1.2) {
+          const sp = hd > 3 ? 1.3 : 0.85, moved = C.move(w, hx / hd * sp, hz / hd * sp, dt);
+          S.stuck = moved < sp * dt * 0.3 ? S.stuck + dt : 0;
+          C.walking(w, f, moved, dt, 0); turn(Math.atan2(hx, hz), 5, dt);
+        } else {                                                                          // there (or something is in the way): she turns to face along the round
+          if (S.walk === 1) { S.walk = 2; S.t = 0.5; S.yaw = -Math.atan2(w.pz - cz, w.px - cx); }
+          S.t -= dt; C.walking(w, f, 0, dt, 0); turn(S.yaw, 8, dt);
+          if (S.t <= 0) { S.walk = 0; S.t = 0; f.group.rotation.y = S.yaw; S.slope = Math.max(-0.3, Math.min(0.3, Math.atan2(g.world.groundAt(w.px + Math.sin(S.yaw) * 1.7, w.pz + Math.cos(S.yaw) * 1.7, w.py + 0.5) - w.py, 1.7))); }
+        }
+        here(w);
+        if (c) { c.y0 = w.py - 1; c.y1 = w.py + 1.8; }
+        return;
+      }
+      S.t += dt;
+      let i = 0; while (i < BOW.length - 2 && S.t >= BOW[i + 1][0]) i++;
+      const A = BOW[i], Z = BOW[i + 1], u = smooth(A[0], Z[0], S.t), at = (k) => A[k] + (Z[k] - A[k]) * u, lie = at(6) * S.slope, ax = at(4), az = at(5);
+      S.p = damp(S.p, at(1) - lie, 14, dt); S.th = damp(S.th, at(2) - lie, 14, dt); S.sh = damp(S.sh, at(3) - lie, 14, dt);
+      f.armR.rotation.x = damp(f.armR.rotation.x, ax, 12, dt); f.armL.rotation.x = damp(f.armL.rotation.x, ax, 12, dt);
+      f.armR.rotation.z = damp(f.armR.rotation.z, az, 12, dt); f.armL.rotation.z = damp(f.armL.rotation.z, -az, 12, dt);
+      f.hips.rotation.x = damp(f.hips.rotation.x, 0, 8, dt); f.hips.rotation.y = damp(f.hips.rotation.y, 0, 8, dt); turn(S.yaw, 8, dt);
+      const hz = place(w);
+      if (c) { c.x = w.px + Math.sin(S.yaw) * hz; c.z = w.pz + Math.cos(S.yaw) * hz; c.y0 = w.py - 1; c.y1 = w.py + Math.max(0.5, 1.8 * Math.cos(S.p)) * s; }     // what stops a bullet lies down with her
+      if (S.t >= BOW[BOW.length - 1][0]) next(w, off(w) ? 0 : 1.75);                      // up again: a body length further along the round
+    });
+    sites.push([cx, cz, r + 2.4]);
+    return f;
+  };
   for (const [x, z, ry, c, m] of [[-10, 98.5, 1.3, 0x6a4428, 0x14100c], [-8.2, 101.4, 0.9, 0xb8a080, 0xe8e0d0], [-5.2, 103.2, 0.6, 0x2a1c14, 0x14100c]]) {
     const saddle = gBox(0.75, 0.08, 0.9, [0x9a2a2a, 0x2a4a8a, 0xb8862a][Math.round(ry * 10) % 3], [0, 1.46, 0]);      // the saddle cloth goes where the horse goes
     animal(B, M, root, 'horse', merge([horseGeo(c, m), saddle]), x, world.height(x, z), z, ry, { coat: c, box: [0.9, 2.8, 2, 0.25] });
   }
   { const y = world.height(-12, 94); B.cyl(M.wood, 0.05, 0.07, 6, -12, y - 0.2, 94, { c: 0x6a4a30, seg: 6 }); world.addCyl(-12, 94, 0.1, y - 1, y + 6); flags(-12, y + 5.8, 94, -4, world.height(-4, 88) + 0.4, 88, 14); flags(-12, y + 5.8, 94, -16, world.height(-16, 100) + 0.4, 100, 10); }
-  chorten(8, 92, 1.1);
+  chorten(8, 92, 1.1); pilgrim(8, 92, 3.8, 2.2);                                             // a pilgrim goes round it, a body length at a time
   who('tibetMan', -7.3, world.height(-7.3, 100.2), 100.2, -2.4, { pose: (f) => { f.armR.rotation.x = -1.1; f.armR.rotation.z = 0.15; f.armL.rotation.x = -0.2; } });      // a third Khampa holds the horses
 
   // ---- chortens and the mani wall on the way ---------------------------------------------------
@@ -429,11 +499,30 @@ function build({ game, gfx, world, B, M, root, rand, shared }) {
     for (const [ex, ez] of [[-20, -56], [-4, -54], [-16, -64], [-6, -66]]) flags(-11, py + 9.6, -60, ex, world.height(ex, ez) + 0.5, ez, 12);
   }
 
-  { // a log footbridge over the dry stream bed: cross it, or pass under it unseen
-    const x = -47.5, z = -35, ry = 1.913, P = frame(x, z, ry), T = Math.max(world.height(...P(0, 8)), world.height(...P(0, -8))) + 0.05;
-    for (let i = 0; i < 4; i++) B.geo(M.wood, new THREE.CylinderGeometry(0.2, 0.22, 16.4, 7), at(P, -0.6 + i * 0.4, 0, T - 0.19), [PI / 2, 0, -ry], [1, 1, 0.9], i % 2 ? 0x6a5238 : 0x5a4630);
-    for (const lz of [-3.4, 3.4]) for (const lx of [-0.7, 0.7]) { const [a, b] = P(lx, lz), y = world.height(a, b); B.cyl(M.wood, 0.11, 0.13, T - y, a, y - 0.2, b, { c: 0x4a3a28, seg: 6 }); world.addCyl(a, b, 0.14, y - 1, T - 0.3); }
+  { // the iron bridge over the dry stream bed, in the manner of the chain bridges Thangtong Gyalpo built across the rivers of Tibet in the
+    // fifteenth century: two gates of whitewashed stone, iron chains slung between them, a walk of planks hung from the chains, prayer flags
+    const x = -47.5, z = -35, ry = 1.913, P = frame(x, z, ry), T = Math.max(world.height(...P(0, 8)), world.height(...P(0, -8))) + 0.05, GATE = 7.6, WHITE = 0xe2dccf;
+    const at = (lx, ly, lz) => { const [a, b] = P(lx, lz); return [a, ly, b]; };
+    for (let i = 0; i < 30; i++) { const lz = -7.25 + i * 0.5; B.box(M.woodH, 1.5, 0.08, 0.44, ...at(((i * 7) % 3 - 1) * 0.03, T - 0.08, lz), { ry: ry + ((i * 5) % 3 - 1) * 0.025, c: i % 2 ? 0x6a5238 : 0x5a4630 }); }
     world.addBox(x, z, 1.6, 16, ry, T - 0.25, T);
+    for (const e of [-1, 1]) {                                                               // the gates, a little chorten on each
+      for (const sd of [-1, 1]) { const [a, b] = P(sd * 1.2, e * GATE), gy = world.height(a, b); B.box(M.plaster, 0.8, T + 2.7 - gy, 0.8, a, gy - 0.3, b, { ry, c: WHITE, solid: true }); }
+      B.box(M.plaster, 3.2, 0.45, 1.0, ...at(0, T + 2.4, e * GATE), { ry, c: WHITE }); B.box(M.flat, 3.3, 0.12, 1.1, ...at(0, T + 2.85, e * GATE), { ry, c: 0x8a1c1c });
+      B.cyl(M.plaster, 0.32, 0.4, 0.5, ...at(0, T + 2.97, e * GATE), { c: WHITE, seg: 10 }); B.cyl(M.metal, 0.04, 0.09, 0.6, ...at(0, T + 3.47, e * GATE), { c: 0xd9b23a, seg: 6 });
+    }
+    const links = [], flagsOn = [], FL = [0x2a5ab8, 0xf0ece0, 0xc82a1c, 0x2a8a3a, 0xe8c21c], chain = (lx, y0, sag) => {   // a chain of iron links from gate to gate, sagging
+      const n = 64, pts = [];
+      for (let i = 0; i <= n; i++) { const u = i / n, lz = -GATE + u * GATE * 2, ly = y0 - sag * 4 * u * (1 - u); pts.push([lx, ly, lz]); }
+      for (let i = 0; i < n; i++) { const [ax, ay, az] = pts[i], [bx, by, bz] = pts[i + 1], [wx, wy, wz] = at(ax, (ay + by) / 2, (az + bz) / 2); links.push({ x: wx, y: wy, z: wz, ry: ry - Math.PI / 2, rx: i % 2 ? Math.PI / 2 : 0, rz: Math.atan2(by - ay, bz - az), s: [1.7, 1, 1] }); }
+      return pts;
+    };
+    for (const sd of [-1, 1]) {
+      const rail = chain(sd * 0.85, T + 2.2, 1.3); chain(sd * 0.78, T - 0.12, 0.05);           // a chain to hold on to, and one under the edge of the walk
+      for (let i = 4; i < rail.length - 4; i += 4) { const [lx, ly, lz] = rail[i]; B.geo(M.flat, new THREE.CylinderGeometry(0.012, 0.012, ly - T, 4), at(lx * 0.95, (ly + T) / 2, lz), [0, 0, 0], 1, 0x5a4a3a); }   // hangers of rope down to the walk
+      for (let i = 2; i < rail.length - 2; i += 3) { const [lx, ly, lz] = rail[i]; flagsOn.push({ ...Object.fromEntries(['x', 'y', 'z'].map((k, q) => [k, at(lx, ly - 0.16, lz)[q]])), ry, s: [0.02, 0.24, 0.2], c: FL[(i / 3 | 0) % 5] }); }
+    }
+    root.add(instanced(new THREE.TorusGeometry(0.05, 0.016, 4, 8), M.metal, links.map((q) => ({ ...q, c: 0x4a4a4c }))));
+    root.add(instanced(new THREE.BoxGeometry(1, 1, 1), M.cloth, flagsOn));
   }
   // a great rock east of the stream bed, as high as the monastery court: a ladder on the side the soldiers cannot see
   boulder(B, M, -31, world.height(-31, -48), -48, { rx: 6.5, rz: 6, h: 9, seed: 5, ladder: PI, rock: [0x8a7c6a, 0x7a6e60, 0x9a8c7a, 0x6e6458], grass: 0xb09a5e, grass2: 0xc8ae60, moss: 0x8a7c5a }); sites.push([-31, -48, 10]);
@@ -538,7 +627,7 @@ function build({ game, gfx, world, B, M, root, rand, shared }) {
     dust: [0.8, 0.72, 0.54], water: [], heroLight: 30,
     makePickup: () => new THREE.Mesh(bowl, M.flat),
     update(dt, t, g) {
-      idle(people, t);
+      idle(people, t); for (const go of rounds) go(dt, g);
       eagle.position.set(Math.cos(t * 0.11) * 60, 58 + Math.sin(t * 0.3) * 4, -20 + Math.sin(t * 0.11) * 60); eagle.rotation.y = -t * 0.11; eagle.rotation.z = 0.25;
       if (lights[0]) lights[0].intensity = 60 + Math.sin(t * 9) * 6 + Math.sin(t * 5.3) * 5;
       ft -= dt;
