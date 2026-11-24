@@ -307,7 +307,7 @@ function build({ game, gfx, world, B, M, root, rand, shared }) {
   }
   // the rest of the west quarter: a house in its garden south of the palace, a granary and fruit trees north of it
   home(house(-58, 47, 0, 7, 6, BLUE, { y: PY }), 'hearth'); granary(-65.5, PY, 50.5); granary(-58, PY, 96, 1.1); granary(-45, PY, 99);
-  GROVE.push([-66, 56, 1.1], [-51.5, 55, 1], [-66.5, 43, 1.2], [-51, 43, 0.9], [-63.5, 99, 1.2], [-53, 103, 1.1], [-47.5, 94.5, 1], [-67, 105, 1], [-41.5, 104, 1.1], [-42, 78, 1], [-42.5, 88, 1.2]);
+  GROVE.push([-66, 56, 1.1], [-51.5, 55, 1], [-66.5, 43, 1.2], [-51, 43, 0.9], [-63.5, 99, 1.2], [-47.5, 94.5, 1], [-67, 105, 1], [-41.5, 104, 1.1], [-42, 78, 1], [-42.5, 88, 1.2]);
 
   // ---- the market quarter beyond the canal: stalls under awnings, two raised floors for the dealers in cloaks and pots (room to crawl underneath), goods laid out on mats ----
   for (const [x, z, e, cl, goods] of [[52, 61, 1, RED, [0xb83a2a, 0xd8b23a, 0x5a8a3a]], [52, 79, 1, 0x2a6a9a, [0x6a3a22, 0xe8e0c8, 0x8a5a34]], [52, 83.6, 1, 0xd9a820, [0x1f9a5a, 0x2ac8c0, 0xb01c1c]], [62, 60, -1, 0xd9a820, [0x15120f, 0x3a3a40, 0xe8e0c8]], [62, 64.6, -1, 0x2a8a4a, [0xc86a2a, 0xd8b23a, 0xa02c20]], [62, 80, -1, RED, [0xe8dcc0, 0x2a6a9a, 0xd9a820]]])
@@ -416,6 +416,48 @@ function build({ game, gfx, world, B, M, root, rand, shared }) {
   root.add(instanced(merge([gBox(0.8, 0.08, 4.8, 0x6a4a2c, [0, 0.04, 0]), gBox(0.07, 0.36, 5.0, 0x6a4a2c, [-0.43, 0.2, 0], [0, 0, 0.12]), gBox(0.07, 0.36, 5.0, 0x6a4a2c, [0.43, 0.2, 0], [0, 0, -0.12]),
     gBox(0.8, 0.07, 0.75, 0x5a3e24, [0, 0.2, 2.6], [-0.55, 0, 0]), gBox(0.8, 0.07, 0.75, 0x5a3e24, [0, 0.2, -2.6], [0.55, 0, 0])]), M.wood, canoes.map((c) => ({ y: -0.1, ...c }))));   // every canoe of the level: a trough with square, upturned ends
 
+  // ---- the house of birds (Totocalli) at the north end of the west quarter: Moctezuma kept birds of every kind of the land. A great cage of
+  //      cane on a frame of beams, its roof a lattice; inside, perches and birds of every colour, some always on the wing; before it a pool for
+  //      the water birds, and the keepers who feed them --------------------------------------------------------------------------------------
+  const aviary = { birds: [] };
+  {
+    const cx = -55, cz = 101, W2 = 4.6, D2 = 2.6, H = 4.4, y = PY, WOOD2 = 0x6a4a2e, CANE = 0xc8b070;
+    const posts = [], rods = [];
+    for (let i = 0; i <= 8; i++) for (const sz of [-1, 1]) posts.push([cx - W2 + i * W2 / 4, cz + sz * D2]);
+    for (let i = 1; i < 4; i++) for (const sx of [-1, 1]) posts.push([cx + sx * W2, cz - D2 + i * D2 / 2]);
+    for (const [px, pz] of posts) B.box(M.wood, 0.18, H, 0.18, px, y, pz, { c: WOOD2 });
+    for (const ly of [1.4, 2.9, H - 0.1]) { for (const sz of [-1, 1]) B.box(M.wood, W2 * 2, 0.1, 0.12, cx, y + ly, cz + sz * D2, { c: WOOD2 }); for (const sx of [-1, 1]) B.box(M.wood, 0.12, 0.1, D2 * 2, cx + sx * W2, y + ly, cz, { c: WOOD2 }); }
+    for (let t = -W2 + 0.2; t < W2; t += 0.28) for (const sz of [-1, 1]) if (!(sz < 0 && Math.abs(t - 1.2) < 0.6)) rods.push({ x: cx + t, y: y + H / 2, z: cz + sz * D2, s: [1, H, 1], c: CANE });   // a door of cane on the street side
+    for (let t = -D2 + 0.2; t < D2; t += 0.28) for (const sx of [-1, 1]) rods.push({ x: cx + sx * W2, y: y + H / 2, z: cz + t, s: [1, H, 1], c: CANE });
+    for (let t = -W2 + 0.3; t < W2; t += 0.6) rods.push({ x: cx + t, y: y + H, z: cz, rx: Math.PI / 2, s: [1, D2 * 2, 1], c: CANE });   // the lattice of the roof
+    for (let t = -D2 + 0.3; t < D2; t += 0.6) rods.push({ x: cx, y: y + H, z: cz + t, rz: Math.PI / 2, s: [1, W2 * 2, 1], c: CANE });
+    root.add(instanced(new THREE.CylinderGeometry(0.018, 0.018, 1, 4), M.flat, rods));
+    for (const sz of [-1, 1]) { if (sz < 0) { world.addBox(cx - 0.9, cz - D2, 7.4, 0.3, 0, y - 1, y + H); world.addBox(cx + 3.9, cz - D2, 1.4, 0.3, 0, y - 1, y + H); } else world.addBox(cx, cz + D2, W2 * 2, 0.3, 0, y - 1, y + H); }
+    for (const sx of [-1, 1]) world.addBox(cx + sx * W2, cz, 0.3, D2 * 2, 0, y - 1, y + H);
+    // perches inside: a dead tree and its branches, a beam across
+    B.cyl(M.wood, 0.1, 0.14, 3.4, cx - 1.5, y, cz + 0.4, { c: 0x5a4632, seg: 6 }); world.addCyl(cx - 1.5, cz + 0.4, 0.15, y - 1, y + 3.4);
+    for (const [a, h] of [[0.6, 1.8], [2.4, 2.4], [4.1, 2.9], [5.5, 3.2]]) B.geo(M.wood, new THREE.CylinderGeometry(0.04, 0.06, 1.4, 5), [cx - 1.5 + Math.sin(a) * 0.55, y + h, cz + 0.4 + Math.cos(a) * 0.55], [Math.cos(a) * 1.1, 0, -Math.sin(a) * 1.1], 1, 0x5a4632);
+    B.box(M.wood, 5.4, 0.1, 0.1, cx + 1.4, y + 2.4, cz + 1.4, { c: 0x5a4632 });
+    B.box(M.flat, 1.6, 0.3, 0.9, cx + 2.6, y, cz - 1.2, { c: 0x8a7a5a }); B.box(M.flat, 1.4, 0.02, 0.7, cx + 2.6, y + 0.28, cz - 1.2, { c: 0x2a4a4e });   // a trough of water
+    // the pool before the cage, its water birds
+    B.box(M.plaster, 4.6, 0.5, 2.8, cx + 3.5, y - 0.3, cz - 5.3, { c: 0xd8d0c0, solid: true }); B.box(M.flat, 4.2, 0.02, 2.4, cx + 3.5, y + 0.18, cz - 5.3, { c: 0x23474c });
+    // the birds: [body, head, wing, tail, beak, length of the tail, size]: scarlet macaws, blue macaws, quetzals, parrots, spoonbills, white herons
+    const KIND = [[0xc81c1c, 0xc81c1c, 0x2a5ab8, 0xc81c1c, 0xe8e0d0, 0.34, 1], [0x2a6ac8, 0x2a6ac8, 0xe8c21c, 0x2a6ac8, 0x1a1a1a, 0.34, 1], [0x1a8a4a, 0x1a8a4a, 0x1a8a4a, 0x2ac85a, 0xe8c21c, 0.7, 0.8],
+      [0x3ab83a, 0xe8c21c, 0x2a9a2a, 0x3ab83a, 0xd8c8b0, 0.16, 0.7], [0xe88aa8, 0xf0d0d8, 0xd8607a, 0xe88aa8, 0x6a5a4a, 0.12, 1.1], [0xf4f2ec, 0xf4f2ec, 0xf4f2ec, 0xf4f2ec, 0xe8c21c, 0.12, 1.2]];
+    const bird = (k, x, yy, z, fly) => {
+      const [b, h, w, tl, bk, tail, sz] = KIND[k], g = new THREE.Group();
+      const body = new THREE.Mesh(merge([gSph(0.09, b, [0, 0, 0], [0.85, 0.85, 1.5]), gSph(0.06, h, [0, 0.07, 0.12]), gCone(0.02, 0.07, bk, [0, 0.06, 0.2], [Math.PI / 2, 0, 0], 1, 5), gBox(0.05, 0.012, tail, tl, [0, -0.02, -0.1 - tail / 2])]), M.flat);
+      const wing = (sd) => { const m = new THREE.Mesh(merge([gBox(0.22, 0.01, 0.12, w, [sd * 0.11, 0, 0])]), M.flat); m.position.set(sd * 0.05, 0.02, 0); g.add(m); return m; };
+      g.add(body); const wl = wing(-1), wr = wing(1); g.scale.setScalar(sz * 1.4); g.position.set(x, yy, z); root.add(g);
+      aviary.birds.push({ g, wl, wr, fly, x, y: yy, z, ph: aviary.birds.length * 1.37, r: 1.2 + (aviary.birds.length % 3) * 0.6 });
+    };
+    const perch = [[cx - 1.5 + 0.5, y + 2.1, cz + 0.8], [cx - 1.5 - 0.4, y + 2.7, cz + 0.1], [cx - 1.0, y + 3.2, cz + 0.2], [cx - 1.9, y + 3.4, cz + 0.6], [cx + 0.2, y + 2.5, cz + 1.4], [cx + 1.2, y + 2.5, cz + 1.4], [cx + 2.5, y + 2.5, cz + 1.4], [cx + 3.4, y + 2.5, cz + 1.4]];
+    perch.forEach(([px, py, pz], i) => bird([0, 1, 2, 3, 0, 1, 3, 2][i], px, py + 0.08, pz, false));
+    for (let i = 0; i < 6; i++) bird([0, 1, 2, 3, 0, 2][i], cx, y + 2, cz, true);                       // on the wing, round and round inside the cage
+    bird(4, cx + 2.6, y + 0.1, cz - 5.0, false); bird(5, cx + 4.6, y + 0.1, cz - 5.6, false); bird(5, cx + 1.8, y + 0.1, cz - 5.8, false);   // spoonbill and herons at the pool
+    who('mexicaMan', cx + 2.0, y, cz - 3.2, Math.PI, { pose: 'work' }); who('mexicaMan', cx - 2.8, y, cz - 3.4, 0.3, { pose: 'carry' });   // the keepers
+  }
+
   // ---- greenery: the lake shore and the gardens run wild in the rain ----
   const open = (x, z) => (Math.abs(x) < 73.5 && z > 38.5 && z < 110) || (Math.abs(x) < 7.5 && z < 44 && z > -116) || (Math.abs(x - AQ) < 3 && z < 36) || Math.hypot(x / 44, (z + 116) / 17) < 1
     || (Math.abs(x) < 40 && z > 24 && z < 39 && fbm(x * 0.09 + 7, z * 0.09, 2, 3) < 0.6)                                    // before the gate only groves are left
@@ -515,6 +557,10 @@ function build({ game, gfx, world, B, M, root, rand, shared }) {
     makePickup: () => new THREE.Mesh(cup, M.flat),
     update(dt, t, g) {
       idle(people, t);
+      for (const b of aviary.birds) {                                                        // the birds of the house of birds
+        if (b.fly) { const a = t * 0.9 + b.ph; b.g.position.set(-55 + Math.cos(a) * (2.2 + b.r * 0.6), PY + 2.2 + Math.sin(a * 2.3) * 0.5 + (b.ph % 1), 101 + Math.sin(a) * 1.4); b.g.rotation.set(0, -a, Math.sin(a * 2.3) * 0.2); const fl = Math.sin(t * 22 + b.ph) * 0.9; b.wl.rotation.z = fl; b.wr.rotation.z = -fl; }
+        else { const hop = Math.max(0, Math.sin(t * 0.9 + b.ph * 3)) ** 12; b.g.position.y = b.y + hop * 0.12; b.g.rotation.y = b.ph + Math.sin(t * 0.4 + b.ph) * 1.2; const fl = hop > 0.2 ? Math.sin(t * 25) * 0.8 : 0; b.wl.rotation.z = fl; b.wr.rotation.z = -fl; }
+      }
       for (const L of lights) L.l.intensity = L.i * (0.8 + Math.sin(t * 13 + L.ph) * 0.11 + Math.sin(t * 5.7 + L.ph * 2) * 0.09);
       ft -= dt;
       if (ft <= 0) {

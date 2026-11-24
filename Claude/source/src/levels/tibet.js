@@ -45,7 +45,7 @@ function build({ game, gfx, world, B, M, root, rand, shared }) {
     let h = 3 + (30 - z) * 0.035 + (fbm(x * 0.022 + 5, z * 0.022, 4, 31) - 0.5) * 4.2 * calm;
     const vil = 1 - smooth(22, 34, Math.hypot(x - 14, z - 26)); h = h * (1 - vil * 0.85) + 3.3 * vil * 0.85;       // the village terrace
     h -= (1 - smooth(9, 22, Math.hypot(x + 58, z - 4))) * 3.2;                                                      // the lake
-    h -= inGully(x, z) * 2.4;                                                                                       // the dry stream bed that runs from the lake to the foot of the hill
+    h -= inGully(x, z) * (2.4 + 2.2 * (1 - smooth(5, 14, Math.hypot(x + 47.5, z + 35))));   // (deeper under the iron bridge)                                                                                       // the dry stream bed that runs from the lake to the foot of the hill
     let hill = 1 - smooth(25, 43, Math.hypot(x - HILL.x, z - HILL.z));
     if (Math.abs(x) < 5.2 && z > -54 && z < -29) hill = smooth(-30, -53, z);                                        // the stairway
     h = h * (1 - hill) + HILL.top * hill;
@@ -499,11 +499,30 @@ function build({ game, gfx, world, B, M, root, rand, shared }) {
     for (const [ex, ez] of [[-20, -56], [-4, -54], [-16, -64], [-6, -66]]) flags(-11, py + 9.6, -60, ex, world.height(ex, ez) + 0.5, ez, 12);
   }
 
-  { // a log footbridge over the dry stream bed: cross it, or pass under it unseen
-    const x = -47.5, z = -35, ry = 1.913, P = frame(x, z, ry), T = Math.max(world.height(...P(0, 8)), world.height(...P(0, -8))) + 0.05;
-    for (let i = 0; i < 4; i++) B.geo(M.wood, new THREE.CylinderGeometry(0.2, 0.22, 16.4, 7), at(P, -0.6 + i * 0.4, 0, T - 0.19), [PI / 2, 0, -ry], [1, 1, 0.9], i % 2 ? 0x6a5238 : 0x5a4630);
-    for (const lz of [-3.4, 3.4]) for (const lx of [-0.7, 0.7]) { const [a, b] = P(lx, lz), y = world.height(a, b); B.cyl(M.wood, 0.11, 0.13, T - y, a, y - 0.2, b, { c: 0x4a3a28, seg: 6 }); world.addCyl(a, b, 0.14, y - 1, T - 0.3); }
+  { // the iron bridge over the dry stream bed, in the manner of the chain bridges Thangtong Gyalpo built across the rivers of Tibet in the
+    // fifteenth century: two gates of whitewashed stone, iron chains slung between them, a walk of planks hung from the chains, prayer flags
+    const x = -47.5, z = -35, ry = 1.913, P = frame(x, z, ry), T = Math.max(world.height(...P(0, 8)), world.height(...P(0, -8))) + 0.05, GATE = 7.6, WHITE = 0xe2dccf;
+    const at = (lx, ly, lz) => { const [a, b] = P(lx, lz); return [a, ly, b]; };
+    for (let i = 0; i < 30; i++) { const lz = -7.25 + i * 0.5; B.box(M.woodH, 1.5, 0.08, 0.44, ...at(((i * 7) % 3 - 1) * 0.03, T - 0.08, lz), { ry: ry + ((i * 5) % 3 - 1) * 0.025, c: i % 2 ? 0x6a5238 : 0x5a4630 }); }
     world.addBox(x, z, 1.6, 16, ry, T - 0.25, T);
+    for (const e of [-1, 1]) {                                                               // the gates, a little chorten on each
+      for (const sd of [-1, 1]) { const [a, b] = P(sd * 1.2, e * GATE), gy = world.height(a, b); B.box(M.plaster, 0.8, T + 2.7 - gy, 0.8, a, gy - 0.3, b, { ry, c: WHITE, solid: true }); }
+      B.box(M.plaster, 3.2, 0.45, 1.0, ...at(0, T + 2.4, e * GATE), { ry, c: WHITE }); B.box(M.flat, 3.3, 0.12, 1.1, ...at(0, T + 2.85, e * GATE), { ry, c: 0x8a1c1c });
+      B.cyl(M.plaster, 0.32, 0.4, 0.5, ...at(0, T + 2.97, e * GATE), { c: WHITE, seg: 10 }); B.cyl(M.metal, 0.04, 0.09, 0.6, ...at(0, T + 3.47, e * GATE), { c: 0xd9b23a, seg: 6 });
+    }
+    const links = [], flagsOn = [], FL = [0x2a5ab8, 0xf0ece0, 0xc82a1c, 0x2a8a3a, 0xe8c21c], chain = (lx, y0, sag) => {   // a chain of iron links from gate to gate, sagging
+      const n = 64, pts = [];
+      for (let i = 0; i <= n; i++) { const u = i / n, lz = -GATE + u * GATE * 2, ly = y0 - sag * 4 * u * (1 - u); pts.push([lx, ly, lz]); }
+      for (let i = 0; i < n; i++) { const [ax, ay, az] = pts[i], [bx, by, bz] = pts[i + 1], [wx, wy, wz] = at(ax, (ay + by) / 2, (az + bz) / 2); links.push({ x: wx, y: wy, z: wz, ry: ry - Math.PI / 2, rx: i % 2 ? Math.PI / 2 : 0, rz: Math.atan2(by - ay, bz - az), s: [1.7, 1, 1] }); }
+      return pts;
+    };
+    for (const sd of [-1, 1]) {
+      const rail = chain(sd * 0.85, T + 2.2, 1.3); chain(sd * 0.78, T - 0.12, 0.05);           // a chain to hold on to, and one under the edge of the walk
+      for (let i = 4; i < rail.length - 4; i += 4) { const [lx, ly, lz] = rail[i]; B.geo(M.flat, new THREE.CylinderGeometry(0.012, 0.012, ly - T, 4), at(lx * 0.95, (ly + T) / 2, lz), [0, 0, 0], 1, 0x5a4a3a); }   // hangers of rope down to the walk
+      for (let i = 2; i < rail.length - 2; i += 3) { const [lx, ly, lz] = rail[i]; flagsOn.push({ ...Object.fromEntries(['x', 'y', 'z'].map((k, q) => [k, at(lx, ly - 0.16, lz)[q]])), ry, s: [0.02, 0.24, 0.2], c: FL[(i / 3 | 0) % 5] }); }
+    }
+    root.add(instanced(new THREE.TorusGeometry(0.05, 0.016, 4, 8), M.metal, links.map((q) => ({ ...q, c: 0x4a4a4c }))));
+    root.add(instanced(new THREE.BoxGeometry(1, 1, 1), M.cloth, flagsOn));
   }
   // a great rock east of the stream bed, as high as the monastery court: a ladder on the side the soldiers cannot see
   boulder(B, M, -31, world.height(-31, -48), -48, { rx: 6.5, rz: 6, h: 9, seed: 5, ladder: PI, rock: [0x8a7c6a, 0x7a6e60, 0x9a8c7a, 0x6e6458], grass: 0xb09a5e, grass2: 0xc8ae60, moss: 0x8a7c5a }); sites.push([-31, -48, 10]);

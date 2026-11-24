@@ -4,6 +4,7 @@ import { Heightfield, prismGeo, rockGeo } from '../build.js';
 import { makeAmbient, makeWater, windify } from '../gfx.js';
 import { instanced, room as shell, steps, rubble, tuftGeo, blobTreeGeo, barrel, crate, gCyl, gCone, merge, stand, den, ladder, shelf, table, bench, bed, chest, sacks, woodpile, haystack, cart, deck, rod, person, idle } from '../props.js';
 import { fbm, smooth } from '../util.js';
+import { makeHumanoid } from '../actors.js';
 
 export const war = {
   id: 'war', theme: 'theme-war', chapter: 'Chapter VI', title: 'Sainte-Aubine', place: 'Sainte-Aubine · Normandy · 6 June 1944, before dawn',
@@ -307,6 +308,7 @@ function build({ game, gfx, world, B, M, root, rand, shared }) {
   // ---- the village ------------------------------------------------------------------------------
   house(-15, 20, Math.PI / 2, 9, 7.5, 5.6); house(15, 22, -Math.PI / 2, 9, 7.5, 5.8, true, 'bakery'); house(-16, 5, Math.PI / 2, 10, 8, 6.2, true, 'cafe'); house(-15, -11, Math.PI / 2, 9, 7.5, 5.4, false, 'school');
   house(15, -16, -Math.PI / 2, 9, 7.5, 5.6, false, 'forge'); house(-27, 14, 0.2, 8, 7, 5.2); house(28, -22, 2.9, 8, 7, 5.2);
+  const hanging = [];
   { // church with its tower
     const x = 24, z = 2, y = world.height(x, z) - 0.3;
     room(B, M, x, y + 0.3, z, { w: 9, d: 18, h: 3.6, t: 0.6, mat: M.stone, c: STONE, base: 2.4, doors: [{ side: 'w', at: 6, w: 2.0, h: 3.0 }, { side: 'w', at: -5.5, w: 2.2, h: 3.6 }, { side: 'e', at: -2, w: 3.4, h: 3.6 }, { side: 'n', at: 1.6, w: 2.6, h: 3.6 }],
@@ -332,6 +334,23 @@ function build({ game, gfx, world, B, M, root, rand, shared }) {
       for (const [a, b, hh] of [[-2.3, 0, 0.9], [2.3, 0, 1.1], [0, -2.3, 0.7], [0, 2.3, 1.3]]) B.box(M.stone, a ? 0.6 : 2.8, hh, a ? 2.8 : 0.6, x + a, T, tz + b, { c: STONE, solid: true });
       B.box(M.wood, 0.22, 0.22, 4.4, x - 1.2, T + 2.3, tz, { c: 0x1a1612, rx: 0.14 }); B.box(M.woodH, 0.08, 2.4, 1.5, x - 2.66, y + 0.3, tz - 1.6, { c: 0x3a2a1c });        // a charred bell beam; the door stands open
       rubble(B, M, x - 1.2, F, tz - 1.2, 0.9, 0xb8b0a0, 5); crate(B, M, x + 1.4, L1, tz - 1.3, 0.7, 0.3); extraPicks.push([x - 1.0, tz - 0.9, T]);
+      // a paratrooper dropped in the night, his canopy caught on the highest stump of the tower: he hangs against the east wall, kicking,
+      // reaching up to the risers. (On 6 June 1944 John Steele of the 82nd Airborne hung so from the church tower of Sainte-Mère-Église.)
+      { const top = T + 5.2, ax = x + 2, az = tz + 2, fx = x + 3.05, fz = tz + 2.05, fy = T + 0.6;
+        const can = new THREE.SphereGeometry(2.4, 16, 8, 0, Math.PI * 2, 0, Math.PI * 0.62), cp = can.attributes.position;
+        for (let i = 0; i < cp.count; i++) { const vx = cp.getX(i), vy = cp.getY(i), vz = cp.getZ(i); cp.setXYZ(i, vx, vy * 0.55 - Math.max(0, vx) * 0.55 + Math.sin(vz * 2.3) * 0.08, vz); }   // draped over the stump, hanging down the side he hangs on
+        can.computeVertexNormals(); B.geo(M.cloth, can, [ax + 0.3, top - 0.15, az], [0, 0, -0.25], 1, 0xe2dece);
+        const hx = fx - 0.05, hy = fy + 1.55;
+        for (const [dx, dz] of [[1.7, -1.0], [1.9, 0.4], [1.5, 1.3], [0.8, 1.9], [0.8, -1.7]]) {   // the rigging lines, from the edge of the canopy down to his harness
+          const ex = ax + 0.3 + dx * 0.6, ey = top - 0.9 - dx * 0.5, ez = az + dz, L = Math.hypot(ex - hx, ey - hy, ez - fz);
+          const g = new THREE.CylinderGeometry(0.008, 0.008, L, 3); g.translate(0, L / 2, 0);
+          const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: 0xb8b4a4 })); m.position.set(hx, hy, fz); m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(ex - hx, ey - hy, ez - fz).normalize()); root.add(m);
+        }
+        const f = makeHumanoid(M, { skin: 0xd6a37c, hair: 0x5a3a1c, shirt: 0x7a7452, sleeve: 0x7a7452, pants: 0x75704e, boots: 0x4a2c1a, bootTop: true, belt: 0x3a3020, hat: 'm1', hatC: 0x4a4e3a, extras: ['bandolier'], weapon: null });
+        f.group.position.set(fx, fy, fz); f.group.rotation.y = Math.PI / 2; root.add(f.group);
+        f.mesh = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.26, 0.14), new THREE.MeshStandardMaterial({ color: 0x5a5a3c, roughness: 0.9 })); f.mesh.position.set(0, 1.08, 0.2); f.group.add(f.mesh);   // the reserve chute on his chest
+        world.addCyl(fx, fz, 0.32, fy - 0.1, fy + 1.85);
+        hanging.push({ f, fy, ph: 0 }); }
     }
     B.cyl(M.metal, 0.5, 0.78, 1.0, x - 4.6, y + 0.5, z + 14.2, { rz: 1.25, c: 0x6a7a5a, seg: 12 }); world.addCyl(x - 4.6, z + 14.2, 0.8, y, y + 1.2); rubble(B, M, x + 3.4, y + 0.3, z + 14.6, 1.6, 0xb8b0a0, 9);   // the bell lies where it fell
     B.box(M.flat, 0.1, 1.4, 1.0, x - 4.52, y + 2.2, z, { c: 0x141c26 });
@@ -586,6 +605,13 @@ function build({ game, gfx, world, B, M, root, rand, shared }) {
     dust: [0.5, 0.48, 0.42], water: [[0, -104, 30]], heroLight: 40,
     makePickup: () => new THREE.Mesh(bottle, M.flat),
     update(dt, t, g) {
+      for (const h of hanging) {                                                             // the paratrooper on the tower: he sways, kicks, reaches up
+        const f = h.f, k = Math.sin(t * 1.7), r = Math.max(0, Math.sin(t * 0.45));
+        f.group.rotation.z = Math.sin(t * 0.8) * 0.05; f.group.rotation.x = Math.sin(t * 0.6) * 0.04;
+        f.legL.rotation.x = k * 0.45 - 0.1; f.legR.rotation.x = -k * 0.4 - 0.15; if (f.shinL) { f.shinL.rotation.x = 0.3 + Math.max(0, k) * 0.6; f.shinR.rotation.x = 0.3 + Math.max(0, -k) * 0.6; }
+        f.armR.rotation.x = -2.6 - r * 0.35 + Math.sin(t * 2.3) * 0.08; f.armL.rotation.x = -2.5 - r * 0.3 + Math.sin(t * 2.1 + 1) * 0.08; f.armR.rotation.z = 0.25; f.armL.rotation.z = -0.25;
+        f.hips.rotation.y = Math.sin(t * 0.35) * 0.35;
+      }
       for (const b of beams) { b.m.rotation.set(0.35 + Math.sin(t * 0.21 + b.ph) * 0.3, 0, Math.sin(t * 0.13 + b.ph * 1.7) * 0.75, 'YXZ'); }
       idle(people, t);
       lamps.forEach((l, i) => { if (i === 0) l.intensity = 26 + Math.sin(t * 13) * 6 + Math.sin(t * 7.1) * 4; });

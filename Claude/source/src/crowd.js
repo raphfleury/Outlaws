@@ -43,6 +43,7 @@ export class Crowd {
     if (w.pose === 'work') return { kind: 'work', ph: r * 6 };
     if (w.pose === 'talk') return { kind: 'chat', ph: r * 6 };
     if (w.pose === 'pray') return { kind: 'pray', ph: r * 6 };
+    if (w.pose === 'wait') return { kind: 'chat', ph: r * 6, soft: true };   // one in a line keeps his place
     if (w.sit) return { kind: 'sip', t: 3 + r * 8 };
     if ((w.pose === 'stand' || w.pose === 'hips' || w.pose === 'carry' || w.pose === 'point' || w.pose === 'custom') && r < 0.7) return { kind: 'stroll', phase: 'wait', t: 2 + r * 9 };
     return { kind: 'chat', ph: r * 6, soft: true };          // everyone else: talking, looking about (nobody stands like a statue)

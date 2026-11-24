@@ -16,6 +16,28 @@ Each version is a Git tag named `lone-hand-vX.Y.Z` and a
 game as one downloadable file. The number is also shown in the bottom right corner of the
 title screen.
 
+## [2.5.0] - 2026-11-23
+
+### Added
+
+- **A place of its culture or its time in every chapter**, named on the map once found:
+  - Dry Gulch: **the Mission**, a white church of the Spanish missions with two bell towers,
+    a carved portal and a dome; its door is open, a friar and a woman pray inside.
+  - Kagemori: **Kagemori Castle**, a keep of three storeys under curved roofs on a base of
+    battered stone, on the eastern hillside; its base can be reached from the hill behind.
+  - Uri: **the Devil's Bridge**, a timber span over a new gorge of bare rock below the
+    waterfall, wet with spray, and the goat that crossed first.
+  - Ithaca: **the contest of the bow** in the court of the House of Odysseus (as the villa is
+    now called on the map): twelve axes in a row and the great bow on its stand.
+  - Jarnvik: **the Thing Field**, a ring of standing stones round the law rock, the lawspeaker
+    and the first to come.
+  - Sainte-Aubine: **a paratrooper hanging from the church tower** by his canopy, kicking.
+  - Stalnogorsk: **the kvas tanker** with its seller and its line, and two soda-water machines.
+  - Che La: **the Iron Bridge**, iron chains and prayer flags between two whitewashed gates,
+    in place of the log bridge, over a deeper bed.
+  - Tenochtitlan: **the House of Birds**, a great cage of cane full of macaws, parrots and
+    quetzals, some always on the wing, with a pool for the water birds and their keepers.
+
 ## [2.4.0] - 2026-11-23
 
 ### Added

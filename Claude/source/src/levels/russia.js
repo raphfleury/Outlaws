@@ -493,6 +493,30 @@ function build({ game, gfx, world, B, M, root, rand, shared }) {
     B.cyl(M.metal, 0.05, 0.05, 1.3, X - 1.9, 0, 13.5, { c: DK, seg: 6 }); B.box(M.glow, 0.16, 0.16, 0.1, X - 1.9, 1.3, 13.5, { c: 0x3a6aff });                                               // a shunting signal
     extraFoes.push(['militia', X - 6, 0, { up: 1.5 }]); extraPicks.push([X + 0.4, 3.4, 1.6]);
   }
+  { // the kvas tanker at the corner of the market: a yellow tank on two wheels, КВАС on its side, the woman in her white coat at the tap with her
+    // glasses and her change, and the line that waits; against the flats, two soda-water machines, one glass in each for whoever comes next
+    const x = -44, z = 36.5, y = world.height(x, z), YEL = 0xe8c21c;
+    B.geo(M.metal, new THREE.CylinderGeometry(0.72, 0.72, 2.6, 18), [x, y + 1.38, z], [Math.PI / 2, 0, 0], 1, YEL);
+    for (const s2 of [-1, 1]) B.geo(M.metal, new THREE.SphereGeometry(0.72, 16, 8), [x, y + 1.38, z + s2 * 1.3], [0, 0, 0], [1, 1, 0.32], YEL);
+    B.box(M.metal, 0.5, 0.22, 0.6, x, y + 2.08, z + 0.3, { c: YEL }); B.cyl(M.metal, 0.08, 0.08, 0.2, x, y + 2.3, z + 0.3, { c: 0x5a5a5a, seg: 8 });   // the hatch on top
+    B.box(M.metal, 1.5, 0.12, 3.4, x, y + 0.62, z, { c: 0x3a3a3c }); B.box(M.metal, 0.12, 0.1, 1.7, x, y + 0.6, z - 2.4, { c: 0x3a3a3c });             // the chassis and the drawbar
+    for (const s2 of [-1, 1]) { B.geo(M.flat, new THREE.CylinderGeometry(0.42, 0.42, 0.24, 14), [x + s2 * 0.88, y + 0.42, z - 0.2], [0, 0, Math.PI / 2], 1, 0x1c1c1e); B.box(M.metal, 0.3, 0.06, 1.1, x + s2 * 0.88, y + 0.88, z - 0.2, { c: YEL }); }
+    B.box(M.metal, 0.06, 0.9, 0.06, x, y, z - 3.1, { c: 0x3a3a3c });                                                                                        // its stand
+    B.cyl(M.metal, 0.05, 0.05, 0.25, x + 0.25, y + 0.95, z + 1.5, { c: 0xb0b0b0, seg: 8 });                                                                // the tap
+    for (const s2 of [-1, 1]) sign('КВАС', x + s2 * 0.74, y + 1.5, z, 1.5, 0.5, { ry: Math.PI / 2, bg: '#e8c21c', fg: '#8a1c10' });
+    world.addBox(x, z - 0.5, 1.7, 4.4, 0, y - 1, y + 2.2);
+    table(B, M, x + 0.9, y, z + 2.1, 0, { w: 0.8, d: 0.6, h: 0.75, c: 0x6a5a48 });
+    for (let i = 0; i < 4; i++) B.cyl(M.flat, 0.045, 0.04, 0.15, x + 0.7 + (i % 2) * 0.22, y + 0.75, z + 1.95 + Math.floor(i / 2) * 0.2, { c: 0xc89a4a, seg: 8 });   // glasses of kvas
+    B.box(M.woodH, 0.4, 0.45, 0.4, x - 0.3, y, z + 1.85, { c: 0x5a4a3a, solid: true });
+    folk('russianWoman', x - 0.3, z + 1.85, 0, { pose: 'sit', seat: 0.45, over: { coat: 0xf0ede4, extras: ['dress', 'coat', 'apron'], apron: 0xf0ede4, hat: null } });   // the kvas seller, in her white coat
+    for (let i = 0; i < 5; i++) folk(i % 2 ? 'russianWoman' : 'russianMan', x + 0.55 + (i % 2) * 0.15, z + 3.2 + i * 0.85, Math.PI, { pose: 'wait' });                 // the line
+    for (const mz of [32.4, 33.5]) {                                                                                                                       // the soda-water machines
+      B.box(M.metal, 0.55, 1.7, 0.78, -36.2, y, mz, { c: 0xc8c4bc, solid: true }); B.box(M.flat, 0.04, 0.5, 0.5, -36.49, y + 1.0, mz, { c: 0x1c2630 });
+      B.box(M.metal, 0.2, 0.06, 0.4, -36.55, y + 0.8, mz, { c: 0x8a8a8a }); B.cyl(M.flat, 0.04, 0.035, 0.11, -36.55, y + 0.83, mz, { c: 0xd8e4e8, seg: 8 });
+      sign('ГАЗИРОВАННАЯ ВОДА', -36.49, y + 1.95, mz, 0.06, 0.24, { ry: 0, bg: '#c81c1c', fg: '#f4f0e6', w: 512, h: 96 });
+    }
+    folk('russianMan', -37.2, 32.4, Math.PI / 2, { pose: (f) => { f.armR.rotation.x = -1.95; f.armR.rotation.z = 0.35; } });                                                  // a glass of soda water
+  }
   { // the kolkhoz market between the Palace and the flats: stalls to duck behind on the way to the square
     for (const [sx, c1] of [[-44.5, 0x6a7a5a], [-40.5, 0x8a6a4a], [-27, 0x5a6a7a], [-23, 0x8a6a4a]]) stall(B, M, sx, world.height(sx, 26.5) - 0.06, 26.5, PI, { cloth: c1, cloth2: 0xd8d4c8, goods: [0x8a6a3a, 0xd8c8a0, 0x5a7a3a, 0xb8502a, 0xc8a84a] });
     sacks(B, M, -25, world.height(-25, 28.6) - 0.04, 28.6, 0, { w: 1.6 }); pots(B, M, -37.6, world.height(-37.6, 27.2) - 0.04, 27.2, { n: 4, s: 1.2, c: [0x6a7a5a, 0x8a8a6a, 0x5a6a5a], solid: false }); crate(B, M, -43, world.height(-43, 28.5) - 0.05, 28.5, 0.8, 0.3, 0x8a7a5a);
